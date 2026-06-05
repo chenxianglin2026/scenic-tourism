@@ -1,0 +1,163 @@
+<!--
+  票务页: 票种选择 + 分时 + 购票 + 二维码
+-->
+
+<view class="page-container">
+
+  <!-- ===== 选购模式 ===== -->
+  <block wx:if="{{viewMode === 'shop'}}">
+
+    <!-- 票种选择 -->
+    <view class="card">
+      <view class="section-title text-lg text-bold text-dark mb-20">选择票种</view>
+      <view class="ticket-type-grid">
+        <view
+          wx:for="{{ticketTypes}}" wx:key="id"
+          class="ticket-type-item {{selectedType === item.id ? 'selected' : ''}}"
+          bindtap="onSelectType"
+          data-id="{{item.id}}"
+          data-price="{{item.price}}"
+        >
+          <view class="ticket-type-icon">{{item.icon || '🎫'}}</view>
+          <view class="text-bold text-dark">{{item.name}}</view>
+          <view class="price mt-10">
+            <text class="price-symbol">¥</text>
+            <text class="price-value">{{item.price}}</text>
+          </view>
+          <view class="text-sm text-light mt-10">{{item.desc}}</view>
+          <view wx:if="{{selectedType === item.id}}" class="ticket-check">✓</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 时段选择 -->
+    <view class="card">
+      <view class="section-title text-lg text-bold text-dark mb-20">选择时段</view>
+      <view class="time-slot-row">
+        <view
+          wx:for="{{timeSlots}}" wx:key="id"
+          class="time-slot-item {{selectedSlot === item.id ? 'selected' : ''}}"
+          bindtap="onSelectSlot"
+          data-id="{{item.id}}"
+        >
+          <view class="text-bold text-dark">{{item.label}}</view>
+          <view class="text-sm text-light">{{item.time}}</view>
+          <view class="text-sm text-light">{{item.desc}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 日期 + 数量 -->
+    <view class="card">
+      <view class="flex-between mb-20">
+        <view class="text-bold text-dark">游玩日期</view>
+        <picker mode="date" value="{{visitDate}}" bindchange="onDateChange">
+          <view class="text-primary">{{visitDate}}</view>
+        </picker>
+      </view>
+      <view class="flex-between">
+        <view class="text-bold text-dark">购买数量</view>
+        <view class="flex-row" style="gap: 20rpx;">
+          <view class="qty-btn" bindtap="onQuantityChange" data-type="minus">−</view>
+          <view class="text-xl text-bold text-dark">{{quantity}}</view>
+          <view class="qty-btn" bindtap="onQuantityChange" data-type="plus">+</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 实名信息（可选） -->
+    <view class="card">
+      <view class="text-bold text-dark mb-20">实名信息（选填）</view>
+      <view class="form-item">
+        <input class="form-input" placeholder="姓名" value="{{realName}}" bindinput="onRealNameInput" />
+      </view>
+      <view class="form-item mt-20">
+        <input class="form-input" placeholder="身份证号" value="{{idCard}}" bindinput="onIdCardInput" type="idcard" />
+      </view>
+    </view>
+
+    <!-- 底部提交栏 -->
+    <view class="bottom-bar safe-bottom">
+      <view class="flex-1">
+        <view class="text-sm text-light">合计</view>
+        <view class="price">
+          <text class="price-symbol">¥</text>
+          <text class="text-xl text-bold">{{totalPrice || 0}}</text>
+        </view>
+      </view>
+      <view class="btn-primary" bindtap="onSubmitOrder" style="padding: 20rpx 80rpx;">
+        提交订单
+      </view>
+    </view>
+  </block>
+
+  <!-- ===== 订单确认模式 ===== -->
+  <block wx:if="{{viewMode === 'order' && currentOrder}}">
+    <view class="card">
+      <view class="flex-center mb-30">
+        <view class="order-success-icon">✅</view>
+      </view>
+      <view class="text-xl text-bold text-dark" style="text-align:center;">订单已生成</view>
+      <view class="text-sm text-light mt-10" style="text-align:center;">请在30分钟内完成支付</view>
+
+      <view class="divider"></view>
+
+      <view class="order-detail">
+        <view class="flex-between mb-20">
+          <text class="text-light">订单编号</text>
+          <text class="text-dark text-bold">{{currentOrder.orderNo}}</text>
+        </view>
+        <view class="flex-between mb-20">
+          <text class="text-light">票种</text>
+          <text class="text-dark">{{currentOrder.ticket_type}}</text>
+        </view>
+        <view class="flex-between mb-20">
+          <text class="text-light">数量</text>
+          <text class="text-dark">{{currentOrder.quantity}}张</text>
+        </view>
+        <view class="flex-between mb-20">
+          <text class="text-light">金额</text>
+          <text class="price text-xl">¥{{currentOrder.total_price || 0}}</text>
+        </view>
+      </view>
+
+      <view class="flex-row mt-30" style="gap: 20rpx;">
+        <view class="btn-outline flex-1" bindtap="onBackToShop">返回修改</view>
+        <view class="btn-primary flex-1" bindtap="onPayOrder">立即支付</view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ===== 二维码展示模式 ===== -->
+  <block wx:if="{{viewMode === 'qr' && currentOrder}}">
+    <view class="card">
+      <view class="flex-center mb-30">
+        <view class="qr-icon">🎉</view>
+      </view>
+      <view class="text-xl text-bold text-dark" style="text-align:center;">支付成功</view>
+      <view class="text-sm text-light mt-10" style="text-align:center;">请向检票员出示二维码</view>
+
+      <view class="divider"></view>
+
+      <!-- 二维码占位 -->
+      <view class="qr-code img-placeholder" style="width:400rpx;height:400rpx;margin:0 auto;border-radius:16rpx;">
+        <view style="text-align:center;">
+          <view class="text-xl text-bold">电子票</view>
+          <view class="text-sm mt-20">{{currentOrder.orderNo}}</view>
+          <view class="text-sm mt-10">{{currentOrder.ticket_type}} x{{currentOrder.quantity}}</view>
+        </view>
+      </view>
+
+      <view class="mt-30" style="text-align:center;">
+        <view class="text-sm text-light">订单号: {{currentOrder.orderNo}}</view>
+        <view class="text-sm text-light mt-10">入园时请出示此二维码</view>
+      </view>
+
+      <view class="flex-row mt-30" style="gap: 20rpx;">
+        <view class="btn-outline flex-1" bindtap="onViewMyOrders">我的订单</view>
+        <view class="btn-primary flex-1" bindtap="onBackToShop">继续购票</view>
+      </view>
+    </view>
+  </block>
+
+</view>

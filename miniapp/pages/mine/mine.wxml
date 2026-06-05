@@ -1,0 +1,175 @@
+<!--
+  个人中心: 订单 + 电子票 + 实名
+-->
+
+<view class="page-container">
+
+  <!-- ===== 头部用户信息 ===== -->
+  <view class="user-header">
+    <view wx:if="{{!isLogin}}" class="flex-center" style="flex-direction:column;padding:60rpx 0;">
+      <view class="user-avatar img-placeholder" style="width:120rpx;height:120rpx;border-radius:50%;">👤</view>
+      <view class="text-lg text-bold text-dark mt-20">未登录</view>
+      <view class="text-sm text-light mt-10">登录后查看订单和票据</view>
+      <button class="btn-primary mt-30" bindtap="onWxLogin" style="padding:16rpx 80rpx;">
+        微信一键登录
+      </button>
+    </view>
+
+    <view wx:if="{{isLogin}}" class="flex-row" style="padding:30rpx;">
+      <view class="user-avatar img-placeholder" style="width:120rpx;height:120rpx;border-radius:50%;flex-shrink:0;">
+        {{userInfo?.nickName || '👤'}}
+      </view>
+      <view class="flex-1 ml-20">
+        <view class="text-lg text-bold text-dark">{{userInfo?.nickName || '游客'}}</view>
+        <view class="text-sm text-light mt-10">📱 {{phoneNumber || '未绑定手机'}}</view>
+        <button
+          wx:if="{{!phoneNumber}}"
+          class="btn-ghost mt-10"
+          style="font-size:24rpx;padding:8rpx 20rpx;"
+          open-type="getPhoneNumber"
+          bindgetphonenumber="onGetPhoneNumber"
+        >
+          绑定手机号
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ===== 实名信息 ===== -->
+  <view wx:if="{{isLogin}}" class="card mt-20">
+    <view class="flex-between">
+      <view class="text-bold text-dark">实名信息</view>
+      <view class="text-sm text-primary" bindtap="onEditRealName">
+        {{realName ? '修改' : '去认证'}}
+      </view>
+    </view>
+    <view class="mt-10">
+      <view class="text-sm text-light">姓名: {{realName || '未填写'}}</view>
+      <view class="text-sm text-light mt-10">身份证: {{idCard || '未填写'}}</view>
+    </view>
+  </view>
+
+  <!-- ===== 订单Tab ===== -->
+  <view wx:if="{{isLogin}}" class="card mt-20">
+    <view class="order-tabs flex-row">
+      <view
+        class="order-tab flex-1 {{activeTab==='tickets'?'active':''}}"
+        bindtap="onTabChange"
+        data-tab="tickets"
+      >
+        门票订单
+      </view>
+      <view
+        class="order-tab flex-1 {{activeTab==='hotels'?'active':''}}"
+        bindtap="onTabChange"
+        data-tab="hotels"
+      >
+        客房订单
+      </view>
+      <view
+        class="order-tab flex-1 {{activeTab==='etickets'?'active':''}}"
+        bindtap="onTabChange"
+        data-tab="etickets"
+      >
+        电子票
+      </view>
+    </view>
+
+    <!-- 票务订单 -->
+    <view wx:if="{{activeTab==='tickets'}}">
+      <view wx:if="{{loadingTickets}}" class="loading-text">加载中...</view>
+      <view wx:for="{{ticketOrders}}" wx:key="id" class="order-item" bindtap="onOrderDetail" data-id="{{item.id}}">
+        <view class="flex-between">
+          <view class="text-bold text-dark">{{item.ticket_type}}</view>
+          <view class="tag tag-{{item.status==='paid'?'green':item.status==='verified'?'gold':item.status==='unpaid'?'warm':'red'}}">
+            {{item.status==='paid'?'已支付':item.status==='verified'?'已核销':item.status==='unpaid'?'待支付':item.status==='refunded'?'已退款':'已过期'}}
+          </view>
+        </view>
+        <view class="text-sm text-light mt-10">📅 {{item.visit_date}} | 🕐 {{item.time_slot}} | x{{item.quantity}}张</view>
+        <view class="flex-between mt-10">
+          <view class="text-sm text-light">订单号: {{item.order_no}}</view>
+          <view class="price">¥{{item.total_price}}</view>
+        </view>
+      </view>
+      <view wx:if="{{!loadingTickets && ticketOrders.length === 0}}" class="empty-state" style="padding:60rpx 0;">
+        <view class="text">暂无门票订单</view>
+      </view>
+    </view>
+
+    <!-- 客房订单 -->
+    <view wx:if="{{activeTab==='hotels'}}">
+      <view wx:if="{{loadingHotels}}" class="loading-text">加载中...</view>
+      <view wx:for="{{hotelOrders}}" wx:key="id" class="order-item" bindtap="onOrderDetail" data-id="{{item.id}}">
+        <view class="flex-between">
+          <view class="text-bold text-dark">{{item.room_name}}</view>
+          <view class="tag tag-{{item.status==='paid'?'green':item.status==='unpaid'?'warm':'red'}}">
+            {{item.status==='paid'?'已支付':item.status==='unpaid'?'待支付':'已取消'}}
+          </view>
+        </view>
+        <view class="text-sm text-light mt-10">📅 {{item.check_in}} → {{item.check_out}}</view>
+        <view class="flex-between mt-10">
+          <view class="text-sm text-light">👤 {{item.guest_name}}</view>
+          <view class="price">¥{{item.amount}}</view>
+        </view>
+      </view>
+      <view wx:if="{{!loadingHotels && hotelOrders.length === 0}}" class="empty-state" style="padding:60rpx 0;">
+        <view class="text">暂无客房订单</view>
+      </view>
+    </view>
+
+    <!-- 电子票 -->
+    <view wx:if="{{activeTab==='etickets'}}">
+      <view wx:if="{{loadingETickets}}" class="loading-text">加载中...</view>
+      <view wx:for="{{eTickets}}" wx:key="id" class="order-item" bindtap="onShowQR" data-id="{{item.id}}">
+        <view class="flex-between">
+          <view class="text-bold text-dark">{{item.ticket_type}} x{{item.quantity}}</view>
+          <view class="tag tag-{{item.status==='verified'?'gold':'green'}}">
+            {{item.status==='verified'?'已核销':'有效'}}
+          </view>
+        </view>
+        <view class="text-sm text-light mt-10">📅 {{item.visit_date}} | 🕐 {{item.time_slot}}</view>
+        <view class="flex-between mt-10">
+          <view class="text-sm text-light">订单号: {{item.order_no}}</view>
+          <view class="tag tag-gold" style="font-size:22rpx;">点击查看二维码</view>
+        </view>
+      </view>
+      <view wx:if="{{!loadingETickets && eTickets.length === 0}}" class="empty-state" style="padding:60rpx 0;">
+        <view class="text">暂无电子票</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ===== 底部操作 ===== -->
+  <view wx:if="{{isLogin}}" class="card mt-20">
+    <view class="menu-item flex-between" bindtap="onContact">
+      <view class="text-dark">📞 联系客服</view>
+      <view class="text-sm text-light">0571-88886666</view>
+    </view>
+    <view class="divider"></view>
+    <view class="menu-item flex-between" bindtap="onLogout">
+      <view class="text-dark" style="color:#C56C6C;">退出登录</view>
+      <view class="text-sm text-light">→</view>
+    </view>
+  </view>
+
+  <!-- 安全区域 -->
+  <view class="safe-bottom" style="height: 40rpx;"></view>
+
+</view>
+
+<!-- ===== 实名认证弹窗 ===== -->
+<view wx:if="{{showRealNameModal}}" class="modal-mask" bindtap="onCloseRealNameModal">
+  <view class="modal-box" catchtap="">
+    <view class="text-lg text-bold text-dark mb-20">实名认证</view>
+    <view class="form-item mt-20">
+      <input class="form-input" placeholder="请输入真实姓名" value="{{realName}}" bindinput="onRealNameInput" />
+    </view>
+    <view class="form-item mt-20">
+      <input class="form-input" placeholder="请输入身份证号" value="{{idCard}}" bindinput="onIdCardInput" type="idcard" />
+    </view>
+    <view class="flex-row mt-30" style="gap: 20rpx;">
+      <view class="btn-outline flex-1" bindtap="onCloseRealNameModal">取消</view>
+      <view class="btn-primary flex-1" bindtap="onSaveRealName">保存</view>
+    </view>
+  </view>
+</view>

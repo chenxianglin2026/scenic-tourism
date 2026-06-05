@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>景区智慧管理 - 管理后台</title>
+<link rel="stylesheet" href="css/admin.css">
+<style>
+  .logo-icon-img { width: 40px; height: 40px; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <!-- ========== Sidebar ========== -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🏞️</span>
+      <div class="logo-name">景区智慧管理</div>
+      <div class="logo-sub">管理后台 v1.0</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-item active" data-page="pages/dashboard.html" data-title="数据看板">
+        <span class="nav-icon">📊</span> 数据看板
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-title">业务管理</div>
+        <div class="nav-item" data-page="pages/tickets.html" data-title="票务管理">
+          <span class="nav-icon">🎫</span> 票务管理
+        </div>
+        <div class="nav-item" data-page="pages/hotels.html" data-title="客房管理">
+          <span class="nav-icon">🏨</span> 客房管理
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-title">系统</div>
+        <div class="nav-item" id="logoutBtn" data-title="退出登录">
+          <span class="nav-icon">🚪</span> 退出登录
+        </div>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      &copy; 2026 景区智慧管理系统
+    </div>
+  </aside>
+
+  <!-- ========== Main Content ========== -->
+  <div class="main">
+    <header class="main-header">
+      <div class="breadcrumb">
+        🏠 首页 / <span id="pageBreadcrumb">数据看板</span>
+      </div>
+      <div class="header-actions">
+        <div class="header-time" id="headerTime">--</div>
+        <div class="header-user">
+          <div class="avatar">管</div>
+          <span>管理员</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <iframe id="contentFrame" src="pages/dashboard.html" title="内容区"></iframe>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // Auth check
+  var token = localStorage.getItem('scenic_token');
+  if (!token) { location.href = 'pages/login.html'; return; }
+
+  var iframe = document.getElementById('contentFrame');
+  var breadcrumb = document.getElementById('pageBreadcrumb');
+  var timeEl = document.getElementById('headerTime');
+  var navItems = document.querySelectorAll('.sidebar .nav-item[data-page]');
+
+  // Clock update
+  function updateTime() {
+    var now = new Date();
+    var str = now.getFullYear() + '\u5E74' +
+      (now.getMonth()+1) + '\u6708' +
+      now.getDate() + '\u65E5 ' +
+      String(now.getHours()).padStart(2,'0') + ':' +
+      String(now.getMinutes()).padStart(2,'0') + ':' +
+      String(now.getSeconds()).padStart(2,'0');
+    timeEl.textContent = str;
+  }
+  updateTime();
+  setInterval(updateTime, 1000);
+
+  // Navigation
+  navItems.forEach(function(item) {
+    item.addEventListener('click', function() {
+      navItems.forEach(function(n) { n.classList.remove('active'); });
+      item.classList.add('active');
+      var page = item.getAttribute('data-page');
+      var title = item.getAttribute('data-title');
+      iframe.src = page;
+      breadcrumb.textContent = title;
+    });
+  });
+
+  // Logout
+  document.getElementById('logoutBtn').addEventListener('click', function() {
+    localStorage.removeItem('scenic_token');
+    location.href = 'pages/login.html';
+  });
+
+  // Expose token helper for iframe pages
+  window.getScenicToken = function() {
+    return localStorage.getItem('scenic_token') || '';
+  };
+})();
+</script>
+</body>
+</html>

@@ -159,10 +159,10 @@ class TicketOrder(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # 关系
-    user: Mapped["User"] = relationship(back_populates="ticket_orders")
+    user: Mapped["User"] = relationship(back_populates="ticket_orders", foreign_keys="TicketOrder.user_id")
     ticket_type: Mapped["TicketType"] = relationship(back_populates="orders")
     spot: Mapped["ScenicSpot"] = relationship()
-    verifier: Mapped[Optional["User"]] = relationship(foreign_keys=[verified_by])
+    verifier: Mapped[Optional["User"]] = relationship(foreign_keys="TicketOrder.verified_by", viewonly=True)
 
 
 # ── 酒店门店模型 ────────────────────────────────────

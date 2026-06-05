@@ -1,0 +1,131 @@
+/* 票务页样式 */
+.page-container {
+  padding-bottom: 120rpx;
+}
+
+/* 票种网格 */
+.ticket-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16rpx;
+}
+
+.ticket-type-item {
+  position: relative;
+  background: #FAF7F2;
+  border: 2rpx solid #E8E0D5;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+.ticket-type-item.selected {
+  border-color: #c8a052;
+  background: rgba(200, 160, 82, 0.06);
+  box-shadow: 0 0 0 4rpx rgba(200, 160, 82, 0.12);
+}
+
+.ticket-type-icon {
+  font-size: 48rpx;
+  margin-bottom: 10rpx;
+}
+
+.ticket-check {
+  position: absolute;
+  top: 10rpx;
+  right: 10rpx;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: #c8a052;
+  color: #fff;
+  font-size: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 时段 */
+.time-slot-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.time-slot-item {
+  flex: 1;
+  background: #FAF7F2;
+  border: 2rpx solid #E8E0D5;
+  border-radius: 12rpx;
+  padding: 20rpx 12rpx;
+  text-align: center;
+}
+
+.time-slot-item.selected {
+  border-color: #c8a052;
+  background: rgba(200, 160, 82, 0.06);
+}
+
+/* 数量 */
+.qty-btn {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  background: #F5F0E8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  color: #3D3226;
+}
+
+.qty-btn:active {
+  background: #E8E0D5;
+}
+
+/* 表单 */
+.form-item {
+  /* placeholder */
+}
+
+.form-input {
+  width: 100%;
+  padding: 20rpx;
+  border: 2rpx solid #E8E0D5;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  background: #FAF7F2;
+}
+
+/* 底部栏 */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #FFFFFF;
+  padding: 20rpx 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 -2rpx 20rpx rgba(61, 50, 38, 0.06);
+  z-index: 10;
+}
+
+/* 订单详情 */
+.order-success-icon {
+  font-size: 100rpx;
+}
+
+.order-detail {
+  /* placeholder */
+}
+
+/* 二维码 */
+.qr-icon {
+  font-size: 100rpx;
+}
+
+.qr-code {
+  /* placeholder */
+}
