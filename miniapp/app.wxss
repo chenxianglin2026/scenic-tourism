@@ -1,0 +1,238 @@
+/* ============================
+   景区智慧管理系统 · 全局样式
+   暖金色 / 米色系
+   适老化字体 ×1.4
+   ============================ */
+
+/* 颜色变量 */
+/* 主色 #c8a052 / 辅色 #D4B896 / 背景 #FAF7F2 / 文字 #3D3226 / 浅文字 #8B7E6A */
+
+page {
+  --primary: #c8a052;
+  --primary-light: #D4B896;
+  --primary-dark: #A8894E;
+  --bg: #FAF7F2;
+  --bg-card: #FFFFFF;
+  --text: #3D3226;
+  --text-light: #8B7E6A;
+  --text-lighter: #B0A492;
+  --border: #E8E0D5;
+  --success: #6BAA75;
+  --danger: #C56C6C;
+
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  font-size: 28rpx;
+  color: #3D3226;
+  background-color: #FAF7F2;
+  box-sizing: border-box;
+}
+
+/* ---- 通用工具类 ---- */
+
+.flex-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.flex-1 { flex: 1; }
+
+/* ---- 按钮 ---- */
+
+.btn-primary {
+  background: linear-gradient(135deg, #c8a052, #D4B896);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+  padding: 20rpx 60rpx;
+  text-align: center;
+}
+
+.btn-primary:active {
+  background: linear-gradient(135deg, #B89A5E, #C4A886);
+}
+
+.btn-outline {
+  background: transparent;
+  color: #c8a052;
+  border: 2rpx solid #c8a052;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  padding: 16rpx 48rpx;
+  text-align: center;
+}
+
+.btn-ghost {
+  background: rgba(200, 169, 110, 0.1);
+  color: #c8a052;
+  border: none;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  padding: 12rpx 32rpx;
+}
+
+/* ---- 卡片 ---- */
+
+.card {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 30rpx;
+  margin: 20rpx 30rpx;
+  box-shadow: 0 4rpx 20rpx rgba(61, 50, 38, 0.06);
+}
+
+/* ---- 文本 ---- */
+
+.text-primary { color: #c8a052; }
+.text-light   { color: #8B7E6A; }
+.text-dark    { color: #3D3226; }
+.text-sm      { font-size: 24rpx; }
+.text-lg      { font-size: 36rpx; }
+.text-xl      { font-size: 44rpx; }
+.text-bold    { font-weight: 600; }
+
+.line-through {
+  text-decoration: line-through;
+  color: #B0A492;
+}
+
+/* ---- 间距 ---- */
+
+.mt-10 { margin-top: 10rpx; }
+.mt-20 { margin-top: 20rpx; }
+.mt-30 { margin-top: 30rpx; }
+.mb-20 { margin-bottom: 20rpx; }
+.mb-30 { margin-bottom: 30rpx; }
+.ml-10 { margin-left: 10rpx; }
+.mr-10 { margin-right: 10rpx; }
+.p-20 { padding: 20rpx; }
+.p-30 { padding: 30rpx; }
+
+/* ---- 标签 ---- */
+
+.tag {
+  display: inline-block;
+  font-size: 24rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+}
+
+.tag-gold {
+  background: rgba(200, 169, 110, 0.12);
+  color: #c8a052;
+}
+
+.tag-warm {
+  background: rgba(212, 184, 150, 0.15);
+  color: #A8894E;
+}
+
+.tag-green {
+  background: rgba(107, 170, 117, 0.12);
+  color: #6BAA75;
+}
+
+.tag-red {
+  background: rgba(197, 108, 108, 0.12);
+  color: #C56C6C;
+}
+
+/* ---- 分割线 ---- */
+
+.divider {
+  height: 1rpx;
+  background: #E8E0D5;
+  margin: 20rpx 0;
+}
+
+/* ---- 安全区域 ---- */
+
+.safe-bottom {
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ---- 空状态 ---- */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120rpx 0;
+}
+
+.empty-state .icon {
+  width: 200rpx;
+  height: 200rpx;
+  margin-bottom: 30rpx;
+  opacity: 0.5;
+}
+
+.empty-state .text {
+  font-size: 28rpx;
+  color: #B0A492;
+}
+
+/* ---- 价格 ---- */
+
+.price {
+  color: #C56C6C;
+  font-weight: 600;
+}
+
+.price-symbol {
+  font-size: 24rpx;
+}
+
+.price-value {
+  font-size: 40rpx;
+}
+
+.price-unit {
+  font-size: 24rpx;
+  color: #8B7E6A;
+}
+
+/* ---- 图片占位 ---- */
+
+.img-placeholder {
+  background: linear-gradient(135deg, #F5F0E8, #EDE5D8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #D4B896;
+  font-size: 48rpx;
+}
+
+/* ---- 适老化大字体增强 ---- */
+
+.text-age-xl {
+  font-size: 52rpx;
+  font-weight: 700;
+}
+
+.text-age-lg {
+  font-size: 40rpx;
+}
+
+.text-age {
+  font-size: 34rpx;
+}
