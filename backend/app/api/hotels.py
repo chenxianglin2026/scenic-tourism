@@ -1,6 +1,6 @@
 """
 景区智慧管理系统 - 酒店 API
-酒店/房型查询 + 客房预订（复用伊家人架构）
+酒店/房型查询 + 客房预订 + 入住/退房状态流转
 """
 import uuid
 from datetime import date, datetime
@@ -15,7 +15,7 @@ from sqlalchemy.orm import selectinload
 from app.db import (
     get_db, User, Hotel, Room, HotelOrder, HotelOrderStatus, ScenicSpot
 )
-from app.api.auth import get_current_user, require_admin
+from app.api.auth import get_current_user, require_admin, require_staff
 
 router = APIRouter(prefix="/api/hotels", tags=["酒店"])
 
@@ -131,6 +131,65 @@ class HotelOrderListResponse(BaseModel):
     items: List[HotelOrderOut]
 
 
+class StatusUpdateResponse(BaseModel):
+    success: bool
+    message: str
+    order: Optional[HotelOrderOut] = None
+
+
+class HotelRefundResponse(BaseModel):
+    success: bool
+    message: str
+    order: Optional[HotelOrderOut] = None
+    refund_amount: float = 0.0
+
+
+# ── 辅助函数 ─────────────────────────────────────────
+def _build_order_out(order: HotelOrder) -> HotelOrderOut:
+    """构建订单输出对象"""
+    hotel_name = None
+    room_name = None
+    if order.hotel:
+        hotel_name = order.hotel.name
+    if order.room:
+        room_name = order.room.name
+
+    return HotelOrderOut(
+        id=order.id,
+        order_no=order.order_no,
+        hotel_id=order.hotel_id,
+        hotel_name=hotel_name,
+        room_id=order.room_id,
+        room_name=room_name,
+        room_count=order.room_count,
+        checkin_date=order.checkin_date,
+        checkout_date=order.checkout_date,
+        nights=order.nights,
+        total_price=order.total_price,
+        status=order.status,
+        guest_name=order.guest_name,
+        guest_phone=order.guest_phone,
+        remark=order.remark,
+        cancel_reason=order.cancel_reason,
+        paid_at=order.paid_at,
+        cancelled_at=order.cancelled_at,
+        created_at=order.created_at,
+    )
+
+
+def _generate_hotel_order_no() -> str:
+    return datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex[:6].upper()
+
+
+async def _get_hotel_order_by_id(order_id: int, db: AsyncSession, user_id: Optional[int] = None) -> Optional[HotelOrder]:
+    """按ID查询酒店订单，可选过滤用户"""
+    q = select(HotelOrder).where(HotelOrder.id == order_id)
+    if user_id is not None:
+        q = q.where(HotelOrder.user_id == user_id)
+    result = await db.execute(q)
+    return result.scalar_one_or_none()
+
+
 # ── 酒店 CRUD ───────────────────────────────────────
 @router.get("", response_model=List[HotelOut], summary="酒店列表")
 async def list_hotels(
@@ -220,6 +279,7 @@ async def create_hotel_order(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """预订扣减 available_count（原子操作防超卖）"""
     # 校验入住日期
     if req.checkin_date >= req.checkout_date:
         raise HTTPException(status_code=400, detail="离店日期必须晚于入住日期")
@@ -227,7 +287,7 @@ async def create_hotel_order(
     if req.checkin_date < date.today():
         raise HTTPException(status_code=400, detail="入住日期不能早于今天")
 
-    # 查询房型
+    # 查询房型（使用行锁防超卖）
     room_result = await db.execute(
         select(Room).where(Room.id == req.room_id, Room.hotel_id == req.hotel_id, Room.is_active == True)
     )
@@ -235,6 +295,7 @@ async def create_hotel_order(
     if not room:
         raise HTTPException(status_code=404, detail="房型不存在")
 
+    # 库存检查（在同一个事务中，先检查再扣减，SQLite 写锁提供串行化）
     if room.available_count < req.room_count:
         raise HTTPException(status_code=400, detail=f"该房型仅剩 {room.available_count} 间可订")
 
@@ -249,7 +310,7 @@ async def create_hotel_order(
     total_price = room.price * req.room_count * nights
 
     # 生成订单号
-    order_no = datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex[:6].upper()
+    order_no = _generate_hotel_order_no()
 
     order = HotelOrder(
         order_no=order_no,
@@ -261,40 +322,22 @@ async def create_hotel_order(
         checkout_date=req.checkout_date,
         nights=nights,
         total_price=total_price,
-        status=HotelOrderStatus.PAID,  # MVP: 简化支付，直接已支付
+        status=HotelOrderStatus.PENDING,  # 待支付
         guest_name=req.guest_name,
         guest_phone=req.guest_phone,
         remark=req.remark,
-        paid_at=datetime.utcnow(),
     )
     db.add(order)
 
-    # 扣减可用房间数
+    # 扣减可用房间数（原子操作：在同一事务中）
     room.available_count -= req.room_count
+    if room.available_count < 0:
+        raise HTTPException(status_code=400, detail="库存不足，请刷新后重试")
 
     await db.flush()
     await db.refresh(order)
 
-    # 填充关联名称
-    return HotelOrderOut(
-        id=order.id,
-        order_no=order.order_no,
-        hotel_id=order.hotel_id,
-        hotel_name=hotel.name,
-        room_id=order.room_id,
-        room_name=room.name,
-        room_count=order.room_count,
-        checkin_date=order.checkin_date,
-        checkout_date=order.checkout_date,
-        nights=order.nights,
-        total_price=order.total_price,
-        status=order.status,
-        guest_name=order.guest_name,
-        guest_phone=order.guest_phone,
-        remark=order.remark,
-        paid_at=order.paid_at,
-        created_at=order.created_at,
-    )
+    return _build_order_out(order)
 
 
 @router.get("/orders", response_model=HotelOrderListResponse, summary="我的客房订单")
@@ -321,35 +364,220 @@ async def list_my_hotel_orders(
     )
     orders = orders_result.scalars().all()
 
-    items = []
-    for o in orders:
-        hotel_name = None
-        room_name = None
-        if o.hotel:
-            hotel_name = o.hotel.name
-        if o.room:
-            room_name = o.room.name
-
-        items.append(HotelOrderOut(
-            id=o.id,
-            order_no=o.order_no,
-            hotel_id=o.hotel_id,
-            hotel_name=hotel_name,
-            room_id=o.room_id,
-            room_name=room_name,
-            room_count=o.room_count,
-            checkin_date=o.checkin_date,
-            checkout_date=o.checkout_date,
-            nights=o.nights,
-            total_price=o.total_price,
-            status=o.status,
-            guest_name=o.guest_name,
-            guest_phone=o.guest_phone,
-            remark=o.remark,
-            cancel_reason=o.cancel_reason,
-            paid_at=o.paid_at,
-            cancelled_at=o.cancelled_at,
-            created_at=o.created_at,
-        ))
+    items = [_build_order_out(o) for o in orders]
 
     return HotelOrderListResponse(total=total, items=items)
+
+
+# ── 入住 ─────────────────────────────────────────────
+@router.post("/orders/{order_id}/checkin", response_model=StatusUpdateResponse, summary="办理入住（工作人员）")
+async def checkin_hotel_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff),
+):
+    """入住：将订单状态从 PAID 流转到 CHECKED_IN"""
+    order = await _get_hotel_order_by_id(order_id, db)
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+
+    if order.status == HotelOrderStatus.CHECKED_IN:
+        return StatusUpdateResponse(
+            success=False,
+            message="该订单已办理入住",
+            order=_build_order_out(order),
+        )
+
+    if order.status == HotelOrderStatus.COMPLETED:
+        return StatusUpdateResponse(
+            success=False,
+            message="该订单已完成（已退房）",
+            order=_build_order_out(order),
+        )
+
+    if order.status == HotelOrderStatus.CANCELLED:
+        return StatusUpdateResponse(
+            success=False,
+            message="该订单已取消",
+        )
+
+    if order.status == HotelOrderStatus.REFUNDED:
+        return StatusUpdateResponse(
+            success=False,
+            message="该订单已退款",
+        )
+
+    if order.status != HotelOrderStatus.PAID:
+        return StatusUpdateResponse(
+            success=False,
+            message=f"当前订单状态 '{order.status}' 不支持办理入住",
+        )
+
+    # 校验入住日期
+    today = date.today()
+    if order.checkin_date > today:
+        return StatusUpdateResponse(
+            success=False,
+            message=f"入住日期为 {order.checkin_date}，尚未到入住时间",
+        )
+
+    # 执行入住
+    order.status = HotelOrderStatus.CHECKED_IN
+    await db.flush()
+    await db.refresh(order)
+
+    return StatusUpdateResponse(
+        success=True,
+        message="入住办理成功",
+        order=_build_order_out(order),
+    )
+
+
+# ── 退房 ─────────────────────────────────────────────
+@router.post("/orders/{order_id}/checkout", response_model=StatusUpdateResponse, summary="办理退房（工作人员）")
+async def checkout_hotel_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff),
+):
+    """退房：将订单状态从 CHECKED_IN 流转到 COMPLETED，恢复库存"""
+    order = await _get_hotel_order_by_id(order_id, db)
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+
+    if order.status == HotelOrderStatus.COMPLETED:
+        return StatusUpdateResponse(
+            success=False,
+            message="该订单已完成退房",
+            order=_build_order_out(order),
+        )
+
+    if order.status == HotelOrderStatus.CANCELLED:
+        return StatusUpdateResponse(
+            success=False,
+            message="该订单已取消",
+        )
+
+    if order.status == HotelOrderStatus.REFUNDED:
+        return StatusUpdateResponse(
+            success=False,
+            message="该订单已退款",
+        )
+
+    if order.status != HotelOrderStatus.CHECKED_IN:
+        return StatusUpdateResponse(
+            success=False,
+            message=f"当前订单状态 '{order.status}' 不支持退房，请先办理入住",
+        )
+
+    # 执行退房：恢复可用库存
+    order.status = HotelOrderStatus.COMPLETED
+
+    # 恢复房型库存
+    room_result = await db.execute(select(Room).where(Room.id == order.room_id))
+    room = room_result.scalar_one_or_none()
+    if room:
+        room.available_count += order.room_count
+
+    await db.flush()
+    await db.refresh(order)
+
+    return StatusUpdateResponse(
+        success=True,
+        message="退房办理成功，房间库存已恢复",
+        order=_build_order_out(order),
+    )
+
+
+# ── 退款 ─────────────────────────────────────────────
+@router.post("/orders/{order_id}/refund", response_model=HotelRefundResponse, summary="申请退款")
+async def refund_hotel_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """退款：未入住可退，恢复库存"""
+    order = await _get_hotel_order_by_id(order_id, db, current_user.id)
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+
+    if order.status == HotelOrderStatus.REFUNDED:
+        raise HTTPException(status_code=400, detail="该订单已退款")
+
+    if order.status == HotelOrderStatus.CANCELLED:
+        raise HTTPException(status_code=400, detail="该订单已取消")
+
+    if order.status == HotelOrderStatus.CHECKED_IN:
+        raise HTTPException(status_code=400, detail="已入住的订单不可退款")
+
+    if order.status == HotelOrderStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="已完成的订单不可退款")
+
+    if order.status == HotelOrderStatus.PENDING:
+        # 未支付订单：直接取消，恢复库存
+        order.status = HotelOrderStatus.CANCELLED
+        order.cancelled_at = datetime.utcnow()
+
+        # 恢复库存
+        room_result = await db.execute(select(Room).where(Room.id == order.room_id))
+        room = room_result.scalar_one_or_none()
+        if room:
+            room.available_count += order.room_count
+
+        await db.flush()
+        await db.refresh(order)
+        return HotelRefundResponse(
+            success=True,
+            message="未支付订单已取消，库存已恢复",
+            order=_build_order_out(order),
+            refund_amount=0.0,
+        )
+
+    if order.status == HotelOrderStatus.PAID:
+        refund_amount = order.total_price
+        order.status = HotelOrderStatus.REFUNDED
+        order.cancelled_at = datetime.utcnow()
+
+        # 恢复库存
+        room_result = await db.execute(select(Room).where(Room.id == order.room_id))
+        room = room_result.scalar_one_or_none()
+        if room:
+            room.available_count += order.room_count
+
+        # 更新支付记录
+        from app.db import PaymentRecord
+        pay_result = await db.execute(
+            select(PaymentRecord).where(PaymentRecord.order_no == order.order_no)
+        )
+        pay_record = pay_result.scalar_one_or_none()
+        if pay_record:
+            pay_record.status = "refund"
+            pay_record.refund_time = datetime.utcnow()
+
+        await db.flush()
+        await db.refresh(order)
+        return HotelRefundResponse(
+            success=True,
+            message=f"退款成功，已退还 ¥{refund_amount}，库存已恢复",
+            order=_build_order_out(order),
+            refund_amount=refund_amount,
+        )
+
+    raise HTTPException(status_code=400, detail=f"当前订单状态 '{order.status}' 不支持退款")
+
+
+# ── 按订单号查询（供支付回调使用） ──────────────────
+@router.get("/orders/detail/{order_no}", response_model=HotelOrderOut, summary="按订单号查询")
+async def get_hotel_order_by_no(
+    order_no: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """根据订单号查询订单详情"""
+    result = await db.execute(
+        select(HotelOrder).where(HotelOrder.order_no == order_no)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+    return _build_order_out(order)

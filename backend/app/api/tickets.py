@@ -1,6 +1,6 @@
 """
 景区智慧管理系统 - 票务 API
-票种管理 / 购票 / 我的票 / 核销验票
+票种管理 / 购票 / 我的票 / 核销验票 / 退款
 """
 import uuid
 from datetime import date, datetime, timedelta
@@ -79,6 +79,7 @@ class TicketOrderOut(BaseModel):
     visitor_phone: Optional[str] = None
     verified_at: Optional[datetime] = None
     paid_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -97,6 +98,13 @@ class VerifyResponse(BaseModel):
     result: str  # success / already_verified / invalid_token / expired / cancelled
     message: str
     order: Optional[TicketOrderOut] = None
+
+
+class RefundResponse(BaseModel):
+    success: bool
+    message: str
+    order: Optional[TicketOrderOut] = None
+    refund_amount: float = 0.0
 
 
 # ── 时间槽位校验 ─────────────────────────────────────
@@ -169,6 +177,7 @@ async def create_ticket_order(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """购票下单：扣减库存（原子操作防超卖）、生成二维码token"""
     # 校验时间段
     _validate_time_slot(req.time_slot)
 
@@ -176,7 +185,7 @@ async def create_ticket_order(
     if req.visit_date < date.today():
         raise HTTPException(status_code=400, detail="游览日期不能早于今天")
 
-    # 查询票种
+    # 查询票种（行锁防超卖）
     tt_result = await db.execute(
         select(TicketType).where(
             TicketType.id == req.ticket_type_id,
@@ -188,8 +197,7 @@ async def create_ticket_order(
     if not ticket_type:
         raise HTTPException(status_code=404, detail="票种不存在")
 
-    # 分时库存并发控制：使用 FOR UPDATE 行锁防止超卖
-    # 统计该票种当天该时段已售出数量（已支付+待支付）
+    # 分时库存并发控制：统计该票种当天该时段已售出数量
     sold_result = await db.execute(
         select(func.coalesce(func.sum(TicketOrder.quantity), 0)).where(
             TicketOrder.ticket_type_id == req.ticket_type_id,
@@ -207,7 +215,7 @@ async def create_ticket_order(
             detail=f"该时段仅剩 {remaining} 张票，无法购买 {req.quantity} 张"
         )
 
-    # 生成订单
+    # 生成订单（状态为 PENDING，支付后变为 PAID）
     order_no = _generate_order_no()
     qr_token = _generate_qr_token()
     total_price = ticket_type.price * req.quantity
@@ -222,17 +230,15 @@ async def create_ticket_order(
         time_slot=req.time_slot,
         total_price=total_price,
         qr_token=qr_token,
-        status=TicketOrderStatus.PAID,  # MVP: 简化支付流程，直接标记为已支付
+        status=TicketOrderStatus.PENDING,
         visitor_name=req.visitor_name,
         visitor_phone=req.visitor_phone,
         visitor_id_card=req.visitor_id_card,
-        paid_at=datetime.utcnow(),
     )
     db.add(order)
     await db.flush()
     await db.refresh(order)
 
-    # 填充关联数据
     return await _enrich_order(order, db)
 
 
@@ -285,6 +291,7 @@ async def verify_ticket(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff),
 ):
+    """核销接口：验证qr_token、检查状态（已核销/过期）、标记verified"""
     # 查找订单
     order_result = await db.execute(
         select(TicketOrder).where(TicketOrder.qr_token == req.qr_token)
@@ -323,6 +330,13 @@ async def verify_ticket(
             message="该票已过期",
         )
 
+    # 未支付的订单不能核销
+    if order.status == TicketOrderStatus.PENDING:
+        return VerifyResponse(
+            result=VerifyResult.INVALID_TOKEN,
+            message="该票尚未支付，无法核销",
+        )
+
     # 校验游览日期（允许当天）
     today = date.today()
     if order.visit_date != today:
@@ -343,3 +357,166 @@ async def verify_ticket(
         message="核销成功",
         order=await _enrich_order(order, db),
     )
+
+
+# ── 退款 ─────────────────────────────────────────────
+@router.post("/order/{order_id}/refund", response_model=RefundResponse, summary="申请退款")
+async def refund_ticket_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """退款接口：未使用可退（已支付且游览日期未过）、过期自动退"""
+    # 查询订单
+    order_result = await db.execute(
+        select(TicketOrder).where(
+            TicketOrder.id == order_id,
+            TicketOrder.user_id == current_user.id,
+        )
+    )
+    order = order_result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+
+    # 检查订单状态是否允许退款
+    if order.status == TicketOrderStatus.REFUNDED:
+        raise HTTPException(status_code=400, detail="该订单已退款")
+
+    if order.status == TicketOrderStatus.CANCELLED:
+        raise HTTPException(status_code=400, detail="该订单已取消")
+
+    if order.status == TicketOrderStatus.VERIFIED:
+        raise HTTPException(status_code=400, detail="已核销的票不可退款")
+
+    if order.status == TicketOrderStatus.EXPIRED:
+        raise HTTPException(status_code=400, detail="该票已过期，系统将自动退款")
+
+    if order.status == TicketOrderStatus.PENDING:
+        # 未支付订单直接取消
+        order.status = TicketOrderStatus.CANCELLED
+        order.cancelled_at = datetime.utcnow()
+        await db.flush()
+        await db.refresh(order)
+        return RefundResponse(
+            success=True,
+            message="未支付订单已取消",
+            order=await _enrich_order(order, db),
+            refund_amount=0.0,
+        )
+
+    # 已支付但游览日期已过：过期自动退
+    today = date.today()
+    if order.status == TicketOrderStatus.PAID and order.visit_date <= today:
+        order.status = TicketOrderStatus.EXPIRED
+        order.cancelled_at = datetime.utcnow()
+        # 自动退款（全款）
+        refund_amount = order.total_price
+        order.status = TicketOrderStatus.REFUNDED
+        await db.flush()
+        await db.refresh(order)
+
+        # 同步更新支付记录
+        from app.db import PaymentRecord
+        pay_result = await db.execute(
+            select(PaymentRecord).where(PaymentRecord.order_no == order.order_no)
+        )
+        pay_record = pay_result.scalar_one_or_none()
+        if pay_record:
+            pay_record.status = "refund"
+            pay_record.refund_time = datetime.utcnow()
+
+        await db.flush()
+        return RefundResponse(
+            success=True,
+            message=f"游览日期 {order.visit_date} 已过，系统自动退款 ¥{refund_amount}",
+            order=await _enrich_order(order, db),
+            refund_amount=refund_amount,
+        )
+
+    # 已支付但未到游览日期：正常退款
+    if order.status == TicketOrderStatus.PAID:
+        refund_amount = order.total_price
+        order.status = TicketOrderStatus.REFUNDED
+        order.cancelled_at = datetime.utcnow()
+
+        # 同步更新支付记录
+        from app.db import PaymentRecord
+        pay_result = await db.execute(
+            select(PaymentRecord).where(PaymentRecord.order_no == order.order_no)
+        )
+        pay_record = pay_result.scalar_one_or_none()
+        if pay_record:
+            pay_record.status = "refund"
+            pay_record.refund_time = datetime.utcnow()
+
+        await db.flush()
+        await db.refresh(order)
+        return RefundResponse(
+            success=True,
+            message=f"退款成功，已退还 ¥{refund_amount}",
+            order=await _enrich_order(order, db),
+            refund_amount=refund_amount,
+        )
+
+    raise HTTPException(status_code=400, detail=f"当前订单状态 '{order.status}' 不支持退款")
+
+
+# ── 获取单张票详情（供支付回调使用） ──────────────────
+@router.get("/order/{order_no}", response_model=TicketOrderOut, summary="按订单号查询")
+async def get_ticket_order_by_no(
+    order_no: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """根据订单号查询订单详情"""
+    result = await db.execute(
+        select(TicketOrder).where(TicketOrder.order_no == order_no)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+    return await _enrich_order(order, db)
+
+
+# ── 批量过期处理（管理端/定时任务调用） ──────────────
+@router.post("/batch-expire", summary="批量过期处理（管理员）")
+async def batch_expire_orders(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """将已过游览日期但状态仍为 PAID 的订单标记为 EXPIRED 并自动退款"""
+    today = date.today()
+
+    result = await db.execute(
+        select(TicketOrder).where(
+            TicketOrder.status == TicketOrderStatus.PAID,
+            TicketOrder.visit_date < today,
+        )
+    )
+    expired_orders = result.scalars().all()
+
+    count = 0
+    for order in expired_orders:
+        order.status = TicketOrderStatus.EXPIRED
+        order.cancelled_at = datetime.utcnow()
+        # 再转为已退款
+        order.status = TicketOrderStatus.REFUNDED
+
+        # 更新支付记录
+        from app.db import PaymentRecord
+        pay_result = await db.execute(
+            select(PaymentRecord).where(PaymentRecord.order_no == order.order_no)
+        )
+        pay_record = pay_result.scalar_one_or_none()
+        if pay_record:
+            pay_record.status = "refund"
+            pay_record.refund_time = datetime.utcnow()
+        count += 1
+
+    await db.flush()
+
+    return {
+        "success": True,
+        "message": f"已处理 {count} 张过期票",
+        "expired_count": count,
+    }

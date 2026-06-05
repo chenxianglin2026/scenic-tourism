@@ -1,20 +1,21 @@
-"""
-景区智慧管理系统 - 种子数据脚本
-创建测试数据: 1个景区 + 4个票种 + 1个酒店 + 3个房型 + 1个admin用户
-用法: python seed.py
-"""
+"""\n景区智慧管理系统 - 种子数据脚本\n创建测试数据: 1个景区 + 4个票种 + 1个酒店 + 3个房型 + 1个admin用户 + 测试订单\n用法: python seed.py\n"""
 import asyncio
 import os
 import sys
+import uuid
 
 # 确保项目根目录在 sys.path 中
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from datetime import datetime, date
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.db import Base, User, ScenicSpot, TicketType, Hotel, Room
+from app.db import (
+    Base, User, ScenicSpot, TicketType, Hotel, Room,
+    TicketOrder, TicketOrderStatus, HotelOrder, HotelOrderStatus, PaymentRecord
+)
 from app.api.auth import hash_password
 
 
@@ -190,6 +191,133 @@ def seed():
         for r_data in rooms_data:
             print(f"  [+] 房型: {r_data['name']}  ¥{r_data['price']}/晚 ({r_data['total_count']}间)")
 
+        # ── 7. 创建测试用户（游客） ──
+        guest = User(
+            username="guest",
+            phone="13900000001",
+            hashed_password=hash_password("guest123"),
+            role="guest",
+            nickname="测试游客",
+            is_active=True,
+        )
+        session.add(guest)
+        session.flush()
+        print(f"  [+] 游客: guest / guest123 (id={guest.id})")
+
+        # ── 8. 创建测试票务订单 ──
+        adult_ticket = ticket_types[0]  # 成人票
+        child_ticket = ticket_types[1]   # 儿童票
+
+        today = date.today()
+
+        ticket_orders_data = [
+            {
+                "order_no": "T" + datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex[:4].upper(),
+                "user_id": guest.id,
+                "ticket_type_id": adult_ticket.id,
+                "spot_id": spot.id,
+                "quantity": 2,
+                "visit_date": today,
+                "time_slot": "08:00-10:00",
+                "total_price": adult_ticket.price * 2,
+                "status": TicketOrderStatus.PAID,
+                "visitor_name": "张三",
+                "visitor_phone": "13900000001",
+                "paid_at": datetime.utcnow(),
+            },
+            {
+                "order_no": "T" + datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex[:4].upper(),
+                "user_id": admin.id,
+                "ticket_type_id": child_ticket.id,
+                "spot_id": spot.id,
+                "quantity": 1,
+                "visit_date": today,
+                "time_slot": "10:00-12:00",
+                "total_price": child_ticket.price * 1,
+                "status": TicketOrderStatus.PENDING,
+                "visitor_name": "小明",
+                "visitor_phone": "13800000001",
+            },
+            {
+                "order_no": "T" + datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex[:4].upper(),
+                "user_id": guest.id,
+                "ticket_type_id": adult_ticket.id,
+                "spot_id": spot.id,
+                "quantity": 3,
+                "visit_date": date(today.year, today.month, today.day + 3) if today.day < 27 else today,
+                "time_slot": "14:00-17:00",
+                "total_price": adult_ticket.price * 3,
+                "status": TicketOrderStatus.PAID,
+                "visitor_name": "李四",
+                "visitor_phone": "13900000002",
+                "paid_at": datetime.utcnow(),
+            },
+        ]
+
+        ticket_orders = []
+        for to_data in ticket_orders_data:
+            qr_token = uuid.uuid4().hex + uuid.uuid4().hex[:8]
+            to = TicketOrder(qr_token=qr_token, **to_data)
+            session.add(to)
+            ticket_orders.append(to)
+        session.flush()
+
+        for to in ticket_orders:
+            print(f"  [+] 票务订单: {to.order_no}  {to.visitor_name}  ¥{to.total_price}  [{to.status}]")
+
+        # ── 9. 创建测试酒店订单 ──
+        rooms = session.query(Room).filter(Room.hotel_id == hotel.id).all()
+        standard_room = rooms[0]  # 标准大床房
+
+        hotel_orders_data = [
+            {
+                "order_no": "H" + datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex[:4].upper(),
+                "user_id": guest.id,
+                "hotel_id": hotel.id,
+                "room_id": standard_room.id,
+                "room_count": 1,
+                "checkin_date": today,
+                "checkout_date": date(today.year, today.month, today.day + 2) if today.day < 26 else today,
+                "nights": 2,
+                "total_price": standard_room.price * 1 * 2,
+                "status": HotelOrderStatus.PAID,
+                "guest_name": "张三",
+                "guest_phone": "13900000001",
+                "paid_at": datetime.utcnow(),
+            },
+            {
+                "order_no": "H" + datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex[:4].upper(),
+                "user_id": admin.id,
+                "hotel_id": hotel.id,
+                "room_id": standard_room.id,
+                "room_count": 1,
+                "checkin_date": date(today.year, today.month, today.day + 5) if today.day < 23 else today,
+                "checkout_date": date(today.year, today.month, today.day + 7) if today.day < 21 else today,
+                "nights": 2,
+                "total_price": standard_room.price * 1 * 2,
+                "status": HotelOrderStatus.PENDING,
+                "guest_name": "李四",
+                "guest_phone": "13900000002",
+            },
+        ]
+
+        hotel_orders = []
+        for ho_data in hotel_orders_data:
+            ho = HotelOrder(**ho_data)
+            session.add(ho)
+            hotel_orders.append(ho)
+        session.flush()
+
+        # 扣减对应房型库存
+        for ho in hotel_orders:
+            if ho.status == HotelOrderStatus.PAID:
+                room = session.query(Room).filter(Room.id == ho.room_id).first()
+                if room:
+                    room.available_count = max(0, room.available_count - ho.room_count)
+
+        for ho in hotel_orders:
+            print(f"  [+] 酒店订单: {ho.order_no}  {ho.guest_name}  ¥{ho.total_price}  [{ho.status}]")
+
         session.commit()
         print("\n✅ 种子数据写入完成！")
 
@@ -202,11 +330,15 @@ def seed():
         tt_count = session.scalar(select(func.count(TicketType.id)))
         hotel_count = session.scalar(select(func.count(Hotel.id)))
         room_count = session.scalar(select(func.count(Room.id)))
+        ticket_order_count = session.scalar(select(func.count(TicketOrder.id)))
+        hotel_order_count = session.scalar(select(func.count(HotelOrder.id)))
         print(f"  用户: {user_count}")
         print(f"  景区: {spot_count}")
         print(f"  票种: {tt_count}")
         print(f"  酒店: {hotel_count}")
         print(f"  房型: {room_count}")
+        print(f"  票务订单: {ticket_order_count}")
+        print(f"  酒店订单: {hotel_order_count}")
 
         # 详细验证
         admin_user = session.scalar(select(User).where(User.username == "admin"))

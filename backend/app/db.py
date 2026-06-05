@@ -250,6 +250,25 @@ class HotelOrder(Base):
     room: Mapped["Room"] = relationship(back_populates="orders")
 
 
+# ── 支付记录模型 ────────────────────────────────────
+class PaymentRecord(Base):
+    __tablename__ = "payment_records"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    order_no: Mapped[str] = mapped_column(String(32), index=True, nullable=False, comment="关联订单号（票务/酒店）")
+    order_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="ticket / hotel")
+    transaction_id: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False, comment="微信支付交易号")
+    amount: Mapped[float] = mapped_column(Float, nullable=False, comment="支付金额(元)")
+    status: Mapped[str] = mapped_column(String(20), default="pending", comment="pending / success / failed / refund")
+    pay_method: Mapped[str] = mapped_column(String(20), default="wechat_jsapi")
+    prepay_id: Mapped[Optional[str]] = mapped_column(String(64), comment="微信预支付ID")
+    pay_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    refund_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    raw_data: Mapped[Optional[str]] = mapped_column(Text, comment="回调原始数据 JSON")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 # ── 引擎 & 会话工厂 ──────────────────────────────────
 _async_engine = None
 _async_session_factory = None
