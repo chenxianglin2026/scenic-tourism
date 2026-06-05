@@ -73,7 +73,9 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # 关系
-    ticket_orders: Mapped[List["TicketOrder"]] = relationship(back_populates="user")
+    ticket_orders: Mapped[List["TicketOrder"]] = relationship(
+        back_populates="user", foreign_keys="TicketOrder.user_id"
+    )
     hotel_orders: Mapped[List["HotelOrder"]] = relationship(back_populates="user")
 
 
@@ -159,10 +161,10 @@ class TicketOrder(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # 关系
-    user: Mapped["User"] = relationship(back_populates="ticket_orders", foreign_keys="TicketOrder.user_id")
+    user: Mapped["User"] = relationship(back_populates="ticket_orders", foreign_keys=[user_id])
     ticket_type: Mapped["TicketType"] = relationship(back_populates="orders")
     spot: Mapped["ScenicSpot"] = relationship()
-    verifier: Mapped[Optional["User"]] = relationship(foreign_keys="TicketOrder.verified_by", viewonly=True)
+    verifier: Mapped[Optional["User"]] = relationship(foreign_keys=[verified_by], viewonly=True)
 
 
 # ── 酒店门店模型 ────────────────────────────────────
