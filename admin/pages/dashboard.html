@@ -191,7 +191,7 @@
 
   async function loadDashboard() {
     try {
-      var res = await fetch('/api/admin/dashboard/stats', { headers: headers });
+      var res = await fetch('/api/dashboard/stats', { headers: headers });
       if (res.status === 401 || res.status === 403) {
         window.top.location.href = 'pages/login.html';
         return;

@@ -71,7 +71,7 @@ Page({
       const records = (Array.isArray(data) ? data : (data.items || [])).map(r => ({
         id: r.id,
         plateNumber: r.plate_number || '',
-        lotName: r.lot_name || r.parking_lot_name || '',
+        lotName: r.parking_name || '',
         checkinTime: r.checkin_time || '',
         checkoutTime: r.checkout_time || '',
         duration: r.duration_minutes || 0,

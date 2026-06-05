@@ -219,6 +219,7 @@ async def create_hotel(
     db.add(hotel)
     await db.flush()
     await db.refresh(hotel)
+    hotel.rooms = []  # 新酒店无房型，避免序列化时触发 async lazy-loading
     return hotel
 
 
@@ -348,7 +349,9 @@ async def list_my_hotel_orders(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    base_q = select(HotelOrder).where(HotelOrder.user_id == current_user.id)
+    base_q = select(HotelOrder).where(HotelOrder.user_id == current_user.id).options(
+        selectinload(HotelOrder.hotel), selectinload(HotelOrder.room)
+    )
     count_q = select(func.count(HotelOrder.id)).where(HotelOrder.user_id == current_user.id)
 
     if status:
