@@ -71,6 +71,20 @@ class ParkingRecordListResponse(BaseModel):
     items: List[ParkingRecordOut]
 
 
+class ParkingRateCreate(BaseModel):
+    spot_id: int
+    name: str = Field(..., min_length=1, max_length=100)
+    vehicle_type: str = Field("car", description="car/bus/truck/motorcycle")
+    first_hour_price: float = Field(5.0, ge=0)
+    additional_hour_price: float = Field(3.0, ge=0)
+    daily_cap: float = Field(30.0, ge=0)
+    free_minutes: int = Field(15, ge=0)
+    total_spots: int = Field(200, ge=0)
+    available_spots: Optional[int] = Field(None, ge=0)
+    open_time: str = Field("00:00", max_length=5)
+    close_time: str = Field("24:00", max_length=5)
+
+
 class ParkingRateUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=100)
     vehicle_type: Optional[str] = None
@@ -142,6 +156,38 @@ async def list_parking_rates(
         q = q.where(ParkingRate.spot_id == spot_id)
     result = await db.execute(q)
     return result.scalars().all()
+
+
+@router.post("/rates", response_model=ParkingRateOut, status_code=201, summary="添加停车费率（管理员）")
+async def create_parking_rate(
+    req: ParkingRateCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """管理员添加停车费率配置"""
+    spot_result = await db.execute(select(ScenicSpot).where(ScenicSpot.id == req.spot_id))
+    if not spot_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="景区不存在")
+
+    available_spots = req.available_spots if req.available_spots is not None else req.total_spots
+
+    rate = ParkingRate(
+        spot_id=req.spot_id,
+        name=req.name,
+        vehicle_type=req.vehicle_type,
+        first_hour_price=req.first_hour_price,
+        additional_hour_price=req.additional_hour_price,
+        daily_cap=req.daily_cap,
+        free_minutes=req.free_minutes,
+        total_spots=req.total_spots,
+        available_spots=available_spots,
+        open_time=req.open_time,
+        close_time=req.close_time,
+    )
+    db.add(rate)
+    await db.flush()
+    await db.refresh(rate)
+    return rate
 
 
 @router.put("/rates/{rate_id}", response_model=ParkingRateOut, summary="编辑停车费率（管理员）")

@@ -61,8 +61,8 @@ class Settings(BaseSettings):
             return f"sqlite:///{db_dir}/scenic.db"
         return self.DATABASE_URL.replace("+aiosqlite", "").replace("+asyncpg", "")
 
-    # JWT 配置
-    SECRET_KEY: str = "scenic-jwt-secret-change-in-production"
+    # JWT 配置 — CHANGE IN PRODUCTION: set SECRET_KEY env var
+    SECRET_KEY: str = "scenic-jwt-secret-change-in-production"  # default only for DEV_MODE
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 小时
 

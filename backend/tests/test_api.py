@@ -211,6 +211,283 @@ class TestAuthRequiredAPIs:
         resp = await client.get("/api/dashboard/stats")
         assert resp.status_code == 401
 
+    async def test_scenic_points_no_auth(self, client):
+        resp = await client.post("/api/scenic/points", json={
+            "spot_id": 1, "name": "Test Point",
+        })
+        assert resp.status_code == 401
+
+    async def test_scenic_reviews_post_no_auth(self, client):
+        resp = await client.post("/api/scenic/reviews", json={
+            "spot_id": 1, "rating": 5, "content": "Great place!",
+        })
+        assert resp.status_code == 401
+
+    async def test_parking_rates_post_no_auth(self, client):
+        resp = await client.post("/api/parking/rates", json={
+            "spot_id": 1, "name": "Test Parking",
+        })
+        assert resp.status_code == 401
+
+    async def test_dashboard_revenue_no_auth(self, client):
+        resp = await client.get("/api/dashboard/revenue")
+        assert resp.status_code == 401
+
+
+class TestNewPublicEndpoints:
+    """新公开API测试"""
+
+    async def test_scenic_points_returns_200(self, client):
+        resp = await client.get("/api/scenic/points")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "total" in data
+        assert "items" in data
+
+    async def test_scenic_points_filter_by_category(self, client):
+        resp = await client.get("/api/scenic/points?category=dining")
+        assert resp.status_code == 200
+        data = resp.json()
+        for item in data["items"]:
+            assert item["category"] == "dining"
+
+    async def test_scenic_points_filter_by_spot(self, client):
+        resp = await client.get("/api/scenic/points?spot_id=1")
+        assert resp.status_code == 200
+        data = resp.json()
+        for item in data["items"]:
+            assert item["spot_id"] == 1
+
+    async def test_scenic_reviews_returns_200(self, client):
+        resp = await client.get("/api/scenic/reviews")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "total" in data
+        assert "items" in data
+        assert "avg_rating" in data
+        assert "rating_distribution" in data
+
+    async def test_scenic_reviews_filter_by_spot(self, client):
+        resp = await client.get("/api/scenic/reviews?spot_id=1")
+        assert resp.status_code == 200
+        data = resp.json()
+        for item in data["items"]:
+            assert item["spot_id"] == 1
+
+    async def test_scenic_reviews_filter_by_rating(self, client):
+        resp = await client.get("/api/scenic/reviews?rating=5")
+        assert resp.status_code == 200
+        data = resp.json()
+        for item in data["items"]:
+            assert item["rating"] == 5
+
+
+class TestGuestAuthEndpoints:
+    """guest 用户鉴权通过后可以使用的接口"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_create_review_as_guest(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/scenic/reviews",
+            json={
+                "spot_id": 1,
+                "rating": 5,
+                "content": "非常棒的景区，值得一游！",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["rating"] == 5
+        assert data["nickname"] == "张游客"
+
+    async def test_create_review_invalid_spot(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/scenic/reviews",
+            json={
+                "spot_id": 99999,
+                "rating": 4,
+                "content": "不存在的景区评价",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_create_review_invalid_rating(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/scenic/reviews",
+            json={
+                "spot_id": 1,
+                "rating": 6,
+                "content": "评分超出范围",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
+
+class TestAdminEndpoints:
+    """管理员专属接口测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_admin_create_parking_rate(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/parking/rates",
+            json={
+                "spot_id": 1,
+                "name": "测试停车场",
+                "vehicle_type": "car",
+                "first_hour_price": 8.0,
+                "additional_hour_price": 4.0,
+                "daily_cap": 40.0,
+                "free_minutes": 20,
+                "total_spots": 100,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["name"] == "测试停车场"
+        assert data["first_hour_price"] == 8.0
+        assert data["available_spots"] == 100
+
+    async def test_admin_create_parking_rate_invalid_spot(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/parking/rates",
+            json={
+                "spot_id": 99999,
+                "name": "无效停车场",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_admin_create_nearby_point(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/scenic/points",
+            json={
+                "spot_id": 1,
+                "name": "测试推荐餐厅",
+                "category": "dining",
+                "description": "测试用",
+                "rating": 4.5,
+                "distance": 500,
+                "sort_order": 99,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["name"] == "测试推荐餐厅"
+        assert data["category"] == "dining"
+
+    async def test_admin_delete_review(self, client):
+        token = await self._login(client, "admin", "admin123")
+        # First create a review as guest
+        guest_token = await self._login(client, "guest", "guest123")
+        create_resp = await client.post(
+            "/api/scenic/reviews",
+            json={"spot_id": 1, "rating": 3, "content": "待删除的评价内容测试"},
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert create_resp.status_code == 201
+        review_id = create_resp.json()["id"]
+
+        # Delete as admin
+        resp = await client.delete(
+            f"/api/scenic/reviews/{review_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+    async def test_admin_dashboard_revenue_day(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/dashboard/revenue?period=day",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["code"] == 0
+        assert "summary" in data["data"]
+        assert "items" in data["data"]
+        assert "total_revenue" in data["data"]["summary"]
+
+    async def test_admin_dashboard_revenue_week(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/dashboard/revenue?period=week",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["code"] == 0
+
+    async def test_admin_dashboard_revenue_month(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/dashboard/revenue?period=month",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["code"] == 0
+
+    async def test_admin_dashboard_revenue_spot_filter(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/dashboard/revenue?period=day&spot_id=1",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["data"]["spot_id"] == 1
+
+    async def test_admin_dashboard_revenue_invalid_period(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/dashboard/revenue?period=year",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400
+
+    async def test_guest_cannot_create_parking_rate(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/parking/rates",
+            json={"spot_id": 1, "name": "Hacked"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_guest_cannot_create_nearby_point(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/scenic/points",
+            json={"spot_id": 1, "name": "Hacked"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
 
 class TestGuestVsAdminAuth:
     """guest用户不能访问admin-only接口"""

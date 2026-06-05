@@ -67,6 +67,12 @@ async def root():
             "parking": "/api/parking",
             "dashboard": "/api/dashboard",
         },
+        "new_endpoints": {
+            "scenic_points": "GET /api/scenic/points — 景区附近推荐(餐饮/购物/娱乐)",
+            "scenic_reviews": "GET /api/scenic/reviews — 游客评价(评分+评论+图片)",
+            "parking_rates_post": "POST /api/parking/rates — 管理员添加停车费率",
+            "dashboard_revenue": "GET /api/dashboard/revenue — 营收报表(按日/周/月)",
+        },
         "docs": "/docs",
     }
 

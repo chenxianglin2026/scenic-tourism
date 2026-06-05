@@ -17,7 +17,7 @@ from app.config import settings
 from app.db import (
     Base, User, ScenicSpot, TicketType, Hotel, Room,
     TicketOrder, TicketOrderStatus, HotelOrder, HotelOrderStatus, PaymentRecord,
-    Announcement, Poi, ParkingRate, ParkingRecord
+    Announcement, Poi, ParkingRate, ParkingRecord, NearbyPoint, Review
 )
 from app.api.auth import hash_password
 
@@ -233,6 +233,41 @@ def seed():
                     (1, "鲁J·B0002", "completed", "paid"),
                     (2, "鲁J·C8888", "completed", "paid"),
                 ],
+                "nearby_points": [
+                    {"name": "泰山菜馆", "category": "dining", "rating": 4.5,
+                     "description": "正宗鲁菜馆，招牌泰山赤鳞鱼、泰山三美汤，环境优雅",
+                     "address": "泰山区红门路12号", "phone": "0538-8221666",
+                     "lat": 36.2115, "lng": 117.1270, "distance": 150,
+                     "price_range": "¥60-100", "open_time": "10:00-21:00", "sort_order": 1},
+                    {"name": "岱庙小吃街", "category": "dining", "rating": 4.3,
+                     "description": "汇集泰安特色小吃：煎饼卷大葱、泰山豆腐宴、泰山板栗",
+                     "address": "泰山区岱庙北街88号", "lat": 36.1950, "lng": 117.1260,
+                     "distance": 800, "price_range": "¥20-50", "open_time": "08:00-22:00", "sort_order": 2},
+                    {"name": "泰山特产购物中心", "category": "shopping", "rating": 4.2,
+                     "description": "泰山灵芝、泰山石敢当、泰山女儿茶等伴手礼一站式采购",
+                     "address": "泰山区天外村路20号", "phone": "0538-8338888",
+                     "lat": 36.2065, "lng": 117.1105, "distance": 300,
+                     "price_range": "¥30-500", "open_time": "09:00-20:00", "sort_order": 3},
+                    {"name": "泰山文化体验馆", "category": "entertainment", "rating": 4.6,
+                     "description": "VR泰山全景体验、泰山封禅大典表演、拓片制作体验",
+                     "address": "泰山区红门路1号", "lat": 36.2112, "lng": 117.1275,
+                     "distance": 100, "price_range": "¥80-180", "open_time": "09:00-18:00", "sort_order": 4},
+                    {"name": "泰安银座商城", "category": "shopping", "rating": 4.0,
+                     "description": "大型综合商场，品牌服饰、珠宝首饰、餐饮影院一应俱全",
+                     "address": "泰山区东岳大街168号", "phone": "0538-8218888",
+                     "lat": 36.1920, "lng": 117.1300, "distance": 2000,
+                     "price_range": "¥100-2000", "open_time": "10:00-22:00", "sort_order": 5},
+                ],
+                "reviews": [
+                    {"user_idx": 0, "spot_idx": 0, "rating": 5, "visit_offset": 0,
+                     "content": "泰山太震撼了！夜爬看日出，虽然辛苦但登上玉皇顶的那一刻一切都值了。景区管理规范，指示牌清晰。强烈推荐！", "images": '["https://img.example.com/taishan_sunrise.jpg"]'},
+                    {"user_idx": 1, "spot_idx": 0, "rating": 4, "visit_offset": -1,
+                     "content": "风景优美，历史文化底蕴深厚。可惜当天人太多，排队时间较长。建议避开周末高峰期。缆车很便捷，老人小孩也能轻松游玩。", "images": "[]"},
+                    {"user_idx": 2, "spot_idx": 0, "rating": 5, "visit_offset": -3,
+                     "content": "第三次爬泰山了，每次都有不同的感受。这次带了父母一起，坐了索道上山，服务人员态度很好。山上的食物价格稍贵但可以理解。", "images": "[]"},
+                    {"user_idx": 0, "spot_idx": 0, "rating": 4, "visit_offset": -7,
+                     "content": "泰山果然是五岳之首！建议游玩至少一整天。南天门的云海太美了，拍照根本停不下来。唯一的遗憾是天外村的餐饮选择不够丰富。", "images": "[]"},
+                ],
             },
             # ── 西湖 ──
             {
@@ -356,6 +391,40 @@ def seed():
                     (0, "浙A·F3456", "parking", "unpaid"),
                     (0, "沪B·G7890", "completed", "paid"),
                     (1, "苏A·H1234", "completed", "paid"),
+                ],
+                "nearby_points": [
+                    {"name": "楼外楼菜馆", "category": "dining", "rating": 4.8,
+                     "description": "百年老字号杭帮菜馆，西湖醋鱼、东坡肉、龙井虾仁驰名中外",
+                     "address": "西湖区孤山路30号", "phone": "0571-87969023",
+                     "lat": 30.2530, "lng": 120.1370, "distance": 500,
+                     "price_range": "¥150-300", "open_time": "11:00-14:00,17:00-21:00", "sort_order": 1},
+                    {"name": "知味观(湖滨总店)", "category": "dining", "rating": 4.5,
+                     "description": "杭州著名老字号小吃，猫耳朵、小笼包、片儿川面必尝",
+                     "address": "上城区仁和路83号", "lat": 30.2580, "lng": 120.1670,
+                     "distance": 300, "price_range": "¥30-80", "open_time": "06:30-21:00", "sort_order": 2},
+                    {"name": "杭州湖滨银泰in77", "category": "shopping", "rating": 4.4,
+                     "description": "西湖边最大商业综合体，国际大牌、潮流服饰、美食广场应有尽有",
+                     "address": "上城区延安路258号", "lat": 30.2590, "lng": 120.1660,
+                     "distance": 200, "price_range": "¥200-5000", "open_time": "10:00-22:00", "sort_order": 3},
+                    {"name": "南宋御街", "category": "shopping", "rating": 4.3,
+                     "description": "千年古街，丝绸旗袍、龙井茶叶、杭扇等杭州传统特产一条街",
+                     "address": "上城区中山中路", "lat": 30.2440, "lng": 120.1700,
+                     "distance": 1500, "price_range": "¥50-500", "open_time": "09:00-21:00", "sort_order": 4},
+                    {"name": "《印象西湖》实景演出", "category": "entertainment", "rating": 4.9,
+                     "description": "张艺谋导演大型山水实景演出，以西湖山水为舞台，G20峰会演出团队",
+                     "address": "西湖区北山路82号岳湖景区", "phone": "0571-88861111",
+                     "lat": 30.2550, "lng": 120.1380, "distance": 800,
+                     "price_range": "¥260-580", "open_time": "19:30-20:30", "sort_order": 5},
+                ],
+                "reviews": [
+                    {"user_idx": 0, "spot_idx": 1, "rating": 5, "visit_offset": 0,
+                     "content": "西湖真的人间天堂！沿着苏堤散步太惬意了，三潭印月坐船游览超赞。这次还赶上了印象西湖演出，绝对值回票价！", "images": "[]"},
+                    {"user_idx": 1, "spot_idx": 1, "rating": 5, "visit_offset": -2,
+                     "content": "西湖四季皆美，这次春游正好遇上桃花盛开。断桥残雪虽然没雪但也很美。楼外楼的西湖醋鱼名不虚传！整个景区免费开放太良心了。", "images": "[]"},
+                    {"user_idx": 2, "spot_idx": 1, "rating": 4, "visit_offset": -5,
+                     "content": "景色没得说，但是节假日人真的太多了。雷峰塔排队40分钟。建议工作日来体验更佳。游船票建议提前网上预订。", "images": "[]"},
+                    {"user_idx": 0, "spot_idx": 1, "rating": 5, "visit_offset": -10,
+                     "content": "去了无数次西湖，每次都有新发现。这次特意沿北山街走了全程，发现了许多隐藏的历史建筑。湖滨银泰购物也很方便。强烈推荐骑行游湖！", "images": "[]"},
                 ],
             },
             # ── 黄山 ──
@@ -485,6 +554,42 @@ def seed():
                     (1, "苏B·F7890", "completed", "paid"),
                     (1, "皖J·G0123", "completed", "paid"),
                 ],
+                "nearby_points": [
+                    {"name": "徽州人家", "category": "dining", "rating": 4.6,
+                     "description": "正宗徽菜馆，臭鳜鱼、毛豆腐、徽州一品锅，舌尖上的徽州味道",
+                     "address": "黄山区汤口镇寨西新村15号", "phone": "0559-5566888",
+                     "lat": 30.0875, "lng": 118.1800, "distance": 200,
+                     "price_range": "¥80-150", "open_time": "10:00-21:30", "sort_order": 1},
+                    {"name": "黄山老街第一楼", "category": "dining", "rating": 4.4,
+                     "description": "屯溪老街招牌菜馆，徽式酱鸭、石耳炖鸡、黄山双石皆是经典",
+                     "address": "屯溪区老街247号", "lat": 29.7150, "lng": 118.3350,
+                     "distance": 45000, "price_range": "¥100-200", "open_time": "11:00-14:00,17:00-21:00", "sort_order": 2},
+                    {"name": "黄山茶文化中心", "category": "shopping", "rating": 4.5,
+                     "description": "黄山毛峰、祁门红茶、太平猴魁等名茶品鉴与选购，免费茶道表演",
+                     "address": "黄山区汤口镇沿溪街8号", "lat": 30.0870, "lng": 118.1805,
+                     "distance": 150, "price_range": "¥50-800", "open_time": "08:00-20:00", "sort_order": 3},
+                    {"name": "屯溪老街", "category": "shopping", "rating": 4.7,
+                     "description": "中国历史文化名街，徽墨歙砚、徽州三雕、黄山烧饼等特产琳琅满目",
+                     "address": "屯溪区老街", "lat": 29.7140, "lng": 118.3340,
+                     "distance": 45000, "price_range": "¥20-1000", "open_time": "全天", "sort_order": 4},
+                    {"name": "《徽韵》大型演出", "category": "entertainment", "rating": 4.6,
+                     "description": "大型多媒体歌舞剧，演绎徽州历史文化，四季黄山奇观震撼呈现",
+                     "address": "屯溪区西海路29号香茗大剧院", "phone": "0559-2580000",
+                     "lat": 29.7100, "lng": 118.3200, "distance": 43000,
+                     "price_range": "¥180-380", "open_time": "20:00-21:10", "sort_order": 5},
+                ],
+                "reviews": [
+                    {"user_idx": 0, "spot_idx": 2, "rating": 5, "visit_offset": 0,
+                     "content": "黄山归来不看岳！真的不是吹的。光明顶日出太震撼了，云海翻涌如同仙境。迎客松比照片上更壮观。一定要住山上，晨起看日出是无价体验！", "images": "[]"},
+                    {"user_idx": 1, "spot_idx": 2, "rating": 4, "visit_offset": -2,
+                     "content": "黄山非常美，奇松怪石云海名不虚传。但山上住宿确实贵，而且条件一般。建议体力好的可以一日游。索道票建议提前买，现场排队很久。", "images": "[]"},
+                    {"user_idx": 2, "spot_idx": 2, "rating": 5, "visit_offset": -4,
+                     "content": "第三次来黄山，这次终于看到了云海！西海大峡谷太险峻了，全程走下来腿都软了但值。徽菜也很棒，山下的徽州人家臭鳜鱼绝了。", "images": "[]"},
+                    {"user_idx": 1, "spot_idx": 2, "rating": 5, "visit_offset": -6,
+                     "content": "黄山的冬季美得不像话！雾凇、冰挂、雪景，宛如童话世界。游客比旺季少很多，体验非常好。就是山上冷，一定要穿暖和。白云宾馆暖气很足。", "images": "[]"},
+                    {"user_idx": 0, "spot_idx": 2, "rating": 3, "visit_offset": -15,
+                     "content": "风景确实好，但人太多了！莲花峰排队将近两小时。希望景区能加强限流管理。另外山上物价偏高，一瓶水25元有点离谱。建议自备干粮。", "images": "[]"},
+                ],
             },
         ]
 
@@ -568,6 +673,36 @@ def seed():
             parking_rates_all.append(spot_prs)
             for pr_data in spot_cfg["parking_rates"]:
                 print(f"    🅿️  停车费率: {pr_data['name']}  ¥{pr_data['first_hour_price']}/首小时")
+
+            # ── 附近推荐点位 ──
+            for np_data in spot_cfg.get("nearby_points", []):
+                np = NearbyPoint(spot_id=spot.id, **np_data, is_active=True)
+                session.add(np)
+            session.flush()
+            npt_count = len(spot_cfg.get("nearby_points", []))
+            if npt_count:
+                print(f"    🍽️  附近推荐: {npt_count} 个")
+
+            # ── 游客评价 ──
+            review_count = 0
+            for rv_data in spot_cfg.get("reviews", []):
+                u_idx = rv_data["user_idx"]
+                user = all_guests[u_idx]
+                visit_date = _future_date(rv_data["visit_offset"]) if rv_data["visit_offset"] >= 0 else _past_date(abs(rv_data["visit_offset"]))
+                rv = Review(
+                    spot_id=spot.id,
+                    user_id=user.id,
+                    rating=rv_data["rating"],
+                    content=rv_data["content"],
+                    images=rv_data.get("images", "[]"),
+                    visit_date=visit_date,
+                    is_approved=True,
+                )
+                session.add(rv)
+                review_count += 1
+            session.flush()
+            if review_count:
+                print(f"    ✍️  游客评价: {review_count} 条")
 
             # ── 票务订单 ──
             spot_ticket_orders = []
@@ -731,6 +866,8 @@ def seed():
         pr_count = session.scalar(select(func.count(ParkingRate.id)))
         record_count = session.scalar(select(func.count(ParkingRecord.id)))
         pay_count = session.scalar(select(func.count(PaymentRecord.id)))
+        np_count = session.scalar(select(func.count(NearbyPoint.id)))
+        rv_count = session.scalar(select(func.count(Review.id)))
 
         print(f"  用户: {user_count}")
         print(f"  景区: {spot_count}")
@@ -744,6 +881,8 @@ def seed():
         print(f"  停车费率: {pr_count}")
         print(f"  停车记录: {record_count}")
         print(f"  支付记录: {pay_count}")
+        print(f"  附近推荐: {np_count}")
+        print(f"  游客评价: {rv_count}")
 
         # 按状态统计票务订单
         print("\n  票务订单状态分布:")
@@ -781,6 +920,8 @@ def seed():
             ).scalars().all() if prs else []
             anns = session.execute(select(Announcement).where(Announcement.spot_id == sp.id)).scalars().all()
             pois = session.execute(select(Poi).where(Poi.spot_id == sp.id)).scalars().all()
+            nps = session.execute(select(NearbyPoint).where(NearbyPoint.spot_id == sp.id)).scalars().all()
+            rvs = session.execute(select(Review).where(Review.spot_id == sp.id)).scalars().all()
 
             print(f"\n  🏔️  {sp.name}:")
             print(f"    票种: {len(tts)} ({[t.name for t in tts]})")
@@ -792,6 +933,8 @@ def seed():
             print(f"    停车记录: {len(records)}")
             print(f"    公告: {len(anns)}")
             print(f"    POI: {len(pois)}")
+            print(f"    附近推荐: {len(nps)}")
+            print(f"    游客评价: {len(rvs)}")
 
         # admin 验证
         admin_user = session.scalar(select(User).where(User.username == "admin"))

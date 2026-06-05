@@ -325,6 +325,47 @@ class ParkingRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+# ── 景区附近推荐点位模型 ──────────────────────────────
+class NearbyPoint(Base):
+    """景区周边餐饮/购物/娱乐推荐"""
+    __tablename__ = "nearby_points"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    spot_id: Mapped[int] = mapped_column(ForeignKey("scenic_spots.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, comment="商户名称")
+    category: Mapped[str] = mapped_column(String(30), default="dining", comment="dining/shopping/entertainment")
+    description: Mapped[Optional[str]] = mapped_column(Text, comment="推荐理由/描述")
+    address: Mapped[Optional[str]] = mapped_column(String(500))
+    phone: Mapped[Optional[str]] = mapped_column(String(20))
+    lat: Mapped[Optional[float]] = mapped_column(Float, comment="纬度")
+    lng: Mapped[Optional[float]] = mapped_column(Float, comment="经度")
+    rating: Mapped[float] = mapped_column(Float, default=4.0, comment="推荐评分 1-5")
+    images: Mapped[Optional[str]] = mapped_column(Text, comment="图片JSON数组")
+    distance: Mapped[Optional[float]] = mapped_column(Float, comment="距离景区(米)")
+    price_range: Mapped[Optional[str]] = mapped_column(String(20), comment="人均消费区间")
+    open_time: Mapped[Optional[str]] = mapped_column(String(20), comment="营业时间")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# ── 游客评价模型 ────────────────────────────────────
+class Review(Base):
+    """游客对景区的评价（评分+评论+图片）"""
+    __tablename__ = "reviews"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    spot_id: Mapped[int] = mapped_column(ForeignKey("scenic_spots.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False, comment="评分 1-5")
+    content: Mapped[str] = mapped_column(Text, nullable=False, comment="评价内容")
+    images: Mapped[Optional[str]] = mapped_column(Text, comment="评价图片JSON数组")
+    is_approved: Mapped[bool] = mapped_column(Boolean, default=True, comment="是否审核通过")
+    like_count: Mapped[int] = mapped_column(Integer, default=0, comment="点赞数")
+    visit_date: Mapped[Optional[date]] = mapped_column(Date, comment="游览日期")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 # ── 支付记录模型 ────────────────────────────────────
 class PaymentRecord(Base):
     __tablename__ = "payment_records"
