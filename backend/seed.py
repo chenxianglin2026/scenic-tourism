@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import (
     Base, User, ScenicSpot, TicketType, Hotel, Room,
-    TicketOrder, TicketOrderStatus, HotelOrder, HotelOrderStatus, PaymentRecord
+    TicketOrder, TicketOrderStatus, HotelOrder, HotelOrderStatus, PaymentRecord,
+    Announcement, Poi, ParkingRate
 )
 from app.api.auth import hash_password
 
@@ -191,7 +192,134 @@ def seed():
         for r_data in rooms_data:
             print(f"  [+] 房型: {r_data['name']}  ¥{r_data['price']}/晚 ({r_data['total_count']}间)")
 
-        # ── 7. 创建测试用户（游客） ──
+        # ── 7. 景区公告 ──
+        announcements_data = [
+            {
+                "title": "端午节特惠活动通知",
+                "content": "端午节期间（6月8日-6月10日），景区推出家庭套票优惠活动，两大一小仅需258元。"
+                           "同时举办龙舟文化展览、粽子DIY体验活动，欢迎广大游客前来游玩！",
+                "category": "event",
+                "priority": 2,
+            },
+            {
+                "title": "南天门索道维护公告",
+                "content": "因设备年度检修需要，南天门索道将于6月15日-6月17日暂停运营。"
+                           "期间游客可通过十八盘步行登山，给您带来不便敬请谅解。",
+                "category": "maintenance",
+                "priority": 1,
+            },
+            {
+                "title": "夏季开放时间调整通知",
+                "content": "自6月1日起，景区实行夏季运营时间：开园时间调整为05:30，闭园时间调整为19:00。"
+                           "日出观赏请提前通过小程序预约。",
+                "category": "notice",
+                "priority": 1,
+            },
+            {
+                "title": "景区文明旅游倡议书",
+                "content": "泰山是世界文化与自然双重遗产，请各位游客爱护环境，不随意丢弃垃圾，"
+                           "不刻画涂鸦，共同守护这份宝贵的自然与文化财富。",
+                "category": "notice",
+                "priority": 0,
+            },
+            {
+                "title": "紧急通知：暴雨天气预警",
+                "content": "接气象部门通知，本周末可能有暴雨天气，请登山游客携带雨具，注意防滑。"
+                           "如遇极端天气，景区将临时关闭，请关注公众号获取最新消息。",
+                "category": "emergency",
+                "priority": 2,
+            },
+        ]
+        for ann_data in announcements_data:
+            ann = Announcement(spot_id=spot.id, **ann_data, is_published=True)
+            session.add(ann)
+        session.flush()
+        print(f"  [+] 公告: 创建 {len(announcements_data)} 条")
+
+        # ── 8. 导览点位(POI) ──
+        pois_data = [
+            {"name": "红门入口", "category": "entrance", "lat": 36.2110, "lng": 117.1280, "sort_order": 1,
+             "description": "泰山传统登山入口，始建于明代"},
+            {"name": "天外村入口", "category": "entrance", "lat": 36.2060, "lng": 117.1100, "sort_order": 2,
+             "description": "乘坐景区大巴的入口，可直达中天门"},
+            {"name": "中天门", "category": "viewpoint", "lat": 36.2350, "lng": 117.1200, "sort_order": 3,
+             "description": "泰山半山腰，索道和徒步交汇处"},
+            {"name": "南天门", "category": "viewpoint", "lat": 36.2500, "lng": 117.1250, "sort_order": 4,
+             "description": "泰山标志性建筑，登顶的象征"},
+            {"name": "玉皇顶", "category": "viewpoint", "lat": 36.2580, "lng": 117.1250, "sort_order": 5,
+             "description": "泰山主峰，海拔1545米，绝佳日出观赏点"},
+            {"name": "碧霞祠", "category": "viewpoint", "lat": 36.2530, "lng": 117.1240, "sort_order": 6,
+             "description": "供奉碧霞元君的道教宫观"},
+            {"name": "日观峰", "category": "viewpoint", "lat": 36.2550, "lng": 117.1270, "sort_order": 7,
+             "description": "观赏泰山日出的最佳地点"},
+            {"name": "红门游客中心", "category": "service", "lat": 36.2115, "lng": 117.1275, "sort_order": 8,
+             "description": "提供咨询、寄存、医疗等服务"},
+            {"name": "中天门餐厅", "category": "restaurant", "lat": 36.2355, "lng": 117.1205, "sort_order": 9,
+             "description": "提供泰山特色美食：泰山煎饼、泰山三美"},
+            {"name": "天街商店", "category": "shop", "lat": 36.2510, "lng": 117.1245, "sort_order": 10,
+             "description": "泰山纪念品、登山装备、饮品零食"},
+            {"name": "1号停车场", "category": "parking", "lat": 36.2105, "lng": 117.1270, "sort_order": 11,
+             "description": "红门入口停车场，500车位"},
+            {"name": "2号停车场", "category": "parking", "lat": 36.2055, "lng": 117.1095, "sort_order": 12,
+             "description": "天外村入口停车场，300车位"},
+            {"name": "红门公厕", "category": "toilet", "lat": 36.2112, "lng": 117.1272, "sort_order": 13},
+            {"name": "中天门公厕", "category": "toilet", "lat": 36.2352, "lng": 117.1202, "sort_order": 14},
+            {"name": "南天门公厕", "category": "toilet", "lat": 36.2502, "lng": 117.1252, "sort_order": 15},
+        ]
+        for poi_data in pois_data:
+            poi = Poi(spot_id=spot.id, **poi_data, is_active=True)
+            session.add(poi)
+        session.flush()
+        print(f"  [+] 导览点位: 创建 {len(pois_data)} 个")
+
+        # ── 9. 停车费率 ──
+        parking_rates_data = [
+            {
+                "name": "红门停车场（小客车）",
+                "vehicle_type": "car",
+                "first_hour_price": 5.0,
+                "additional_hour_price": 3.0,
+                "daily_cap": 30.0,
+                "free_minutes": 15,
+                "total_spots": 500,
+                "available_spots": 500,
+                "open_time": "06:00",
+                "close_time": "20:00",
+            },
+            {
+                "name": "天外村停车场（小客车）",
+                "vehicle_type": "car",
+                "first_hour_price": 5.0,
+                "additional_hour_price": 3.0,
+                "daily_cap": 30.0,
+                "free_minutes": 15,
+                "total_spots": 300,
+                "available_spots": 300,
+                "open_time": "06:00",
+                "close_time": "20:00",
+            },
+            {
+                "name": "红门停车场（大巴）",
+                "vehicle_type": "bus",
+                "first_hour_price": 10.0,
+                "additional_hour_price": 6.0,
+                "daily_cap": 60.0,
+                "free_minutes": 30,
+                "total_spots": 50,
+                "available_spots": 50,
+                "open_time": "06:00",
+                "close_time": "20:00",
+            },
+        ]
+        for pr_data in parking_rates_data:
+            pr = ParkingRate(spot_id=spot.id, **pr_data, is_active=True)
+            session.add(pr)
+        session.flush()
+        for pr_data in parking_rates_data:
+            print(f"  [+] 停车费率: {pr_data['name']}  ¥{pr_data['first_hour_price']}/首小时 "
+                  f"(车位:{pr_data['total_spots']})")
+
+        # ── 10. 创建测试用户（游客） ──
         guest = User(
             username="guest",
             phone="13900000001",
@@ -204,7 +332,7 @@ def seed():
         session.flush()
         print(f"  [+] 游客: guest / guest123 (id={guest.id})")
 
-        # ── 8. 创建测试票务订单 ──
+        # ── 11. 创建测试票务订单 ──
         adult_ticket = ticket_types[0]  # 成人票
         child_ticket = ticket_types[1]   # 儿童票
 
@@ -265,7 +393,7 @@ def seed():
         for to in ticket_orders:
             print(f"  [+] 票务订单: {to.order_no}  {to.visitor_name}  ¥{to.total_price}  [{to.status}]")
 
-        # ── 9. 创建测试酒店订单 ──
+        # ── 12. 创建测试酒店订单 ──
         rooms = session.query(Room).filter(Room.hotel_id == hotel.id).all()
         standard_room = rooms[0]  # 标准大床房
 
@@ -332,6 +460,9 @@ def seed():
         room_count = session.scalar(select(func.count(Room.id)))
         ticket_order_count = session.scalar(select(func.count(TicketOrder.id)))
         hotel_order_count = session.scalar(select(func.count(HotelOrder.id)))
+        ann_count = session.scalar(select(func.count(Announcement.id)))
+        poi_count = session.scalar(select(func.count(Poi.id)))
+        pr_count = session.scalar(select(func.count(ParkingRate.id)))
         print(f"  用户: {user_count}")
         print(f"  景区: {spot_count}")
         print(f"  票种: {tt_count}")
@@ -339,6 +470,9 @@ def seed():
         print(f"  房型: {room_count}")
         print(f"  票务订单: {ticket_order_count}")
         print(f"  酒店订单: {hotel_order_count}")
+        print(f"  公告: {ann_count}")
+        print(f"  导览点位: {poi_count}")
+        print(f"  停车费率: {pr_count}")
 
         # 详细验证
         admin_user = session.scalar(select(User).where(User.username == "admin"))

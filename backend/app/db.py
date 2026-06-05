@@ -250,6 +250,81 @@ class HotelOrder(Base):
     room: Mapped["Room"] = relationship(back_populates="orders")
 
 
+# ── 景区公告模型 ────────────────────────────────────
+class Announcement(Base):
+    __tablename__ = "announcements"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    spot_id: Mapped[int] = mapped_column(ForeignKey("scenic_spots.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False, comment="公告标题")
+    content: Mapped[str] = mapped_column(Text, nullable=False, comment="公告内容")
+    category: Mapped[str] = mapped_column(String(20), default="notice", comment="notice/event/maintenance/emergency")
+    priority: Mapped[int] = mapped_column(Integer, default=0, comment="优先级 0-低 1-中 2-高")
+    is_published: Mapped[bool] = mapped_column(Boolean, default=True)
+    published_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, comment="过期时间")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ── 导览点位 (POI) 模型 ─────────────────────────────
+class Poi(Base):
+    __tablename__ = "pois"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    spot_id: Mapped[int] = mapped_column(ForeignKey("scenic_spots.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, comment="点位名称")
+    category: Mapped[str] = mapped_column(String(50), default="viewpoint", comment="viewpoint/toilet/restaurant/shop/parking/entrance/service")
+    description: Mapped[Optional[str]] = mapped_column(Text, comment="点位描述")
+    lat: Mapped[float] = mapped_column(Float, nullable=False, comment="纬度")
+    lng: Mapped[float] = mapped_column(Float, nullable=False, comment="经度")
+    images: Mapped[Optional[str]] = mapped_column(Text, comment="图片JSON")
+    audio_url: Mapped[Optional[str]] = mapped_column(Text, comment="语音讲解URL")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# ── 停车费率模型 ────────────────────────────────────
+class ParkingRate(Base):
+    __tablename__ = "parking_rates"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    spot_id: Mapped[int] = mapped_column(ForeignKey("scenic_spots.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, comment="停车场名称")
+    vehicle_type: Mapped[str] = mapped_column(String(20), default="car", comment="car/bus/truck/motorcycle")
+    first_hour_price: Mapped[float] = mapped_column(Float, default=5.0, comment="首小时价格(元)")
+    additional_hour_price: Mapped[float] = mapped_column(Float, default=3.0, comment="每小时加收(元)")
+    daily_cap: Mapped[float] = mapped_column(Float, default=30.0, comment="每日封顶(元)")
+    free_minutes: Mapped[int] = mapped_column(Integer, default=15, comment="免费分钟数")
+    total_spots: Mapped[int] = mapped_column(Integer, default=200, comment="总车位数")
+    available_spots: Mapped[int] = mapped_column(Integer, default=200, comment="可用车位数")
+    open_time: Mapped[str] = mapped_column(String(5), default="00:00")
+    close_time: Mapped[str] = mapped_column(String(5), default="24:00")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# ── 停车记录模型 ────────────────────────────────────
+class ParkingRecord(Base):
+    __tablename__ = "parking_records"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    rate_id: Mapped[int] = mapped_column(ForeignKey("parking_rates.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    plate_number: Mapped[str] = mapped_column(String(20), nullable=False, index=True, comment="车牌号")
+    vehicle_type: Mapped[str] = mapped_column(String(20), default="car")
+    checkin_time: Mapped[datetime] = mapped_column(DateTime, nullable=False, comment="入场时间")
+    checkout_time: Mapped[Optional[datetime]] = mapped_column(DateTime, comment="出场时间")
+    duration_minutes: Mapped[Optional[int]] = mapped_column(Integer, comment="停车时长(分钟)")
+    total_fee: Mapped[Optional[float]] = mapped_column(Float, comment="停车费(元)")
+    status: Mapped[str] = mapped_column(String(20), default="parking", comment="parking/completed/cancelled")
+    pay_status: Mapped[str] = mapped_column(String(20), default="unpaid", comment="unpaid/paid")
+    pay_method: Mapped[Optional[str]] = mapped_column(String(20), comment="wechat/alipay/cash")
+    paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 # ── 支付记录模型 ────────────────────────────────────
 class PaymentRecord(Base):
     __tablename__ = "payment_records"

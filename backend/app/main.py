@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import init_db
-from app.api import auth, tickets, hotels, dashboard, payment
+from app.api import auth, tickets, hotels, dashboard, payment, scenic, parking
 
 
 @asynccontextmanager
@@ -44,6 +44,8 @@ app.include_router(tickets.router)
 app.include_router(hotels.router)
 app.include_router(dashboard.router)
 app.include_router(payment.router)
+app.include_router(scenic.router)
+app.include_router(parking.router)
 
 
 # 健康检查
@@ -61,6 +63,8 @@ async def root():
             "tickets": "/api/tickets",
             "hotels": "/api/hotels",
             "payment": "/api/payment",
+            "scenic": "/api/scenic",
+            "parking": "/api/parking",
             "dashboard": "/api/dashboard",
         },
         "docs": "/docs",
