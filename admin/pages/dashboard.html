@@ -14,7 +14,17 @@
   .chart-bar-label { font-size:10px; color:var(--text-muted); margin-top:4px; }
   .chart-bar-val { font-size:10px; color:var(--gold-dark); margin-bottom:2px; font-weight:600; }
   .loading, .empty { text-align:center; padding:24px; color:var(--text-muted); font-size:13px; }
-  @media (max-width:768px) { .chart-section { grid-template-columns:1fr; } }
+  .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .info-item { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border); }
+  .info-item:last-child { border-bottom:none; }
+  .info-label { font-size:12px; color:var(--text-muted); width:80px; flex-shrink:0; }
+  .info-value { font-size:13px; color:var(--text-primary); font-weight:500; }
+  .rating-stars { color:var(--gold); font-size:16px; letter-spacing:2px; }
+  .parking-row { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px; }
+  .parking-mini-card { background:#faf8f3; border-radius:8px; padding:14px; border:1px solid var(--border); }
+  .parking-mini-card .pmc-title { font-size:13px; font-weight:600; color:var(--text-primary); margin-bottom:8px; }
+  .parking-mini-card .pmc-row { display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary); margin-bottom:4px; }
+  @media (max-width:768px) { .chart-section,.info-grid { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -34,6 +44,18 @@
     <div class="card">
       <div class="card-header"><div class="card-title">近7天售票趋势（张）</div></div>
       <div class="chart-bars" id="soldChart"><div class="loading">加载中...</div></div>
+    </div>
+  </div>
+
+  <!-- Scenic Info + Parking Overview -->
+  <div class="chart-section">
+    <div class="card">
+      <div class="card-header"><div class="card-title">🏞️ 景区概况</div></div>
+      <div id="scenicInfo"><div class="loading">加载中...</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">🅿️ 停车概览</div></div>
+      <div id="parkingOverview"><div class="loading">加载中...</div></div>
     </div>
   </div>
 
@@ -84,7 +106,90 @@
     }).join('');
   }
 
-  async function load() {
+  function catLabel(c) {
+    var map = { notice:'通知', event:'活动', maintenance:'维护', emergency:'紧急' };
+    return map[c] || c || '通知';
+  }
+
+  function catTag(c) {
+    var map = { notice:'tag-blue', event:'tag-gold', maintenance:'tag-warm', emergency:'tag-red' };
+    return '<span class="tag ' + (map[c]||'tag-gray') + '">' + catLabel(c) + '</span>';
+  }
+
+  function renderScenicInfo(info) {
+    var el = document.getElementById('scenicInfo');
+    if (!info || !info.name) {
+      el.innerHTML = '<div class="empty">暂无景区信息</div>';
+      return;
+    }
+    var stars = '';
+    var r = info.rating || 0;
+    for (var i = 1; i <= 5; i++) { stars += (i <= Math.round(r)) ? '★' : '☆'; }
+    var annItems = (info.latest_announcements || []).slice(0, 3);
+
+    var html = '<div class="info-grid">' +
+      '<div class="info-item"><span class="info-label">景区名称</span><span class="info-value">' + (info.name||'--') + '</span></div>' +
+      '<div class="info-item"><span class="info-label">景区评分</span><span class="info-value"><span class="rating-stars">' + stars + '</span> ' + (info.rating||'--') + '</span></div>' +
+      '<div class="info-item"><span class="info-label">所在城市</span><span class="info-value">' + (info.city||'--') + ' ' + (info.district||'') + '</span></div>' +
+      '<div class="info-item"><span class="info-label">联系电话</span><span class="info-value">' + (info.phone||'--') + '</span></div>' +
+      '<div class="info-item"><span class="info-label">开放时间</span><span class="info-value">' + (info.open_time||'--') + ' ~ ' + (info.close_time||'--') + '</span></div>' +
+      '<div class="info-item"><span class="info-label">日限流量</span><span class="info-value">' + (info.daily_limit ? info.daily_limit.toLocaleString() : '--') + ' 人</span></div>' +
+      '<div class="info-item"><span class="info-label">票种数量</span><span class="info-value">' + ((info.ticket_types||[]).length) + ' 种</span></div>' +
+      '<div class="info-item"><span class="info-label">景区状态</span><span class="info-value">' + (info.is_active ? '<span class="tag tag-green">运营中</span>' : '<span class="tag tag-gray">已停用</span>') + '</span></div>' +
+    '</div>';
+
+    if (annItems.length) {
+      html += '<div style="margin-top:12px;font-size:12px;color:var(--text-muted);font-weight:600;">📢 最新公告</div>';
+      html += annItems.map(function(a) {
+        return '<div style="padding:6px 0;border-bottom:1px dashed var(--border);font-size:12px;">' +
+          catTag(a.category) + ' <b>' + (a.title||'') + '</b>' +
+          '<span style="color:var(--text-muted);margin-left:8px;">' + (a.published_at ? new Date(a.published_at).toLocaleDateString('zh-CN') : '') + '</span>' +
+        '</div>';
+      }).join('');
+    }
+
+    el.innerHTML = html;
+  }
+
+  function renderParkingOverview(data) {
+    var el = document.getElementById('parkingOverview');
+    var items = data.items || [];
+    if (!items.length) {
+      el.innerHTML = '<div class="empty">暂无停车数据</div>';
+      return;
+    }
+
+    var totalRecords = data.total || 0;
+    var activeParking = items.filter(function(r) { return r.status === 'parking'; }).length;
+    var today = new Date().toISOString().slice(0,10);
+    var todayRecords = items.filter(function(r) {
+      return r.checkin_time && String(r.checkin_time).slice(0,10) === today;
+    });
+    var todayRevenue = todayRecords.reduce(function(sum, r) { return sum + (r.total_fee || 0); }, 0);
+
+    var html = '<div class="stat-cards" style="grid-template-columns:1fr 1fr;gap:10px;">' +
+      '<div class="stat-card" style="padding:14px;">' +
+        '<div class="stat-icon gold">📋</div>' +
+        '<div class="stat-info"><div class="stat-value" style="font-size:20px;">' + totalRecords + '</div><div class="stat-label">停车记录总数</div></div>' +
+      '</div>' +
+      '<div class="stat-card" style="padding:14px;">' +
+        '<div class="stat-icon green">🅿️</div>' +
+        '<div class="stat-info"><div class="stat-value" style="font-size:20px;">' + activeParking + '</div><div class="stat-label">在场车辆</div></div>' +
+      '</div>' +
+      '<div class="stat-card" style="padding:14px;">' +
+        '<div class="stat-icon blue">🚗</div>' +
+        '<div class="stat-info"><div class="stat-value" style="font-size:20px;">' + todayRecords.length + '</div><div class="stat-label">今日停车记录</div></div>' +
+      '</div>' +
+      '<div class="stat-card" style="padding:14px;">' +
+        '<div class="stat-icon gold">¥</div>' +
+        '<div class="stat-info"><div class="stat-value" style="font-size:20px;">' + fmtMoney(todayRevenue) + '</div><div class="stat-label">今日停车收入</div></div>' +
+      '</div>' +
+    '</div>';
+
+    el.innerHTML = html;
+  }
+
+  async function loadDashboard() {
     try {
       var res = await fetch('/api/admin/dashboard/stats', { headers: headers });
       if (res.status === 401 || res.status === 403) {
@@ -101,12 +206,38 @@
         return v > 0 ? v + '张' : '';
       });
     } catch(e) {
-      document.getElementById('statCards').innerHTML = '<div class="loading" style="color:var(--error);">加载失败: ' + e.message + '</div>';
+      document.getElementById('statCards').innerHTML = '<div class="loading" style="color:var(--error);">核心数据加载失败: ' + e.message + '</div>';
+    }
+
+    // Load scenic info
+    try {
+      var scenicRes = await fetch('/api/scenic/info');
+      if (scenicRes.ok) {
+        var scenicData = await scenicRes.json();
+        renderScenicInfo(scenicData);
+      } else {
+        document.getElementById('scenicInfo').innerHTML = '<div class="empty">景区信息加载失败</div>';
+      }
+    } catch(e) {
+      document.getElementById('scenicInfo').innerHTML = '<div class="empty">景区信息加载失败: ' + e.message + '</div>';
+    }
+
+    // Load parking overview (admin all records)
+    try {
+      var parkRes = await fetch('/api/parking/records/all', { headers: headers });
+      if (parkRes.ok) {
+        var parkData = await parkRes.json();
+        renderParkingOverview(parkData);
+      } else {
+        document.getElementById('parkingOverview').innerHTML = '<div class="empty">停车数据加载失败</div>';
+      }
+    } catch(e) {
+      document.getElementById('parkingOverview').innerHTML = '<div class="empty">停车数据加载失败: ' + e.message + '</div>';
     }
   }
 
-  load();
-  setInterval(load, 30000);
+  loadDashboard();
+  setInterval(loadDashboard, 30000);
 })();
 </script>
 </body>
