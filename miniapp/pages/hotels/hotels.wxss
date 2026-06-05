@@ -3,6 +3,25 @@
   padding-bottom: 60rpx;
 }
 
+/* 酒店切换 */
+.hotel-tabs {
+  /* placeholder */
+}
+
+.hotel-tab {
+  padding: 12rpx 28rpx;
+  border-radius: 20rpx;
+  font-size: 26rpx;
+  white-space: nowrap;
+  background: #F5F0E8;
+  color: #8B7E6A;
+}
+
+.hotel-tab.active {
+  background: #c8a052;
+  color: #FFFFFF;
+}
+
 /* Tab 头部 */
 .tab-bar-header {
   display: flex;

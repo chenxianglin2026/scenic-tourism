@@ -8,10 +8,10 @@ const config = {
   // ═══════════════════════════════════════════
 
   /** API 基础地址 */
-  API_BASE: 'http://43.163.5.90:8001',
+  API_BASE: 'http://127.0.0.1:8000',
 
   /** 开发模式 */
-  DEV_MODE: false,
+  DEV_MODE: true,
 
   // ═══════════════════════════════════════════
   // 业务常量
@@ -27,16 +27,17 @@ const config = {
     annual:   { label: '年卡',    icon: '💳', desc: '全年不限次入园' },
   },
 
-  /** 门票时段 */
+  /** 门票时段（对应后端 VALID_TIME_SLOTS） */
   TIME_SLOTS: {
-    morning:   { label: '上午场', time: '08:00-12:00', desc: '上午入园' },
-    afternoon: { label: '下午场', time: '12:00-17:30', desc: '下午入园' },
-    allday:    { label: '全天',   time: '08:00-17:30', desc: '全天畅玩' },
+    slot_1:   { label: '上午场 (8-10点)',  time: '08:00-10:00', desc: '上午入园' },
+    slot_2:   { label: '上午场 (10-12点)', time: '10:00-12:00', desc: '上午入园' },
+    slot_3:   { label: '下午场 (12-14点)', time: '12:00-14:00', desc: '下午入园' },
+    slot_4:   { label: '下午场 (14-17点)', time: '14:00-17:00', desc: '下午入园' },
   },
 
   /** 订单状态 */
   ORDER_STATUS: {
-    unpaid:     { label: '待支付',   color: '#E8A838', bg: '#FFF8E8' },
+    pending:    { label: '待支付',   color: '#E8A838', bg: '#FFF8E8' },
     paid:       { label: '已支付',   color: '#5B8DEF', bg: '#EDF4FF' },
     verified:   { label: '已核销',   color: '#6BAA75', bg: '#F0FAF0' },
     refunded:   { label: '已退款',   color: '#C56C6C', bg: '#FFF0F0' },

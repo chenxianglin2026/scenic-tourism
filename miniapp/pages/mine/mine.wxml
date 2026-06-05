@@ -17,10 +17,10 @@
 
     <view wx:if="{{isLogin}}" class="flex-row" style="padding:30rpx;">
       <view class="user-avatar img-placeholder" style="width:120rpx;height:120rpx;border-radius:50%;flex-shrink:0;">
-        {{userInfo?.nickName || '👤'}}
+        {{userInfo?.nickname || '👤'}}
       </view>
       <view class="flex-1 ml-20">
-        <view class="text-lg text-bold text-dark">{{userInfo?.nickName || '游客'}}</view>
+        <view class="text-lg text-bold text-dark">{{userInfo?.nickname || '游客'}}</view>
         <view class="text-sm text-light mt-10">📱 {{phoneNumber || '未绑定手机'}}</view>
         <button
           wx:if="{{!phoneNumber}}"
@@ -66,13 +66,6 @@
       >
         客房订单
       </view>
-      <view
-        class="order-tab flex-1 {{activeTab==='etickets'?'active':''}}"
-        bindtap="onTabChange"
-        data-tab="etickets"
-      >
-        电子票
-      </view>
     </view>
 
     <!-- 票务订单 -->
@@ -80,9 +73,9 @@
       <view wx:if="{{loadingTickets}}" class="loading-text">加载中...</view>
       <view wx:for="{{ticketOrders}}" wx:key="id" class="order-item" bindtap="onOrderDetail" data-id="{{item.id}}">
         <view class="flex-between">
-          <view class="text-bold text-dark">{{item.ticket_type}}</view>
-          <view class="tag tag-{{item.status==='paid'?'green':item.status==='verified'?'gold':item.status==='unpaid'?'warm':'red'}}">
-            {{item.status==='paid'?'已支付':item.status==='verified'?'已核销':item.status==='unpaid'?'待支付':item.status==='refunded'?'已退款':'已过期'}}
+          <view class="text-bold text-dark">{{item.ticket_type_name}}</view>
+          <view class="tag {{item.status==='paid'?'tag-green':item.status==='verified'?'tag-gold':item.status==='pending'?'tag-warm':item.status==='refunded'?'tag-red':'tag-red'}}">
+            {{item.status==='paid'?'已支付':item.status==='verified'?'已核销':item.status==='pending'?'待支付':item.status==='refunded'?'已退款':item.status==='expired'?'已过期':'已取消'}}
           </view>
         </view>
         <view class="text-sm text-light mt-10">📅 {{item.visit_date}} | 🕐 {{item.time_slot}} | x{{item.quantity}}张</view>
@@ -102,39 +95,19 @@
       <view wx:for="{{hotelOrders}}" wx:key="id" class="order-item" bindtap="onOrderDetail" data-id="{{item.id}}">
         <view class="flex-between">
           <view class="text-bold text-dark">{{item.room_name}}</view>
-          <view class="tag tag-{{item.status==='paid'?'green':item.status==='unpaid'?'warm':'red'}}">
-            {{item.status==='paid'?'已支付':item.status==='unpaid'?'待支付':'已取消'}}
+          <view class="tag {{item.status==='paid'?'tag-green':item.status==='pending'?'tag-warm':item.status==='checked_in'?'tag-gold':'tag-red'}}">
+            {{item.status==='paid'?'已支付':item.status==='pending'?'待支付':item.status==='checked_in'?'已入住':'已完成'}}
           </view>
         </view>
-        <view class="text-sm text-light mt-10">📅 {{item.check_in}} → {{item.check_out}}</view>
+        <view class="text-sm text-light mt-10">📅 {{item.checkin_date || item.check_in}} → {{item.checkout_date || item.check_out}} ({{item.nights || 1}}晚)</view>
         <view class="flex-between mt-10">
-          <view class="text-sm text-light">👤 {{item.guest_name}}</view>
-          <view class="price">¥{{item.amount}}</view>
+          <view class="text-sm text-light">👤 {{item.guest_name}} | 📱 {{item.guest_phone}}</view>
+          <view class="price">¥{{item.total_price || item.amount}}</view>
         </view>
+        <view class="text-sm text-light mt-10">订单号: {{item.order_no}}</view>
       </view>
       <view wx:if="{{!loadingHotels && hotelOrders.length === 0}}" class="empty-state" style="padding:60rpx 0;">
         <view class="text">暂无客房订单</view>
-      </view>
-    </view>
-
-    <!-- 电子票 -->
-    <view wx:if="{{activeTab==='etickets'}}">
-      <view wx:if="{{loadingETickets}}" class="loading-text">加载中...</view>
-      <view wx:for="{{eTickets}}" wx:key="id" class="order-item" bindtap="onShowQR" data-id="{{item.id}}">
-        <view class="flex-between">
-          <view class="text-bold text-dark">{{item.ticket_type}} x{{item.quantity}}</view>
-          <view class="tag tag-{{item.status==='verified'?'gold':'green'}}">
-            {{item.status==='verified'?'已核销':'有效'}}
-          </view>
-        </view>
-        <view class="text-sm text-light mt-10">📅 {{item.visit_date}} | 🕐 {{item.time_slot}}</view>
-        <view class="flex-between mt-10">
-          <view class="text-sm text-light">订单号: {{item.order_no}}</view>
-          <view class="tag tag-gold" style="font-size:22rpx;">点击查看二维码</view>
-        </view>
-      </view>
-      <view wx:if="{{!loadingETickets && eTickets.length === 0}}" class="empty-state" style="padding:60rpx 0;">
-        <view class="text">暂无电子票</view>
       </view>
     </view>
   </view>

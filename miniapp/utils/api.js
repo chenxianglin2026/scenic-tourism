@@ -5,7 +5,7 @@
  */
 
 const { DEV_MODE } = require('./const')
-const BASE_URL = 'http://43.163.5.90:8001'
+const BASE_URL = 'http://127.0.0.1:8000'  // 本地开发; 生产环境改为 http://43.163.5.90:8000
 
 let isRefreshing = false
 let refreshQueue = []

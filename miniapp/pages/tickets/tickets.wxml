@@ -18,13 +18,13 @@
           data-id="{{item.id}}"
           data-price="{{item.price}}"
         >
-          <view class="ticket-type-icon">{{item.icon || '🎫'}}</view>
+          <view class="ticket-type-icon">{{item.category === 'adult' ? '🧑' : item.category === 'child' ? '👶' : item.category === 'senior' ? '👴' : item.category === 'student' ? '🎓' : item.category === 'family' ? '👨‍👩‍👧' : item.category === 'annual' ? '💳' : '🎫'}}</view>
           <view class="text-bold text-dark">{{item.name}}</view>
           <view class="price mt-10">
             <text class="price-symbol">¥</text>
             <text class="price-value">{{item.price}}</text>
           </view>
-          <view class="text-sm text-light mt-10">{{item.desc}}</view>
+          <view class="text-sm text-light mt-10">{{item.description || item.desc}}</view>
           <view wx:if="{{selectedType === item.id}}" class="ticket-check">✓</view>
         </view>
       </view>
@@ -36,9 +36,10 @@
       <view class="time-slot-row">
         <view
           wx:for="{{timeSlots}}" wx:key="id"
-          class="time-slot-item {{selectedSlot === item.id ? 'selected' : ''}}"
+          class="time-slot-item {{selectedSlot === item.time ? 'selected' : ''}}"
           bindtap="onSelectSlot"
           data-id="{{item.id}}"
+          data-time="{{item.time}}"
         >
           <view class="text-bold text-dark">{{item.label}}</view>
           <view class="text-sm text-light">{{item.time}}</view>
@@ -67,12 +68,15 @@
 
     <!-- 实名信息（可选） -->
     <view class="card">
-      <view class="text-bold text-dark mb-20">实名信息（选填）</view>
+      <view class="text-bold text-dark mb-20">购票人信息（选填）</view>
       <view class="form-item">
-        <input class="form-input" placeholder="姓名" value="{{realName}}" bindinput="onRealNameInput" />
+        <input class="form-input" placeholder="姓名" value="{{visitorName}}" bindinput="onVisitorNameInput" />
       </view>
       <view class="form-item mt-20">
-        <input class="form-input" placeholder="身份证号" value="{{idCard}}" bindinput="onIdCardInput" type="idcard" />
+        <input class="form-input" placeholder="手机号" value="{{visitorPhone}}" bindinput="onVisitorPhoneInput" type="number" />
+      </view>
+      <view class="form-item mt-20">
+        <input class="form-input" placeholder="身份证号" value="{{visitorIdCard}}" bindinput="onVisitorIdCardInput" type="idcard" />
       </view>
     </view>
 
@@ -105,11 +109,15 @@
       <view class="order-detail">
         <view class="flex-between mb-20">
           <text class="text-light">订单编号</text>
-          <text class="text-dark text-bold">{{currentOrder.orderNo}}</text>
+          <text class="text-dark text-bold">{{currentOrder.order_no}}</text>
         </view>
         <view class="flex-between mb-20">
           <text class="text-light">票种</text>
-          <text class="text-dark">{{currentOrder.ticket_type}}</text>
+          <text class="text-dark">{{currentOrder.ticket_type_name}}</text>
+        </view>
+        <view class="flex-between mb-20">
+          <text class="text-light">日期</text>
+          <text class="text-dark">{{currentOrder.visit_date}} {{currentOrder.time_slot}}</text>
         </view>
         <view class="flex-between mb-20">
           <text class="text-light">数量</text>
@@ -143,13 +151,14 @@
       <view class="qr-code img-placeholder" style="width:400rpx;height:400rpx;margin:0 auto;border-radius:16rpx;">
         <view style="text-align:center;">
           <view class="text-xl text-bold">电子票</view>
-          <view class="text-sm mt-20">{{currentOrder.orderNo}}</view>
-          <view class="text-sm mt-10">{{currentOrder.ticket_type}} x{{currentOrder.quantity}}</view>
+          <view class="text-sm mt-20">{{currentOrder.order_no}}</view>
+          <view class="text-sm mt-10">{{currentOrder.ticket_type_name}} x{{currentOrder.quantity}}</view>
+          <view class="text-sm mt-10 text-light">验票码: {{orderQR}}</view>
         </view>
       </view>
 
       <view class="mt-30" style="text-align:center;">
-        <view class="text-sm text-light">订单号: {{currentOrder.orderNo}}</view>
+        <view class="text-sm text-light">订单号: {{currentOrder.order_no}}</view>
         <view class="text-sm text-light mt-10">入园时请出示此二维码</view>
       </view>
 

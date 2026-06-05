@@ -1,8 +1,9 @@
 /**
  * 个人中心 - 订单 + 电子票 + 实名
+ * 对接后端: GET /api/auth/me, GET /api/tickets/orders, GET /api/hotels/orders
  */
 const api = require('../../utils/api')
-const { ORDER_STATUS } = require('../../utils/const')
+const { ORDER_STATUS, PAGE_SIZE } = require('../../utils/const')
 
 Page({
   data: {
@@ -15,16 +16,17 @@ Page({
     idCard: '',
     showRealNameModal: false,
     // Tab
-    activeTab: 'tickets', // 'tickets' | 'hotels' | 'etickets'
+    activeTab: 'tickets', // 'tickets' | 'hotels'
     // 票务订单
     ticketOrders: [],
     loadingTickets: false,
+    ticketsTotal: 0,
+    ticketsPage: 1,
     // 客房订单
     hotelOrders: [],
     loadingHotels: false,
-    // 电子票
-    eTickets: [],
-    loadingETickets: false
+    hotelsTotal: 0,
+    hotelsPage: 1,
   },
 
   onShow() {
@@ -47,6 +49,23 @@ Page({
 
     if (token) {
       this.loadTicketOrders()
+      // 加载用户信息
+      this.loadUserProfile()
+    }
+  },
+
+  // 加载用户信息
+  async loadUserProfile() {
+    try {
+      const user = await api.get('/api/auth/me')
+      const app = getApp()
+      app.globalData.userInfo = user
+      this.setData({
+        userInfo: user,
+        phoneNumber: user.phone || this.data.phoneNumber
+      })
+    } catch (err) {
+      // 忽略
     }
   },
 
@@ -96,56 +115,51 @@ Page({
       this.loadTicketOrders()
     } else if (tab === 'hotels' && this.data.hotelOrders.length === 0) {
       this.loadHotelOrders()
-    } else if (tab === 'etickets' && this.data.eTickets.length === 0) {
-      this.loadETickets()
     }
   },
 
-  // 加载票务订单
+  // 加载票务订单 → GET /api/tickets/orders
   async loadTicketOrders() {
     this.setData({ loadingTickets: true })
     try {
-      const orders = await api.get('/api/tickets/orders/my')
-      this.setData({ ticketOrders: orders, loadingTickets: false })
+      const res = await api.get('/api/tickets/orders', {
+        page: this.data.ticketsPage,
+        page_size: PAGE_SIZE
+      })
+      // 后端返回 {total, items}
+      const items = (res && res.items) ? res.items : (Array.isArray(res) ? res : [])
+      const total = (res && res.total) ? res.total : items.length
+      this.setData({ ticketOrders: items, ticketsTotal: total, loadingTickets: false })
     } catch (err) {
+      // mock 降级
       this.setData({
         ticketOrders: [
-          { id: 1, order_no: 'SC20260601001', ticket_type: '成人票', quantity: 2, total_price: 160, status: 'paid', visit_date: '2026-06-02', time_slot: '全天', create_time: '2026-06-01 10:30' },
-          { id: 2, order_no: 'SC20260528002', ticket_type: '家庭套票', quantity: 1, total_price: 180, status: 'verified', visit_date: '2026-05-29', time_slot: '上午场', create_time: '2026-05-28 15:20' }
+          { id: 1, order_no: 'SC20260601001', ticket_type_name: '成人票', quantity: 2, total_price: 160, status: 'paid', visit_date: '2026-06-02', time_slot: '08:00-10:00', created_at: '2026-06-01 10:30' },
+          { id: 2, order_no: 'SC20260528002', ticket_type_name: '家庭套票', quantity: 1, total_price: 180, status: 'verified', visit_date: '2026-05-29', time_slot: '08:00-10:00', created_at: '2026-05-28 15:20' }
         ],
         loadingTickets: false
       })
     }
   },
 
-  // 加载客房订单
+  // 加载客房订单 → GET /api/hotels/orders
   async loadHotelOrders() {
     this.setData({ loadingHotels: true })
     try {
-      const orders = await api.get('/api/hotels/orders/my')
-      this.setData({ hotelOrders: orders, loadingHotels: false })
+      const res = await api.get('/api/hotels/orders', {
+        page: this.data.hotelsPage,
+        page_size: PAGE_SIZE
+      })
+      const items = (res && res.items) ? res.items : (Array.isArray(res) ? res : [])
+      const total = (res && res.total) ? res.total : items.length
+      this.setData({ hotelOrders: items, hotelsTotal: total, loadingHotels: false })
     } catch (err) {
+      // mock 降级
       this.setData({
         hotelOrders: [
-          { id: 1, order_no: 'HT20260601001', room_name: '标准双人房', check_in: '2026-06-02', check_out: '2026-06-03', amount: 388, status: 'paid', guest_name: '张三' }
+          { id: 1, order_no: 'HT20260601001', room_name: '标准双人房', checkin_date: '2026-06-02', checkout_date: '2026-06-03', nights: 1, total_price: 388, status: 'paid', guest_name: '张三', guest_phone: '13800138001' }
         ],
         loadingHotels: false
-      })
-    }
-  },
-
-  // 加载电子票
-  async loadETickets() {
-    this.setData({ loadingETickets: true })
-    try {
-      const tickets = await api.get('/api/tickets/etickets/my')
-      this.setData({ eTickets: tickets, loadingETickets: false })
-    } catch (err) {
-      this.setData({
-        eTickets: [
-          { id: 1, order_no: 'SC20260528002', ticket_type: '家庭套票', quantity: 1, status: 'verified', visit_date: '2026-05-29', time_slot: '上午场', verify_time: '2026-05-29 09:15' }
-        ],
-        loadingETickets: false
       })
     }
   },
@@ -157,25 +171,16 @@ Page({
     const order = orders.find(o => o.id === id)
     if (!order) return
 
-    const info = order.order_no
-      ? `订单号: ${order.order_no}\n金额: ¥${order.total_price || order.amount}\n状态: ${ORDER_STATUS[order.status]?.label || order.status}`
-      : '暂无详情'
+    let content = ''
+    if (this.data.activeTab === 'tickets') {
+      content = `订单号: ${order.order_no}\n票种: ${order.ticket_type_name || ''}\n数量: ${order.quantity}张\n金额: ¥${order.total_price}\n日期: ${order.visit_date} ${order.time_slot || ''}\n状态: ${ORDER_STATUS[order.status]?.label || order.status}`
+    } else {
+      content = `订单号: ${order.order_no}\n房型: ${order.room_name || ''}\n入住: ${order.checkin_date || order.check_in}\n离店: ${order.checkout_date || order.check_out}\n晚数: ${order.nights || 1}晚\n金额: ¥${order.total_price || order.amount}\n住客: ${order.guest_name}\n状态: ${order.status}`
+    }
 
     wx.showModal({
       title: '订单详情',
-      content: info,
-      showCancel: false
-    })
-  },
-
-  // 显示电子票二维码
-  onShowQR(e) {
-    const { id } = e.currentTarget.dataset
-    const ticket = this.data.eTickets.find(t => t.id === id)
-    if (!ticket) return
-    wx.showModal({
-      title: '电子票',
-      content: `票种: ${ticket.ticket_type}\n数量: ${ticket.quantity}张\n订单号: ${ticket.order_no}\n入园日期: ${ticket.visit_date}\n核销时间: ${ticket.verify_time || '未核销'}`,
+      content,
       showCancel: false
     })
   },
