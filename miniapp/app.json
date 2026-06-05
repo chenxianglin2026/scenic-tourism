@@ -3,6 +3,8 @@
     "pages/index/index",
     "pages/tickets/tickets",
     "pages/hotels/hotels",
+    "pages/scenic/scenic",
+    "pages/parking/parking",
     "pages/mine/mine"
   ],
   "window": {

@@ -1,15 +1,15 @@
 <!--
-  首页: 景区介绍 + 快捷入口 + 公告
+  首页: 景区信息 + 快捷入口 + 公告 + 热门票种
   暖金色主题，适老化大字体
 -->
 
 <view class="page-container">
 
   <!-- 顶部 Banner -->
-  <swiper class="banner-swiper" indicator-dots autoplay circular>
+  <swiper class="banner-swiper" indicator-dots autoplay circular interval="4000">
     <swiper-item wx:for="{{banners}}" wx:key="id">
       <view class="banner-item img-placeholder">
-        {{scenic.name || '景区风景'}}
+        <view class="banner-text">{{item.title}}</view>
       </view>
     </swiper-item>
   </swiper>
@@ -19,14 +19,20 @@
     <view class="flex-row">
       <view class="scenic-icon">🏞️</view>
       <view class="flex-1 ml-10">
-        <view class="text-xl text-bold text-dark">{{scenic.name || '西湖风景名胜区'}}</view>
-        <view class="text-sm text-light mt-10">📍 {{scenic.address || '杭州市西湖区'}}</view>
-        <view class="text-sm text-light">🕐 {{scenic.openTime || '08:00-17:30'}}</view>
+        <view class="flex-row" style="align-items:baseline;">
+          <view class="text-xl text-bold text-dark">{{scenic.name || '泰山风景名胜区'}}</view>
+          <view class="tag tag-gold ml-10">5A景区</view>
+        </view>
+        <view class="flex-row mt-10" style="gap: 30rpx;">
+          <text class="text-sm text-light">⭐ {{scenic.rating || '4.8'}} 分</text>
+          <text class="text-sm text-light">🕐 {{scenic.openTime || '06:00-18:00'}}</text>
+        </view>
+        <view class="text-sm text-light mt-10">📍 {{scenic.address || '山东省泰安市'}}</view>
       </view>
     </view>
     <view class="flex-row mt-20" style="gap: 20rpx;">
       <view class="btn-primary flex-1" bindtap="onQuickEntry" data-type="scenic">
-        景区简介
+        景区详情
       </view>
       <view class="btn-outline flex-1" bindtap="onQuickEntry" data-type="tickets">
         立即购票
@@ -34,25 +40,25 @@
     </view>
   </view>
 
-  <!-- 快捷入口 -->
+  <!-- 快捷入口 4个: 购票/订房/导览/停车 -->
   <view class="quick-section">
     <view class="section-title text-lg text-bold text-dark">快捷服务</view>
     <view class="quick-grid">
       <view class="quick-item" bindtap="onQuickEntry" data-type="tickets">
         <view class="quick-icon">🎫</view>
-        <view class="quick-label">购买门票</view>
+        <view class="quick-label">景区购票</view>
       </view>
       <view class="quick-item" bindtap="onQuickEntry" data-type="hotels">
         <view class="quick-icon">🏨</view>
         <view class="quick-label">预订客房</view>
       </view>
-      <view class="quick-item" bindtap="onQuickEntry" data-type="mine">
-        <view class="quick-icon">🎟️</view>
-        <view class="quick-label">我的票据</view>
-      </view>
       <view class="quick-item" bindtap="onQuickEntry" data-type="scenic">
         <view class="quick-icon">🗺️</view>
         <view class="quick-label">景区导览</view>
+      </view>
+      <view class="quick-item" bindtap="onQuickEntry" data-type="parking">
+        <view class="quick-icon">🅿️</view>
+        <view class="quick-label">停车缴费</view>
       </view>
     </view>
   </view>
@@ -61,16 +67,15 @@
   <view class="card">
     <view class="flex-between mb-20">
       <view class="text-lg text-bold text-dark">📢 景区公告</view>
-      <view class="text-sm text-primary">全部 ></view>
     </view>
-    <view wx:if="{{notices.length === 0}}" class="empty-state">
+    <view wx:if="{{notices.length === 0}}" class="empty-state" style="padding: 40rpx 0;">
       <view class="text">暂无公告</view>
     </view>
-    <view wx:for="{{notices}}" wx:key="id" class="notice-item" bindtap="onNoticeTap" data-id="{{index}}">
+    <view wx:for="{{notices}}" wx:key="id" class="notice-item" bindtap="onNoticeTap" data-id="{{item.id}}">
       <view class="flex-row">
-        <view class="notice-dot"></view>
+        <view class="notice-dot {{item.category === 'emergency' ? 'notice-dot-red' : ''}}"></view>
         <view class="flex-1">
-          <view class="text-dark">{{item.title}}</view>
+          <view class="text-dark text-bold">{{item.title}}</view>
           <view class="text-sm text-light mt-10">{{item.time}}</view>
         </view>
       </view>

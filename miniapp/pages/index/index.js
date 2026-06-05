@@ -1,7 +1,6 @@
 /**
- * 首页 - 景区介绍 + 快捷入口 + 公告
- * 对接后端: GET /api/hotels, GET /api/tickets/types
- * 景区信息和公告为本地数据（后端暂无这些接口）
+ * 首页 - 景区介绍 + 快捷入口 + 公告 + 热门票种
+ * 对接后端: GET /api/scenic/info, /api/scenic/announcements, /api/tickets/types, /api/hotels
  */
 const api = require('../../utils/api')
 
@@ -11,11 +10,10 @@ Page({
     notices: [],
     tickets: [],
     hotels: [],
-    // 轮播图片
     banners: [
-      { id: 1, title: '西湖风景' },
-      { id: 2, title: '灵隐禅寺' },
-      { id: 3, title: '雷峰夕照' }
+      { id: 1, title: '泰山日出' },
+      { id: 2, title: '云海奇观' },
+      { id: 3, title: '古刹禅意' }
     ],
     loading: true
   },
@@ -35,27 +33,70 @@ Page({
 
   onPullDownRefresh() {
     Promise.all([
+      this.loadScenicInfo(),
+      this.loadNotices(),
       this.loadTickets(),
       this.loadHotels()
     ]).finally(() => wx.stopPullDownRefresh())
   },
 
-  // 加载景区信息（本地数据，后端暂无 /api/scenic/info）
-  loadScenicInfo() {
-    const app = getApp()
-    this.setData({ scenic: app.globalData.currentScenic, loading: false })
+  // 加载景区信息 → GET /api/scenic/info
+  async loadScenicInfo() {
+    try {
+      const data = await api.get('/api/scenic/info')
+      const scenic = {
+        id: data.id,
+        name: data.name || '泰山风景名胜区',
+        address: data.address || '',
+        phone: data.phone || '',
+        description: data.description || '',
+        openTime: (data.open_time && data.close_time)
+          ? `${data.open_time}-${data.close_time}`
+          : (data.open_time || '06:00-18:00'),
+        rating: data.rating || 4.8,
+        cover_image: data.cover_image || '',
+        lat: data.lat,
+        lng: data.lng
+      }
+      this.setData({ scenic, loading: false })
+    } catch (err) {
+      // 降级使用 app globalData
+      const app = getApp()
+      this.setData({
+        scenic: app.globalData.currentScenic || {
+          name: '泰山风景名胜区',
+          address: '山东省泰安市',
+          openTime: '06:00-18:00',
+          rating: 4.8
+        },
+        loading: false
+      })
+    }
   },
 
-  // 加载公告（本地数据）
-  loadNotices() {
-    // 后端暂无公告接口，使用本地 mock
-    this.setData({
-      notices: [
-        { id: 1, title: '端午节假期营业时间调整通知', time: '2026-06-05', content: '端午节期间正常营业，营业时间不变。' },
-        { id: 2, title: '西湖景区部分区域维护公告', time: '2026-05-20', content: '苏堤南段进行景观维护，请游客绕行。' },
-        { id: 3, title: '学生票优惠活动延长至8月底', time: '2026-05-01', content: '全日制学生凭学生证享受半价优惠。' }
-      ]
-    })
+  // 加载公告 → GET /api/scenic/announcements
+  async loadNotices() {
+    try {
+      const data = await api.get('/api/scenic/announcements')
+      const items = data.items || data || []
+      const notices = items.slice(0, 5).map(item => ({
+        id: item.id,
+        title: item.title,
+        time: item.published_at ? item.published_at.slice(0, 10) : '',
+        content: item.content || '',
+        category: item.category || 'notice'
+      }))
+      this.setData({ notices })
+    } catch (err) {
+      // mock 降级
+      this.setData({
+        notices: [
+          { id: 1, title: '端午节特惠活动通知', time: '2026-06-05', content: '端午节期间推出家庭套票优惠活动，两大一小仅需258元。' },
+          { id: 2, title: '南天门索道维护公告', time: '2026-05-20', content: '索道将于6月15日-17日暂停运营，请步行登山。' },
+          { id: 3, title: '夏季开放时间调整通知', time: '2026-05-01', content: '夏季运营时间调整为05:30-19:00。' }
+        ]
+      })
+    }
   },
 
   // 加载热门票种 → GET /api/tickets/types
@@ -63,7 +104,6 @@ Page({
     try {
       const spotId = getApp().globalData.currentScenic?.id || 1
       const types = await api.get('/api/tickets/types', { spot_id: spotId })
-      // 取前4个展示
       const tickets = (types || []).slice(0, 4).map(t => ({
         id: t.id,
         name: t.name,
@@ -72,13 +112,12 @@ Page({
       }))
       this.setData({ tickets })
     } catch (err) {
-      // mock 降级
       this.setData({
         tickets: [
-          { id: 1, name: '成人票', price: 80, label: '18-60周岁' },
-          { id: 2, name: '儿童票', price: 40, label: '6-18周岁' },
-          { id: 3, name: '老年票', price: 40, label: '60周岁以上' },
-          { id: 4, name: '家庭套票', price: 180, label: '2大1小' }
+          { id: 1, name: '成人票', price: 115, label: '18-59周岁' },
+          { id: 2, name: '儿童票', price: 57, label: '6-17周岁' },
+          { id: 3, name: '老人票', price: 57, label: '60周岁以上' },
+          { id: 4, name: '团体票', price: 90, label: '10人起订' }
         ]
       })
     }
@@ -89,26 +128,26 @@ Page({
     try {
       const spotId = getApp().globalData.currentScenic?.id || 1
       const hotels = await api.get('/api/hotels', { spot_id: spotId })
-      this.setData({ hotels: hotels || [] })
+      this.setData({ hotels: (hotels || []).slice(0, 3) })
     } catch (err) {
-      // mock 降级
       this.setData({
         hotels: [
-          { id: 1, name: '西湖大酒店', rating: 4.8, address: '杭州市西湖区' }
+          { id: 1, name: '泰山大酒店', rating: 4.8, address: '泰安市泰山区' }
         ]
       })
     }
   },
 
-  // 公告切换
+  // 公告展开详情
   onNoticeTap(e) {
     const { id } = e.currentTarget.dataset
-    const notice = this.data.notices[id]
+    const notice = this.data.notices.find(n => n.id == id)
     if (notice) {
       wx.showModal({
         title: notice.title,
         content: notice.content,
-        showCancel: false
+        showCancel: false,
+        confirmText: '我知道了'
       })
     }
   },
@@ -123,22 +162,17 @@ Page({
       case 'hotels':
         wx.switchTab({ url: '/pages/hotels/hotels' })
         break
-      case 'mine':
-        wx.switchTab({ url: '/pages/mine/mine' })
-        break
       case 'scenic':
-        wx.showModal({
-          title: this.data.scenic.name || '景区介绍',
-          content: this.data.scenic.description || '欢迎来到美丽的景区！',
-          showCancel: false
-        })
+        wx.navigateTo({ url: '/pages/scenic/scenic' })
+        break
+      case 'parking':
+        wx.navigateTo({ url: '/pages/parking/parking' })
         break
     }
   },
 
   // 购票跳转
   onBuyTicket(e) {
-    const { id } = e.currentTarget.dataset
     wx.switchTab({ url: '/pages/tickets/tickets' })
   }
 })

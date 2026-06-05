@@ -1,0 +1,86 @@
+<!--
+  景区介绍 + 导览地图
+  暖金色主题
+-->
+<view class="page-container">
+
+  <!-- 景区头图 -->
+  <view class="scenic-cover img-placeholder">
+    <view class="cover-text text-xl text-bold">{{scenic.name || '泰山风景名胜区'}}</view>
+    <view class="cover-rating mt-20">
+      <text class="text-lg">⭐ {{scenic.rating || '4.8'}}</text>
+      <text class="text-sm" style="color:#fff;opacity:0.7;">5A景区</text>
+    </view>
+  </view>
+
+  <!-- 景区信息卡片 -->
+  <view class="card scenic-info-card">
+    <view class="text-xl text-bold text-dark">{{scenic.name}}</view>
+
+    <view class="info-row mt-20">
+      <view class="info-item">
+        <text class="info-icon">🕐</text>
+        <text class="text-dark">{{scenic.openTime || '06:00'}} - {{scenic.closeTime || '18:00'}}</text>
+      </view>
+      <view class="info-item mt-10">
+        <text class="info-icon">📍</text>
+        <text class="text-dark">{{scenic.address}}</text>
+      </view>
+      <view class="info-item mt-10" wx:if="{{scenic.phone}}">
+        <text class="info-icon">📞</text>
+        <text class="text-primary" bindtap="onCall">{{scenic.phone}}</text>
+      </view>
+    </view>
+
+    <!-- 操作按钮 -->
+    <view class="flex-row mt-20" style="gap: 20rpx;">
+      <view class="btn-primary flex-1" bindtap="onNavigate">🗺️ 导航前往</view>
+      <view class="btn-outline flex-1" bindtap="onCall">📞 电话咨询</view>
+    </view>
+  </view>
+
+  <!-- 景区介绍 -->
+  <view class="card">
+    <view class="text-lg text-bold text-dark mb-20">📖 景区介绍</view>
+    <view class="text-dark" style="line-height:1.8;">{{scenic.description || '暂无介绍'}}</view>
+  </view>
+
+  <!-- 导览地图 - POI点位 -->
+  <view class="card">
+    <view class="text-lg text-bold text-dark mb-20">🗺️ 景点导览</view>
+
+    <!-- 分类筛选 -->
+    <scroll-view scroll-x class="category-scroll mb-20">
+      <view class="category-list">
+        <view
+          wx:for="{{poiCategories}}" wx:key="key"
+          class="category-item {{activeCategory === item.key ? 'active' : ''}}"
+          bindtap="onCategoryTap"
+          data-key="{{item.key}}"
+        >
+          <text>{{item.icon}} {{item.label}}</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- POI列表 -->
+    <view wx:if="{{pois.length === 0}}" class="empty-state" style="padding: 40rpx 0;">
+      <view class="text">暂无导览点位</view>
+    </view>
+
+    <view wx:for="{{pois}}" wx:key="id" wx:if="{{activeCategory === 'all' || item.category === activeCategory}}">
+      <view class="poi-item" bindtap="onPoiTap" data-id="{{item.id}}">
+        <view class="poi-icon">{{categoryIcons[item.category] || '📍'}}</view>
+        <view class="flex-1 ml-10">
+          <view class="text-bold text-dark">{{item.name}}</view>
+          <view class="text-sm text-light mt-10">{{item.description || '暂无描述'}}</view>
+        </view>
+        <view class="tag tag-warm text-sm">{{item.category === 'entrance' ? '入口' : item.category === 'viewpoint' ? '景点' : item.category === 'service' ? '服务' : item.category === 'restaurant' ? '餐饮' : item.category === 'shop' ? '商店' : item.category}}</view>
+      </view>
+      <view wx:if="{{index < pois.length - 1}}" class="divider"></view>
+    </view>
+  </view>
+
+  <view class="safe-bottom" style="height: 40rpx;"></view>
+
+</view>

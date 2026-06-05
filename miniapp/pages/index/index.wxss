@@ -14,6 +14,11 @@
   height: 100%;
 }
 
+.banner-text {
+  font-size: 40rpx;
+  color: #B0A492;
+}
+
 /* 景区卡片 */
 .scenic-card {
   margin-top: -40rpx;
@@ -74,6 +79,10 @@
   margin-right: 16rpx;
   margin-top: 10rpx;
   flex-shrink: 0;
+}
+
+.notice-dot-red {
+  background: #C56C6C;
 }
 
 /* 热门票种 */
