@@ -3,7 +3,7 @@
 景区介绍 / 公告 / 导览点位(POI)
 """
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -85,6 +85,45 @@ class PoiOut(BaseModel):
     is_active: bool
 
     model_config = {"from_attributes": True}
+
+
+class ScenicInfoUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=200)
+    address: Optional[str] = Field(None, max_length=500)
+    city: Optional[str] = Field(None, max_length=50)
+    district: Optional[str] = Field(None, max_length=50)
+    phone: Optional[str] = Field(None, max_length=20)
+    description: Optional[str] = None
+    cover_image: Optional[str] = None
+    images: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    open_time: Optional[str] = None
+    close_time: Optional[str] = None
+    daily_limit: Optional[int] = Field(None, ge=1)
+    rating: Optional[float] = Field(None, ge=0, le=5)
+    is_active: Optional[bool] = None
+
+
+class AnnouncementUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    content: Optional[str] = Field(None, min_length=1)
+    category: Optional[str] = Field(None, description="notice/event/maintenance/emergency")
+    priority: Optional[int] = Field(None, ge=0, le=2)
+    is_published: Optional[bool] = None
+    expires_at: Optional[datetime] = None
+
+
+class WeatherResponse(BaseModel):
+    spot_id: int
+    city: str
+    temperature: float
+    weather: str
+    humidity: int
+    wind: str
+    aqi: int
+    update_time: str
+    forecast: List[dict]
 
 
 # ── 辅助函数 ─────────────────────────────────────────
@@ -269,3 +308,158 @@ async def list_pois(
 
     result = await db.execute(q)
     return result.scalars().all()
+
+
+# ── 景区信息编辑 ─────────────────────────────────────
+@router.put("/info", response_model=ScenicInfoOut, summary="编辑景区信息（管理员）")
+async def update_scenic_info(
+    req: ScenicInfoUpdate,
+    spot_id: Optional[int] = Query(None, description="景区ID，不传则编辑第一个"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """管理员编辑景区信息"""
+    q = select(ScenicSpot).where(ScenicSpot.is_active == True)
+    if spot_id:
+        q = q.where(ScenicSpot.id == spot_id)
+    result = await db.execute(q)
+    spot = result.scalars().first()
+
+    if not spot:
+        raise HTTPException(status_code=404, detail="景区不存在")
+
+    # 只更新传入的非None字段
+    update_data = req.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(spot, key, value)
+
+    await db.flush()
+    await db.refresh(spot)
+
+    # 获取票种
+    tt_result = await db.execute(
+        select(TicketType).where(
+            TicketType.spot_id == spot.id,
+            TicketType.is_active == True,
+        ).order_by(TicketType.sort_order)
+    )
+    ticket_types = tt_result.scalars().all()
+
+    # 获取最新公告
+    ann_result = await db.execute(
+        select(Announcement).where(
+            Announcement.spot_id == spot.id,
+            Announcement.is_published == True,
+        ).order_by(Announcement.priority.desc(), Announcement.published_at.desc()).limit(5)
+    )
+    announcements = ann_result.scalars().all()
+
+    return ScenicInfoOut(
+        id=spot.id,
+        name=spot.name,
+        address=spot.address,
+        city=spot.city,
+        district=spot.district,
+        phone=spot.phone,
+        description=spot.description,
+        cover_image=spot.cover_image,
+        images=spot.images,
+        lat=spot.lat,
+        lng=spot.lng,
+        open_time=spot.open_time,
+        close_time=spot.close_time,
+        daily_limit=spot.daily_limit,
+        rating=spot.rating,
+        is_active=spot.is_active,
+        ticket_types=[
+            {
+                "id": tt.id,
+                "name": tt.name,
+                "category": tt.category,
+                "price": tt.price,
+                "original_price": tt.original_price,
+                "daily_stock": tt.daily_stock,
+                "description": tt.description,
+                "min_age": tt.min_age,
+                "max_age": tt.max_age,
+            }
+            for tt in ticket_types
+        ],
+        latest_announcements=[
+            {
+                "id": a.id,
+                "title": a.title,
+                "content": a.content,
+                "category": a.category,
+                "priority": a.priority,
+                "published_at": a.published_at.isoformat() if a.published_at else None,
+                "expires_at": a.expires_at.isoformat() if a.expires_at else None,
+            }
+            for a in announcements
+        ],
+    )
+
+
+# ── 公告编辑 ─────────────────────────────────────────
+@router.put("/announcements/{announcement_id}", response_model=AnnouncementOut, summary="编辑公告（管理员）")
+async def update_announcement(
+    announcement_id: int,
+    req: AnnouncementUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """管理员编辑景区公告"""
+    result = await db.execute(select(Announcement).where(Announcement.id == announcement_id))
+    announcement = result.scalar_one_or_none()
+    if not announcement:
+        raise HTTPException(status_code=404, detail="公告不存在")
+
+    update_data = req.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(announcement, key, value)
+
+    await db.flush()
+    await db.refresh(announcement)
+    return announcement
+
+
+# ── 景区天气 ─────────────────────────────────────────
+@router.get("/weather", response_model=WeatherResponse, summary="景区天气")
+async def scenic_weather(
+    spot_id: Optional[int] = Query(None, description="景区ID，不传则返回第一个景区天气"),
+    db: AsyncSession = Depends(get_db),
+):
+    """返回景区天气信息（mock数据，可对接公开天气API）"""
+    q = select(ScenicSpot).where(ScenicSpot.is_active == True)
+    if spot_id:
+        q = q.where(ScenicSpot.id == spot_id)
+    result = await db.execute(q)
+    spot = result.scalars().first()
+
+    if not spot:
+        raise HTTPException(status_code=404, detail="景区不存在")
+
+    # Mock weather data — 实际部署可对接和风天气/OpenWeather等公开API
+    import random
+    random.seed(spot.id)
+    temps = [18.5, 22.0, 25.5, 28.0, 30.5, 32.0, 26.0, 20.0]
+    weathers = ["晴", "多云", "阴", "小雨", "晴转多云", "多云转晴", "阴转多云", "晴"]
+    winds = ["微风", "东南风2级", "南风3级", "东北风2级", "西南风3级", "北风1级", "东风2级", "南风2级"]
+
+    return WeatherResponse(
+        spot_id=spot.id,
+        city=spot.city,
+        temperature=temps[spot.id % len(temps)],
+        weather=weathers[spot.id % len(weathers)],
+        humidity=random.randint(40, 85),
+        wind=winds[spot.id % len(winds)],
+        aqi=random.randint(30, 120),
+        update_time=datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+        forecast=[
+            {"date": (date.today() + timedelta(days=d)).isoformat(),
+             "weather": weathers[(spot.id + d) % len(weathers)],
+             "temp_high": temps[(spot.id + d) % len(temps)] + 5,
+             "temp_low": temps[(spot.id + d) % len(temps)] - 5}
+            for d in range(3)
+        ],
+    )

@@ -243,12 +243,24 @@ async def create_ticket_order(
 
 
 async def _enrich_order(order: TicketOrder, db: AsyncSession) -> TicketOrderOut:
-    """填充订单的关联名称"""
+    """填充订单的关联名称（避免SQLAlchemy async lazy-loading）"""
     data = TicketOrderOut.model_validate(order)
-    if order.ticket_type:
-        data.ticket_type_name = order.ticket_type.name
-    if order.spot:
-        data.spot_name = order.spot.name
+    # Query ticket_type name from identity map instead of lazy-loading
+    if order.ticket_type_id:
+        tt_result = await db.execute(
+            select(TicketType.name).where(TicketType.id == order.ticket_type_id)
+        )
+        tt_name = tt_result.scalar_one_or_none()
+        if tt_name:
+            data.ticket_type_name = tt_name
+    # Query spot name explicitly
+    if order.spot_id:
+        spot_result = await db.execute(
+            select(ScenicSpot.name).where(ScenicSpot.id == order.spot_id)
+        )
+        spot_name = spot_result.scalar_one_or_none()
+        if spot_name:
+            data.spot_name = spot_name
     return data
 
 

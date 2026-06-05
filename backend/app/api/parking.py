@@ -71,6 +71,20 @@ class ParkingRecordListResponse(BaseModel):
     items: List[ParkingRecordOut]
 
 
+class ParkingRateUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    vehicle_type: Optional[str] = None
+    first_hour_price: Optional[float] = Field(None, ge=0)
+    additional_hour_price: Optional[float] = Field(None, ge=0)
+    daily_cap: Optional[float] = Field(None, ge=0)
+    free_minutes: Optional[int] = Field(None, ge=0)
+    total_spots: Optional[int] = Field(None, ge=0)
+    available_spots: Optional[int] = Field(None, ge=0)
+    open_time: Optional[str] = None
+    close_time: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class ParkingCheckinResponse(BaseModel):
     success: bool
     message: str
@@ -128,6 +142,28 @@ async def list_parking_rates(
         q = q.where(ParkingRate.spot_id == spot_id)
     result = await db.execute(q)
     return result.scalars().all()
+
+
+@router.put("/rates/{rate_id}", response_model=ParkingRateOut, summary="编辑停车费率（管理员）")
+async def update_parking_rate(
+    rate_id: int,
+    req: ParkingRateUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """管理员编辑停车费率配置"""
+    result = await db.execute(select(ParkingRate).where(ParkingRate.id == rate_id))
+    rate = result.scalar_one_or_none()
+    if not rate:
+        raise HTTPException(status_code=404, detail="停车场费率不存在")
+
+    update_data = req.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(rate, key, value)
+
+    await db.flush()
+    await db.refresh(rate)
+    return rate
 
 
 # ── 停车入场 ─────────────────────────────────────────
