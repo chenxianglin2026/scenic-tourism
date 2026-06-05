@@ -1,6 +1,8 @@
 {
   "usingComponents": {},
   "navigationBarTitleText": "景区首页",
+  "navigationBarBackgroundColor": "#c8a052",
+  "navigationBarTextStyle": "white",
   "enablePullDownRefresh": true,
   "backgroundColor": "#FAF7F2"
 }

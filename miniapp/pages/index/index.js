@@ -11,9 +11,9 @@ Page({
     tickets: [],
     hotels: [],
     banners: [
-      { id: 1, title: '泰山日出' },
-      { id: 2, title: '云海奇观' },
-      { id: 3, title: '古刹禅意' }
+      { id: 1, title: '泰山日出', subtitle: '登泰山而小天下' },
+      { id: 2, title: '云海奇观', subtitle: '仙境般的云海日出' },
+      { id: 3, title: '古刹禅意', subtitle: '千年文化底蕴' }
     ],
     loading: true
   },

@@ -6,10 +6,13 @@
 <view class="page-container">
 
   <!-- 顶部 Banner -->
-  <swiper class="banner-swiper" indicator-dots autoplay circular interval="4000">
+  <swiper class="banner-swiper" indicator-dots autoplay circular interval="4000" indicator-color="rgba(255,255,255,0.4)" indicator-active-color="#c8a052">
     <swiper-item wx:for="{{banners}}" wx:key="id">
       <view class="banner-item img-placeholder">
-        <view class="banner-text">{{item.title}}</view>
+        <view class="banner-gradient">
+          <view class="banner-text">{{item.title}}</view>
+          <view class="banner-sub">{{item.subtitle || '欢迎来到景区智慧管理系统'}}</view>
+        </view>
       </view>
     </swiper-item>
   </swiper>
