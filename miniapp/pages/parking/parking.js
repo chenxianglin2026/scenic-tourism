@@ -229,15 +229,39 @@ Page({
   startTimer() {
     const checkinTime = new Date(this.data.currentRecord.checkinTime).getTime()
     const timer = setInterval(() => {
-      const diff = Math.floor((Date.now() - checkinTime) / 1000)
+      const now = Date.now()
+      const diff = Math.floor((now - checkinTime) / 1000)
       const h = Math.floor(diff / 3600)
       const m = Math.floor((diff % 3600) / 60)
       const s = diff % 60
+      // 计算实时预估费用
+      const estimatedFee = this._calcEstimatedFee(checkinTime, now)
       this.setData({
-        elapsed: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+        elapsed: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
+        'currentRecord.estimatedFee': estimatedFee.toFixed(2)
       })
     }, 1000)
     this.setData({ timer })
+  },
+
+  // 计算实时预估费用
+  _calcEstimatedFee(checkinTimeMs, nowMs) {
+    const { selectedLot } = this.data
+    if (!selectedLot) return 0
+    const diffMinutes = Math.floor((nowMs - checkinTimeMs) / 60000)
+    // 免费时段
+    if (diffMinutes <= (selectedLot.freeMinutes || 0)) return 0
+    const chargeMinutes = diffMinutes - (selectedLot.freeMinutes || 0)
+    const hours = Math.ceil(chargeMinutes / 60)
+    let fee = 0
+    if (hours <= 1) {
+      fee = selectedLot.firstHourPrice || 0
+    } else {
+      fee = (selectedLot.firstHourPrice || 0) + (hours - 1) * (selectedLot.additionalHourPrice || 0)
+    }
+    // 日封顶
+    if (fee > (selectedLot.dailyCap || 999)) fee = selectedLot.dailyCap || 0
+    return fee
   },
 
   // 停止计时器

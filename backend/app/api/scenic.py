@@ -758,7 +758,10 @@ async def scenic_weather(
     spot_id: Optional[int] = Query(None, description="景区ID，不传则返回第一个景区天气"),
     db: AsyncSession = Depends(get_db),
 ):
-    """返回景区天气信息（mock数据，可对接公开天气API）"""
+    """返回景区天气信息（优先读取缓存，缓存不存在时生成mock数据）"""
+    from app.db import WeatherCache
+    import json as _json
+
     q = select(ScenicSpot).where(ScenicSpot.is_active == True)
     if spot_id:
         q = q.where(ScenicSpot.id == spot_id)
@@ -767,6 +770,32 @@ async def scenic_weather(
 
     if not spot:
         raise HTTPException(status_code=404, detail="景区不存在")
+
+    # 尝试读取缓存
+    cache_result = await db.execute(
+        select(WeatherCache).where(WeatherCache.spot_id == spot.id)
+    )
+    cache = cache_result.scalar_one_or_none()
+
+    if cache:
+        forecast = []
+        if cache.forecast_json:
+            try:
+                forecast = _json.loads(cache.forecast_json)
+            except (_json.JSONDecodeError, TypeError):
+                pass
+
+        return WeatherResponse(
+            spot_id=spot.id,
+            city=cache.city,
+            temperature=cache.temperature,
+            weather=cache.weather,
+            humidity=cache.humidity,
+            wind=cache.wind,
+            aqi=cache.aqi,
+            update_time=cache.updated_at.strftime("%Y-%m-%d %H:%M:%S") if cache.updated_at else "",
+            forecast=forecast if forecast else [],
+        )
 
     # Mock weather data — 实际部署可对接和风天气/OpenWeather等公开API
     import random
@@ -791,4 +820,85 @@ async def scenic_weather(
              "temp_low": temps[(spot.id + d) % len(temps)] - 5}
             for d in range(3)
         ],
+    )
+
+
+# ── 刷新天气缓存 ─────────────────────────────────────
+@router.post("/weather/refresh", response_model=WeatherResponse, summary="刷新天气缓存（管理员）")
+async def refresh_weather(
+    spot_id: Optional[int] = Query(None, description="景区ID，不传则刷新第一个景区"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """管理员手动刷新景区天气缓存"""
+    from app.db import WeatherCache
+    import json as _json
+
+    q = select(ScenicSpot).where(ScenicSpot.is_active == True)
+    if spot_id:
+        q = q.where(ScenicSpot.id == spot_id)
+    result = await db.execute(q)
+    spot = result.scalars().first()
+
+    if not spot:
+        raise HTTPException(status_code=404, detail="景区不存在")
+
+    import random
+    random.seed(spot.id + random.randint(1, 1000))
+    temps = [18.5, 22.0, 25.5, 28.0, 30.5, 32.0, 26.0, 20.0]
+    weathers = ["晴", "多云", "阴", "小雨", "晴转多云", "多云转晴", "阴转多云", "晴"]
+    winds = ["微风", "东南风2级", "南风3级", "东北风2级", "西南风3级", "北风1级", "东风2级", "南风2级"]
+
+    temperature = temps[spot.id % len(temps)]
+    weather_str = weathers[spot.id % len(weathers)]
+    humidity_val = random.randint(40, 85)
+    wind_str = winds[spot.id % len(winds)]
+    aqi_val = random.randint(30, 120)
+    now = datetime.utcnow()
+
+    forecast = [
+        {"date": (date.today() + timedelta(days=d)).isoformat(),
+         "weather": weathers[(spot.id + d) % len(weathers)],
+         "temp_high": temps[(spot.id + d) % len(temps)] + 5,
+         "temp_low": temps[(spot.id + d) % len(temps)] - 5}
+        for d in range(3)
+    ]
+
+    # 更新或创建缓存
+    cache_result = await db.execute(
+        select(WeatherCache).where(WeatherCache.spot_id == spot.id)
+    )
+    cache = cache_result.scalar_one_or_none()
+    if cache:
+        cache.temperature = temperature
+        cache.weather = weather_str
+        cache.humidity = humidity_val
+        cache.wind = wind_str
+        cache.aqi = aqi_val
+        cache.forecast_json = _json.dumps(forecast, ensure_ascii=False)
+        cache.updated_at = now
+    else:
+        cache = WeatherCache(
+            spot_id=spot.id,
+            city=spot.city,
+            temperature=temperature,
+            weather=weather_str,
+            humidity=humidity_val,
+            wind=wind_str,
+            aqi=aqi_val,
+            forecast_json=_json.dumps(forecast, ensure_ascii=False),
+        )
+        db.add(cache)
+    await db.flush()
+
+    return WeatherResponse(
+        spot_id=spot.id,
+        city=spot.city,
+        temperature=temperature,
+        weather=weather_str,
+        humidity=humidity_val,
+        wind=wind_str,
+        aqi=aqi_val,
+        update_time=now.strftime("%Y-%m-%d %H:%M:%S"),
+        forecast=forecast,
     )

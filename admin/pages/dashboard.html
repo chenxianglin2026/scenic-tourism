@@ -52,6 +52,14 @@
 <body>
 <div class="page">
 
+  <!-- Breadcrumb -->
+  <div class="breadcrumb-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text-muted);">
+    <span style="color:var(--gold-dark);">🏠 首页</span>
+    <span>/</span>
+    <span style="color:var(--text-primary);font-weight:600;">数据看板</span>
+    <span style="margin-left:auto;font-size:14px;color:var(--text-primary);font-weight:600;" id="dashboardClock">--</span>
+  </div>
+
   <!-- Stat Cards -->
   <div class="stat-cards" id="statCards">
     <div class="loading">加载中...</div>
@@ -429,6 +437,21 @@
   loadDashboardExtended();
   setInterval(loadDashboard, 30000);
   setInterval(loadDashboardExtended, 60000);
+
+  // Real-time clock
+  function updateClock() {
+    var now = new Date();
+    var str = now.getFullYear() + '年' +
+      (now.getMonth()+1) + '月' +
+      now.getDate() + '日 ' +
+      String(now.getHours()).padStart(2,'0') + ':' +
+      String(now.getMinutes()).padStart(2,'0') + ':' +
+      String(now.getSeconds()).padStart(2,'0');
+    var el = document.getElementById('dashboardClock');
+    if (el) el.textContent = str;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
 })();
 </script>
 </body>

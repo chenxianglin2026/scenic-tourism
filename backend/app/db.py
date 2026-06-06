@@ -385,6 +385,23 @@ class PaymentRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+# ── 天气缓存模型 ────────────────────────────────────
+class WeatherCache(Base):
+    """景区天气缓存表"""
+    __tablename__ = "weather_cache"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    spot_id: Mapped[int] = mapped_column(ForeignKey("scenic_spots.id", ondelete="CASCADE"), unique=True, index=True)
+    city: Mapped[str] = mapped_column(String(50))
+    temperature: Mapped[float] = mapped_column(Float, comment="当前温度(℃)")
+    weather: Mapped[str] = mapped_column(String(50), comment="天气状况:晴/多云/阴/小雨等")
+    humidity: Mapped[int] = mapped_column(Integer, comment="湿度(%)")
+    wind: Mapped[str] = mapped_column(String(50), comment="风力描述")
+    aqi: Mapped[int] = mapped_column(Integer, comment="空气质量指数")
+    forecast_json: Mapped[Optional[str]] = mapped_column(Text, comment="3天预报 JSON")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 # ── 引擎 & 会话工厂 ──────────────────────────────────
 _async_engine = None
 _async_session_factory = None

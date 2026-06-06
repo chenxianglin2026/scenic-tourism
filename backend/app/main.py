@@ -72,6 +72,8 @@ async def root():
             "scenic_reviews": "GET /api/scenic/reviews — 游客评价(评分+评论+图片)",
             "parking_rates_post": "POST /api/parking/rates — 管理员添加停车费率",
             "dashboard_revenue": "GET /api/dashboard/revenue — 营收报表(按日/周/月)",
+            "weather_refresh": "POST /api/scenic/weather/refresh — 管理员刷新天气缓存",
+            "dashboard_overview": "GET /api/dashboard/overview — 综合总览(门票+酒店+停车+评价)",
         },
         "docs": "/docs",
     }

@@ -17,7 +17,7 @@ from app.config import settings
 from app.db import (
     Base, User, ScenicSpot, TicketType, Hotel, Room,
     TicketOrder, TicketOrderStatus, HotelOrder, HotelOrderStatus, PaymentRecord,
-    Announcement, Poi, ParkingRate, ParkingRecord, NearbyPoint, Review
+    Announcement, Poi, ParkingRate, ParkingRecord, NearbyPoint, Review, WeatherCache
 )
 from app.api.auth import hash_password
 
@@ -285,6 +285,7 @@ def seed():
                     {"user_idx": 2, "spot_idx": 0, "rating": 3, "visit_offset": -10,
                      "content": "泰山文化底蕴没得说，但基础设施需要改善。厕所排队太久，部分台阶破损。山顶物价确实贵，一碗泡面40块。不过日出还是很震撼的。", "images": "[]"},
                 ],
+                "weather": {"temperature": 22.5, "weather": "晴转多云", "humidity": 55, "wind": "南风3级", "aqi": 65},
             },
             # ── 西湖 ──
             {
@@ -459,6 +460,7 @@ def seed():
                     {"user_idx": 1, "spot_idx": 1, "rating": 3, "visit_offset": -12,
                      "content": "西湖很美但节假日体验太差了。到处人挤人，断桥上都走不动。停车更是难上加难，绕了半小时都没找到车位。建议避开黄金周。非节假日还是很值得来的。", "images": "[]"},
                 ],
+                "weather": {"temperature": 28.0, "weather": "多云", "humidity": 70, "wind": "东南风2级", "aqi": 45},
             },
             # ── 黄山 ──
             {
@@ -639,6 +641,7 @@ def seed():
                     {"user_idx": 0, "spot_idx": 2, "rating": 3, "visit_offset": -15,
                      "content": "风景确实好，但人太多了！莲花峰排队将近两小时。希望景区能加强限流管理。另外山上物价偏高，一瓶水25元有点离谱。建议自备干粮。", "images": "[]"},
                 ],
+                "weather": {"temperature": 18.0, "weather": "阴转多云", "humidity": 80, "wind": "东北风3级", "aqi": 35},
             },
         ]
 
@@ -752,6 +755,30 @@ def seed():
             session.flush()
             if review_count:
                 print(f"    ✍️  游客评价: {review_count} 条")
+
+            # ── 天气缓存 ──
+            weather_cfg = spot_cfg.get("weather", {})
+            if weather_cfg:
+                import json as _json
+                forecast_data = [
+                    {"date": (_future_date(d) if d >= 0 else _past_date(abs(d))).isoformat(),
+                     "weather": weather_cfg["weather"],
+                     "temp_high": weather_cfg["temperature"] + 5,
+                     "temp_low": weather_cfg["temperature"] - 5}
+                    for d in range(3)
+                ]
+                wc = WeatherCache(
+                    spot_id=spot.id,
+                    city=spot.city,
+                    temperature=weather_cfg["temperature"],
+                    weather=weather_cfg["weather"],
+                    humidity=weather_cfg["humidity"],
+                    wind=weather_cfg["wind"],
+                    aqi=weather_cfg["aqi"],
+                    forecast_json=_json.dumps(forecast_data, ensure_ascii=False),
+                )
+                session.add(wc)
+                print(f"    🌤️  天气缓存: {weather_cfg['weather']} {weather_cfg['temperature']}℃")
 
             # ── 票务订单 ──
             spot_ticket_orders = []
@@ -918,6 +945,7 @@ def seed():
         pay_count = session.scalar(select(func.count(PaymentRecord.id)))
         np_count = session.scalar(select(func.count(NearbyPoint.id)))
         rv_count = session.scalar(select(func.count(Review.id)))
+        wc_count = session.scalar(select(func.count(WeatherCache.id)))
 
         print(f"  用户: {user_count}")
         print(f"  景区: {spot_count}")
@@ -933,6 +961,7 @@ def seed():
         print(f"  支付记录: {pay_count}")
         print(f"  附近推荐: {np_count}")
         print(f"  游客评价: {rv_count}")
+        print(f"  天气缓存: {wc_count}")
 
         # 按状态统计票务订单
         print("\n  票务订单状态分布:")

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import (
     get_db, User, ScenicSpot, TicketType, TicketOrder, TicketOrderStatus,
-    Hotel, Room, HotelOrder, HotelOrderStatus, ParkingRate, ParkingRecord, PaymentRecord
+    Hotel, Room, HotelOrder, HotelOrderStatus, ParkingRate, ParkingRecord, PaymentRecord, Review
 )
 from app.api.auth import get_current_user, require_admin
 
@@ -371,4 +371,144 @@ async def revenue_report(
             "total_revenue": grand_total,
         },
         "items": pivot,
+    })
+
+
+# ── 总览 API ─────────────────────────────────────────
+
+class OverviewResponse(BaseModel):
+    code: int = 0
+    msg: str = "ok"
+    data: dict = {}
+
+
+@router.get("/overview", response_model=OverviewResponse, summary="综合总览（门票+酒店+停车+评价）")
+async def dashboard_overview(
+    spot_id: Optional[int] = Query(None, description="景区ID"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """综合总览：门票统计+酒店统计+停车统计+评价统计"""
+    today = date.today()
+    today_start = datetime(today.year, today.month, today.day)
+    today_end = today_start + timedelta(days=1)
+
+    # 景区过滤
+    spot_ids = []
+    if spot_id:
+        result = await db.execute(select(ScenicSpot).where(ScenicSpot.id == spot_id, ScenicSpot.is_active == True))
+        spot = result.scalar_one_or_none()
+        if not spot:
+            raise HTTPException(404, "景区不存在")
+        spot_ids = [spot.id]
+    else:
+        result = await db.execute(select(ScenicSpot).where(ScenicSpot.is_active == True))
+        spots = result.scalars().all()
+        spot_ids = [s.id for s in spots]
+
+    # ── 门票统计 ──
+    tickets_sold = await db.execute(
+        select(func.coalesce(func.sum(TicketOrder.quantity), 0)).where(
+            TicketOrder.spot_id.in_(spot_ids) if spot_ids else True,
+            TicketOrder.created_at >= today_start,
+            TicketOrder.created_at < today_end,
+            TicketOrder.status.in_([TicketOrderStatus.PAID, TicketOrderStatus.VERIFIED]),
+        )
+    )
+    tickets_sold_today = int(tickets_sold.scalar() or 0)
+
+    ticket_rev = await db.execute(
+        select(func.coalesce(func.sum(TicketOrder.total_price), 0.0)).where(
+            TicketOrder.spot_id.in_(spot_ids) if spot_ids else True,
+            TicketOrder.created_at >= today_start,
+            TicketOrder.created_at < today_end,
+            TicketOrder.status.in_([TicketOrderStatus.PAID, TicketOrderStatus.VERIFIED]),
+        )
+    )
+    ticket_revenue_today = round(float(ticket_rev.scalar() or 0), 2)
+
+    # ── 酒店统计 ──
+    hotel_count = await db.execute(
+        select(func.count(Hotel.id)).where(
+            Hotel.is_active == True,
+            Hotel.spot_id.in_(spot_ids) if spot_ids else True,
+        )
+    )
+    total_hotels = hotel_count.scalar() or 0
+
+    hotel_rev = await db.execute(
+        select(func.coalesce(func.sum(HotelOrder.total_price), 0.0)).where(
+            HotelOrder.created_at >= today_start,
+            HotelOrder.created_at < today_end,
+            HotelOrder.status.in_([HotelOrderStatus.PAID, HotelOrderStatus.CHECKED_IN, HotelOrderStatus.COMPLETED]),
+        )
+    )
+    hotel_revenue_today = round(float(hotel_rev.scalar() or 0), 2)
+
+    # ── 停车统计 ──
+    parking_rev = await db.execute(
+        select(func.coalesce(func.sum(ParkingRecord.total_fee), 0.0)).where(
+            ParkingRecord.pay_status == "paid",
+            ParkingRecord.paid_at >= today_start,
+            ParkingRecord.paid_at < today_end,
+        )
+    )
+    parking_revenue_today = round(float(parking_rev.scalar() or 0), 2)
+
+    parking_active = await db.execute(
+        select(func.count(ParkingRecord.id)).where(
+            ParkingRecord.status == "parking",
+        )
+    )
+    parking_active_count = parking_active.scalar() or 0
+
+    # ── 评价统计 ──
+    review_count = await db.execute(
+        select(func.count(Review.id)).where(
+            Review.is_approved == True,
+            Review.spot_id.in_(spot_ids) if spot_ids else True,
+        )
+    )
+    total_reviews = review_count.scalar() or 0
+
+    review_avg = await db.execute(
+        select(func.avg(Review.rating)).where(
+            Review.is_approved == True,
+            Review.spot_id.in_(spot_ids) if spot_ids else True,
+        )
+    )
+    avg_rating = round(float(review_avg.scalar() or 0), 2)
+
+    # 评价分布
+    review_dist = {}
+    for r_val in range(1, 6):
+        cnt = await db.execute(
+            select(func.count(Review.id)).where(
+                Review.is_approved == True,
+                Review.rating == r_val,
+                Review.spot_id.in_(spot_ids) if spot_ids else True,
+            )
+        )
+        review_dist[str(r_val)] = cnt.scalar() or 0
+
+    return OverviewResponse(data={
+        "spot_id": spot_id,
+        "tickets": {
+            "sold_today": tickets_sold_today,
+            "revenue_today": ticket_revenue_today,
+        },
+        "hotels": {
+            "total": total_hotels,
+            "revenue_today": hotel_revenue_today,
+        },
+        "parking": {
+            "revenue_today": parking_revenue_today,
+            "active_vehicles": parking_active_count,
+        },
+        "reviews": {
+            "total": total_reviews,
+            "avg_rating": avg_rating,
+            "distribution": review_dist,
+        },
+        "total_revenue_today": round(ticket_revenue_today + hotel_revenue_today + parking_revenue_today, 2),
     })

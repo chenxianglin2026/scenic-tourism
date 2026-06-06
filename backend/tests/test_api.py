@@ -770,3 +770,98 @@ class TestPaymentNotify:
         })
         # 回调不需要鉴权，找不到订单时返回404
         assert resp.status_code in (200, 404)
+
+
+class TestNewEndpoints:
+    """新API端点测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    # ── Weather Refresh ──
+    async def test_weather_refresh_no_auth(self, client):
+        resp = await client.post("/api/scenic/weather/refresh")
+        assert resp.status_code == 401
+
+    async def test_weather_refresh_as_admin(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/scenic/weather/refresh",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "temperature" in data
+        assert "weather" in data
+        assert "forecast" in data
+        assert "update_time" in data
+
+    async def test_weather_refresh_with_spot_id(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/scenic/weather/refresh?spot_id=1",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["spot_id"] == 1
+
+    async def test_weather_refresh_invalid_spot(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/scenic/weather/refresh?spot_id=9999",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    # ── Dashboard Overview ──
+    async def test_dashboard_overview_no_auth(self, client):
+        resp = await client.get("/api/dashboard/overview")
+        assert resp.status_code == 401
+
+    async def test_dashboard_overview_as_admin(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/dashboard/overview",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert "tickets" in data
+        assert "hotels" in data
+        assert "parking" in data
+        assert "reviews" in data
+        assert "total_revenue_today" in data
+        assert "sold_today" in data["tickets"]
+        assert "revenue_today" in data["tickets"]
+        assert "avg_rating" in data["reviews"]
+        assert "distribution" in data["reviews"]
+
+    async def test_dashboard_overview_with_spot_id(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/dashboard/overview?spot_id=1",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["spot_id"] == 1
+
+    async def test_guest_cannot_access_overview(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.get(
+            "/api/dashboard/overview",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_guest_cannot_refresh_weather(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/scenic/weather/refresh",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
