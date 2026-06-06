@@ -41,6 +41,16 @@
       </div>
 
       <div class="nav-group">
+        <div class="nav-group-title">游客服务</div>
+        <div class="nav-item" data-page="pages/nearby.html" data-title="附近推荐">
+          <span class="nav-icon">📍</span> 附近推荐
+        </div>
+        <div class="nav-item" data-page="pages/reviews.html" data-title="游客评价">
+          <span class="nav-icon">💬</span> 游客评价
+        </div>
+      </div>
+
+      <div class="nav-group">
         <div class="nav-group-title">系统</div>
         <div class="nav-item" id="logoutBtn" data-title="退出登录">
           <span class="nav-icon">🚪</span> 退出登录
@@ -113,8 +123,10 @@
 
   // Logout
   document.getElementById('logoutBtn').addEventListener('click', function() {
-    localStorage.removeItem('scenic_token');
-    location.href = 'pages/login.html';
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem('scenic_token');
+      location.href = 'pages/login.html';
+    }
   });
 
   // Expose token helper for iframe pages
