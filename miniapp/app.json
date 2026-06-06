@@ -5,6 +5,8 @@
     "pages/hotels/hotels",
     "pages/scenic/scenic",
     "pages/parking/parking",
+    "pages/points/points",
+    "pages/reviews/reviews",
     "pages/mine/mine"
   ],
   "window": {

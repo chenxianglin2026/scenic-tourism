@@ -11,6 +11,7 @@
   .chart-bar-fill { width:100%; max-width:50px; border-radius:4px 4px 0 0; background:linear-gradient(180deg, #c8a052, #e0c882); transition:height .4s; min-height:2px; }
   .chart-bar-fill.rev { background:linear-gradient(180deg, #c8a052, #e0c882); }
   .chart-bar-fill.sold { background:linear-gradient(180deg, #4a90d9, #7ab3f0); }
+  .chart-bar-fill.parking { background:linear-gradient(180deg, #52c41a, #95de64); }
   .chart-bar-label { font-size:10px; color:var(--text-muted); margin-top:4px; }
   .chart-bar-val { font-size:10px; color:var(--gold-dark); margin-bottom:2px; font-weight:600; }
   .loading, .empty { text-align:center; padding:24px; color:var(--text-muted); font-size:13px; }
@@ -24,7 +25,28 @@
   .parking-mini-card { background:#faf8f3; border-radius:8px; padding:14px; border:1px solid var(--border); }
   .parking-mini-card .pmc-title { font-size:13px; font-weight:600; color:var(--text-primary); margin-bottom:8px; }
   .parking-mini-card .pmc-row { display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary); margin-bottom:4px; }
-  @media (max-width:768px) { .chart-section,.info-grid { grid-template-columns:1fr; } }
+  .revenue-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:12px; }
+  .revenue-table th { background:#faf8f3; padding:8px 10px; text-align:left; font-weight:600; color:var(--text-secondary); border-bottom:2px solid var(--border); }
+  .revenue-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
+  .revenue-table tbody tr:hover { background:rgba(200,160,82,.04); }
+  .revenue-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+  .revenue-summary .rv-item { background:#faf8f3; border-radius:8px; padding:14px; text-align:center; border:1px solid var(--border); }
+  .revenue-summary .rv-value { font-size:20px; font-weight:700; color:var(--gold-dark); }
+  .revenue-summary .rv-label { font-size:11px; color:var(--text-muted); margin-top:4px; }
+  .rv-item:first-child .rv-value { color:var(--gold-dark); }
+  .rv-item:nth-child(2) .rv-value { color:#4a90d9; }
+  .rv-item:nth-child(3) .rv-value { color:#52c41a; }
+  .rv-item:last-child .rv-value { color:#cf1322; }
+  .period-selector { display:flex; gap:8px; }
+  .period-btn { padding:4px 12px; border:1px solid var(--border); border-radius:4px; cursor:pointer; font-size:12px; background:var(--bg-white); color:var(--text-secondary); }
+  .period-btn.active { background:var(--gold); color:#fff; border-color:var(--gold); }
+  .review-stat-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .review-stat-row .rs-item { display:flex; align-items:center; gap:8px; }
+  .review-stat-row .rs-label { font-size:12px; color:var(--text-muted); width:56px; flex-shrink:0; }
+  .review-stat-row .rs-bar-bg { flex:1; height:8px; background:#f0ede4; border-radius:4px; overflow:hidden; }
+  .review-stat-row .rs-bar-fill { height:100%; background:linear-gradient(90deg, #c8a052, #e0c882); border-radius:4px; }
+  .review-stat-row .rs-count { font-size:11px; color:var(--text-muted); width:40px; text-align:right; flex-shrink:0; }
+  @media (max-width:768px) { .chart-section,.info-grid,.revenue-summary,.review-stat-row { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -56,6 +78,34 @@
     <div class="card">
       <div class="card-header"><div class="card-title">🅿️ 停车概览</div></div>
       <div id="parkingOverview"><div class="loading">加载中...</div></div>
+    </div>
+  </div>
+
+  <!-- Revenue Report -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">💰 营收报表</div>
+      <div class="period-selector" id="periodSelector">
+        <button class="period-btn active" data-period="day">按日</button>
+        <button class="period-btn" data-period="week">按周</button>
+        <button class="period-btn" data-period="month">按月</button>
+      </div>
+    </div>
+    <div class="revenue-summary" id="revenueSummary"><div class="loading">加载中...</div></div>
+    <div style="overflow-x:auto;">
+      <table class="revenue-table" id="revenueTable"><thead><tr><th>日期</th><th>票务营收</th><th>酒店营收</th><th>停车营收</th><th>合计</th></tr></thead><tbody><tr><td colspan="5" class="loading">加载中...</td></tr></tbody></table>
+    </div>
+  </div>
+
+  <!-- Review Stats -->
+  <div class="chart-section">
+    <div class="card">
+      <div class="card-header"><div class="card-title">⭐ 评价统计</div></div>
+      <div id="reviewStatsCard"><div class="loading">加载中...</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">📊 评分分布</div></div>
+      <div id="reviewDistCard"><div class="loading">加载中...</div></div>
     </div>
   </div>
 
@@ -236,8 +286,149 @@
     }
   }
 
+  // ── 营收报表 ─────────────────────────────────────────
+  var currentPeriod = 'day';
+
+  function renderRevenueSummary(summary) {
+    document.getElementById('revenueSummary').innerHTML =
+      '<div class="rv-item"><div class="rv-value">' + fmtMoney(summary.ticket_revenue || 0) + '</div><div class="rv-label">🎫 票务营收</div></div>' +
+      '<div class="rv-item"><div class="rv-value">' + fmtMoney(summary.hotel_revenue || 0) + '</div><div class="rv-label">🏨 酒店营收</div></div>' +
+      '<div class="rv-item"><div class="rv-value">' + fmtMoney(summary.parking_revenue || 0) + '</div><div class="rv-label">🅿️ 停车营收</div></div>' +
+      '<div class="rv-item"><div class="rv-value">' + fmtMoney(summary.total_revenue || 0) + '</div><div class="rv-label">📊 总收入</div></div>';
+  }
+
+  function renderRevenueTable(items) {
+    var tbody = document.getElementById('revenueTable').querySelector('tbody');
+    if (!items || !items.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">暂无营收数据</td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(function(r) {
+      var label = r.period || r.date || r.label || '--';
+      return '<tr>' +
+        '<td>' + label + '</td>' +
+        '<td>' + fmtMoney(r.ticket_revenue || 0) + '</td>' +
+        '<td>' + fmtMoney(r.hotel_revenue || 0) + '</td>' +
+        '<td>' + fmtMoney(r.parking_revenue || 0) + '</td>' +
+        '<td style="font-weight:600;color:var(--gold-dark);">' + fmtMoney(r.total_revenue || 0) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  async function loadRevenueReport(period) {
+    try {
+      var res = await fetch('/api/dashboard/revenue?period=' + period, { headers: headers });
+      if (res.status === 401 || res.status === 403) {
+        window.top.location.href = 'pages/login.html';
+        return;
+      }
+      var json = await res.json();
+      var d = json.data || json;
+      renderRevenueSummary(d.summary || {});
+      renderRevenueTable(d.items || []);
+    } catch(e) {
+      document.getElementById('revenueSummary').innerHTML = '<div class="loading" style="color:var(--error);">营收报表加载失败: ' + e.message + '</div>';
+      document.getElementById('revenueTable').querySelector('tbody').innerHTML = '<tr><td colspan="5" class="empty">加载失败</td></tr>';
+    }
+  }
+
+  // Period selector
+  document.getElementById('periodSelector').addEventListener('click', function(e) {
+    var btn = e.target.closest('.period-btn');
+    if (!btn) return;
+    var period = btn.dataset.period;
+    if (currentPeriod === period) return;
+    currentPeriod = period;
+    document.querySelectorAll('#periodSelector .period-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    loadRevenueReport(period);
+  });
+
+  // ── 评价统计 ─────────────────────────────────────────
+
+  function renderReviewStats(data) {
+    var el = document.getElementById('reviewStatsCard');
+    var avg = data.avg_rating || 0;
+    var total = data.total || 0;
+    var dist = data.rating_distribution || {};
+    var fiveCount = parseInt(dist['5']) || 0;
+    var fiveRate = total > 0 ? Math.round(fiveCount / total * 100) : 0;
+
+    var stars = '';
+    for (var i = 1; i <= 5; i++) { stars += (i <= Math.round(avg)) ? '★' : '☆'; }
+
+    el.innerHTML =
+      '<div class="stat-cards" style="grid-template-columns:1fr 1fr;gap:12px;">' +
+        '<div class="stat-card" style="padding:16px;">' +
+          '<div class="stat-icon gold">⭐</div>' +
+          '<div class="stat-info"><div class="stat-value" style="font-size:28px;">' + avg + '</div><div class="stat-label">平均评分</div></div>' +
+        '</div>' +
+        '<div class="stat-card" style="padding:16px;">' +
+          '<div class="stat-icon blue">💬</div>' +
+          '<div class="stat-info"><div class="stat-value" style="font-size:28px;">' + total + '</div><div class="stat-label">评价总数</div></div>' +
+        '</div>' +
+        '<div class="stat-card" style="padding:16px;">' +
+          '<div class="stat-icon green">👍</div>' +
+          '<div class="stat-info"><div class="stat-value" style="font-size:28px;">' + fiveCount + '</div><div class="stat-label">5分好评</div></div>' +
+        '</div>' +
+        '<div class="stat-card" style="padding:16px;">' +
+          '<div class="stat-icon gold">📈</div>' +
+          '<div class="stat-info"><div class="stat-value" style="font-size:28px;">' + fiveRate + '%</div><div class="stat-label">好评率</div></div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function renderReviewDist(data) {
+    var el = document.getElementById('reviewDistCard');
+    var dist = data.rating_distribution || {};
+    var total = data.total || 0;
+    if (Object.keys(dist).length === 0) {
+      el.innerHTML = '<div class="empty">暂无评价数据</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 5; i >= 1; i--) {
+      var count = parseInt(dist[String(i)]) || 0;
+      var pct = total > 0 ? Math.min(Math.round(count / total * 100), 100) : 0;
+      html += '<div class="review-stat-row" style="margin-bottom:8px;">' +
+        '<div class="rs-item">' +
+          '<span class="rs-label">' + i + '分</span>' +
+          '<div class="rs-bar-bg"><div class="rs-bar-fill" style="width:' + pct + '%;"></div></div>' +
+          '<span class="rs-count">' + count + '</span>' +
+        '</div>' +
+      '</div>';
+    }
+    el.innerHTML = html;
+  }
+
+  async function loadReviewStats() {
+    try {
+      var res = await fetch('/api/scenic/reviews?page=1&page_size=1', { headers: headers });
+      if (!res.ok) {
+        document.getElementById('reviewStatsCard').innerHTML = '<div class="empty">评价数据加载失败</div>';
+        document.getElementById('reviewDistCard').innerHTML = '<div class="empty">评价数据加载失败</div>';
+        return;
+      }
+      var json = await res.json();
+      var d = json.data || json;
+      renderReviewStats(d);
+      renderReviewDist(d);
+    } catch(e) {
+      document.getElementById('reviewStatsCard').innerHTML = '<div class="empty">评价数据加载失败: ' + e.message + '</div>';
+      document.getElementById('reviewDistCard').innerHTML = '<div class="empty">评价数据加载失败</div>';
+    }
+  }
+
+  // ── 主加载函数补充 ──────────────────────────────────
+  function loadDashboardExtended() {
+    loadRevenueReport(currentPeriod);
+    loadReviewStats();
+  }
+
   loadDashboard();
+  loadDashboardExtended();
   setInterval(loadDashboard, 30000);
+  setInterval(loadDashboardExtended, 60000);
 })();
 </script>
 </body>

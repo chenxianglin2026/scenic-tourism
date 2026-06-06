@@ -1,0 +1,228 @@
+/* 评价页面样式 */
+
+/* 评分概览 */
+.rating-overview {
+  padding: 40rpx 30rpx;
+}
+
+.avg-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 140rpx;
+}
+
+.avg-score {
+  font-size: 72rpx;
+  font-weight: 700;
+  color: #c8a052;
+  line-height: 1;
+}
+
+.avg-text {
+  font-size: 22rpx;
+  color: #8B7E6A;
+  margin-top: 6rpx;
+}
+
+.avg-stars {
+  margin-top: 4rpx;
+}
+
+.star-active {
+  color: #c8a052;
+  font-size: 24rpx;
+}
+
+.star-inactive {
+  color: #E8E0D5;
+  font-size: 24rpx;
+}
+
+/* 分布 */
+.distribution-section {
+  padding-left: 20rpx;
+}
+
+.dist-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6rpx;
+}
+
+.dist-label {
+  font-size: 20rpx;
+  color: #8B7E6A;
+  width: 44rpx;
+  flex-shrink: 0;
+}
+
+.dist-bar-bg {
+  flex: 1;
+  height: 12rpx;
+  background: #F0EDE4;
+  border-radius: 6rpx;
+  margin: 0 10rpx;
+  overflow: hidden;
+}
+
+.dist-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #c8a052, #e0c882);
+  border-radius: 6rpx;
+  transition: width 0.4s;
+}
+
+.dist-count {
+  font-size: 20rpx;
+  color: #B0A492;
+  width: 36rpx;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* 筛选行 */
+.filter-row {
+  display: flex;
+  gap: 16rpx;
+  padding: 10rpx 30rpx 20rpx;
+  flex-wrap: wrap;
+}
+
+.filter-tag {
+  font-size: 24rpx;
+  color: #8B7E6A;
+  background: #FFFFFF;
+  padding: 8rpx 24rpx;
+  border-radius: 24rpx;
+  border: 1rpx solid #E8E0D5;
+}
+
+.filter-tag.active {
+  background: #c8a052;
+  color: #FFFFFF;
+  border-color: #c8a052;
+}
+
+/* 写评价按钮 */
+.write-btn-wrap {
+  padding: 0 30rpx 20rpx;
+}
+
+.write-btn {
+  width: 100%;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+  padding: 24rpx;
+}
+
+/* 评价卡片 */
+.review-card {
+  transition: all 0.2s;
+}
+
+.review-stars {
+  font-size: 22rpx;
+  color: #c8a052;
+}
+
+.review-content {
+  font-size: 28rpx;
+  color: #3D3226;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.review-images {
+  cursor: pointer;
+}
+
+.like-btn {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  font-size: 24rpx;
+  color: #8B7E6A;
+  padding: 8rpx 16rpx;
+  border-radius: 20rpx;
+  background: #FAF7F2;
+}
+
+.like-btn.liked {
+  color: #c8a052;
+  background: rgba(200, 160, 82, 0.1);
+}
+
+/* 加载更多 */
+.loading-more {
+  display: flex;
+  justify-content: center;
+  padding: 30rpx 0;
+}
+
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 120rpx 0;
+}
+
+.loading-state .text {
+  font-size: 28rpx;
+  color: #B0A492;
+}
+
+/* 发表评价弹窗 */
+.modal-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 60rpx;
+}
+
+.modal-card {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 40rpx 30rpx;
+  width: 100%;
+  max-width: 600rpx;
+}
+
+.modal-title {
+  font-size: 36rpx;
+  text-align: center;
+}
+
+.star-picker {
+  font-size: 56rpx;
+  color: #E8E0D5;
+  margin: 0 6rpx;
+  transition: color 0.2s;
+}
+
+.star-picker.active {
+  color: #c8a052;
+}
+
+.comment-input {
+  width: 100%;
+  min-height: 160rpx;
+  background: #FAF7F2;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+  color: #3D3226;
+  border: 1rpx solid #E8E0D5;
+}
+
+.date-picker {
+  background: #FAF7F2;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  font-size: 28rpx;
+  color: #8B7E6A;
+  border: 1rpx solid #E8E0D5;
+}
