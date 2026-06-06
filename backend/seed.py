@@ -232,6 +232,7 @@ def seed():
                     (1, "鲁J·A0001", "parking", "unpaid"),
                     (1, "鲁J·B0002", "completed", "paid"),
                     (2, "鲁J·C8888", "completed", "paid"),
+                    (0, "鲁J·D3333", "parking", "paid"),
                 ],
                 "nearby_points": [
                     {"name": "泰山菜馆", "category": "dining", "rating": 4.5,
@@ -257,6 +258,20 @@ def seed():
                      "address": "泰山区东岳大街168号", "phone": "0538-8218888",
                      "lat": 36.1920, "lng": 117.1300, "distance": 2000,
                      "price_range": "¥100-2000", "open_time": "10:00-22:00", "sort_order": 5},
+                    {"name": "岱宗驿站咖啡", "category": "dining", "rating": 4.4,
+                     "description": "登山前后的休憩好去处，手冲咖啡、泰山特色茶饮、轻食简餐",
+                     "address": "泰山区红门路68号", "lat": 36.2113, "lng": 117.1265,
+                     "distance": 80, "price_range": "¥25-60", "open_time": "07:00-22:00", "sort_order": 6},
+                    {"name": "泰安市中心医院", "category": "service", "rating": 4.0,
+                     "description": "三甲综合医院，距离景区5公里，提供急诊和旅行医疗咨询",
+                     "address": "泰山区龙潭路29号", "phone": "0538-8223222",
+                     "lat": 36.1880, "lng": 117.1200, "distance": 5000,
+                     "price_range": "按医疗标准收费", "open_time": "24小时", "sort_order": 7},
+                    {"name": "泰山国际青年旅舍", "category": "hotel", "rating": 4.2,
+                     "description": "背包客首选，经济实惠，步行至红门入口仅5分钟，公共区域可结识各地驴友",
+                     "address": "泰山区红门路100号", "phone": "0538-8336666",
+                     "lat": 36.2120, "lng": 117.1285, "distance": 200,
+                     "price_range": "¥80-200", "open_time": "24小时", "sort_order": 8},
                 ],
                 "reviews": [
                     {"user_idx": 0, "spot_idx": 0, "rating": 5, "visit_offset": 0,
@@ -267,6 +282,8 @@ def seed():
                      "content": "第三次爬泰山了，每次都有不同的感受。这次带了父母一起，坐了索道上山，服务人员态度很好。山上的食物价格稍贵但可以理解。", "images": "[]"},
                     {"user_idx": 0, "spot_idx": 0, "rating": 4, "visit_offset": -7,
                      "content": "泰山果然是五岳之首！建议游玩至少一整天。南天门的云海太美了，拍照根本停不下来。唯一的遗憾是天外村的餐饮选择不够丰富。", "images": "[]"},
+                    {"user_idx": 2, "spot_idx": 0, "rating": 3, "visit_offset": -10,
+                     "content": "泰山文化底蕴没得说，但基础设施需要改善。厕所排队太久，部分台阶破损。山顶物价确实贵，一碗泡面40块。不过日出还是很震撼的。", "images": "[]"},
                 ],
             },
             # ── 西湖 ──
@@ -391,6 +408,7 @@ def seed():
                     (0, "浙A·F3456", "parking", "unpaid"),
                     (0, "沪B·G7890", "completed", "paid"),
                     (1, "苏A·H1234", "completed", "paid"),
+                    (0, "浙A·Z0001", "parking", "paid"),
                 ],
                 "nearby_points": [
                     {"name": "楼外楼菜馆", "category": "dining", "rating": 4.8,
@@ -415,6 +433,19 @@ def seed():
                      "address": "西湖区北山路82号岳湖景区", "phone": "0571-88861111",
                      "lat": 30.2550, "lng": 120.1380, "distance": 800,
                      "price_range": "¥260-580", "open_time": "19:30-20:30", "sort_order": 5},
+                    {"name": "湖畔居茶楼", "category": "dining", "rating": 4.7,
+                     "description": "西湖边老牌茶楼，临湖而坐品龙井，远眺雷峰塔，杭州人最爱的休闲去处",
+                     "address": "西湖区湖滨路22号", "lat": 30.2570, "lng": 120.1630,
+                     "distance": 100, "price_range": "¥68-168", "open_time": "09:00-23:00", "sort_order": 6},
+                    {"name": "浙江自然博物馆", "category": "entertainment", "rating": 4.5,
+                     "description": "免费开放的省级博物馆，恐龙化石、珍稀动植物标本，适合亲子游学",
+                     "address": "下城区西湖文化广场6号", "lat": 30.2800, "lng": 120.1630,
+                     "distance": 3000, "price_range": "免费", "open_time": "09:00-17:00（周一闭馆）", "sort_order": 7},
+                    {"name": "杭州香格里拉饭店", "category": "hotel", "rating": 4.8,
+                     "description": "西湖畔五星级酒店，坐拥私家湖岸线，G20峰会接待酒店，中式园林设计",
+                     "address": "西湖区北山路78号", "phone": "0571-87977951",
+                     "lat": 30.2560, "lng": 120.1440, "distance": 600,
+                     "price_range": "¥1200-5000", "open_time": "24小时", "sort_order": 8},
                 ],
                 "reviews": [
                     {"user_idx": 0, "spot_idx": 1, "rating": 5, "visit_offset": 0,
@@ -425,6 +456,8 @@ def seed():
                      "content": "景色没得说，但是节假日人真的太多了。雷峰塔排队40分钟。建议工作日来体验更佳。游船票建议提前网上预订。", "images": "[]"},
                     {"user_idx": 0, "spot_idx": 1, "rating": 5, "visit_offset": -10,
                      "content": "去了无数次西湖，每次都有新发现。这次特意沿北山街走了全程，发现了许多隐藏的历史建筑。湖滨银泰购物也很方便。强烈推荐骑行游湖！", "images": "[]"},
+                    {"user_idx": 1, "spot_idx": 1, "rating": 3, "visit_offset": -12,
+                     "content": "西湖很美但节假日体验太差了。到处人挤人，断桥上都走不动。停车更是难上加难，绕了半小时都没找到车位。建议避开黄金周。非节假日还是很值得来的。", "images": "[]"},
                 ],
             },
             # ── 黄山 ──
@@ -553,6 +586,7 @@ def seed():
                     (0, "皖J·E3456", "completed", "paid"),
                     (1, "苏B·F7890", "completed", "paid"),
                     (1, "皖J·G0123", "completed", "paid"),
+                    (0, "皖J·H9999", "parking", "paid"),
                 ],
                 "nearby_points": [
                     {"name": "徽州人家", "category": "dining", "rating": 4.6,
@@ -577,6 +611,21 @@ def seed():
                      "address": "屯溪区西海路29号香茗大剧院", "phone": "0559-2580000",
                      "lat": 29.7100, "lng": 118.3200, "distance": 43000,
                      "price_range": "¥180-380", "open_time": "20:00-21:10", "sort_order": 5},
+                    {"name": "黄山温泉度假村", "category": "entertainment", "rating": 4.5,
+                     "description": "黄山四绝之一的温泉体验，含室内外温泉池、鱼疗池、汗蒸房，登山后放松首选",
+                     "address": "黄山区汤口镇温泉路1号", "phone": "0559-5585555",
+                     "lat": 30.0880, "lng": 118.1790, "distance": 500,
+                     "price_range": "¥168-388", "open_time": "10:00-23:00", "sort_order": 6},
+                    {"name": "宏村古村落", "category": "entertainment", "rating": 4.8,
+                     "description": "世界文化遗产，画里的乡村，《卧虎藏龙》取景地，徽派建筑典范",
+                     "address": "黟县宏村镇", "phone": "0559-5541888",
+                     "lat": 30.0050, "lng": 117.9850, "distance": 35000,
+                     "price_range": "¥104", "open_time": "07:30-17:30", "sort_order": 7},
+                    {"name": "黄山悦榕庄", "category": "hotel", "rating": 4.9,
+                     "description": "国际顶级度假酒店，徽派建筑与现代奢华完美融合，可远眺宏村和黄山山脉",
+                     "address": "黟县宏村镇悦榕路1号", "phone": "0559-2265000",
+                     "lat": 30.0080, "lng": 117.9820, "distance": 38000,
+                     "price_range": "¥2500-8000", "open_time": "24小时", "sort_order": 8},
                 ],
                 "reviews": [
                     {"user_idx": 0, "spot_idx": 2, "rating": 5, "visit_offset": 0,
@@ -780,15 +829,16 @@ def seed():
                 r_idx, plate, p_status, pay_status = pr_cfg
                 rate = spot_prs[r_idx]
                 checkin = datetime.utcnow() - timedelta(hours=2, minutes=30)
+                is_finished = p_status == "completed" or pay_status == "paid"
                 checkout = datetime.utcnow() if p_status == "completed" else None
-                duration = 150 if p_status == "completed" else None  # 2.5小时
+                duration = 150 if is_finished else None  # 2.5小时
                 total_fee = (
                     rate.first_hour_price + rate.additional_hour_price * 2
-                    if p_status == "completed" else None
+                    if is_finished else None
                 )
                 pr = ParkingRecord(
                     rate_id=rate.id,
-                    user_id=all_guests[r_idx % len(all_guests)].id if p_status != "parking" else None,
+                    user_id=all_guests[r_idx % len(all_guests)].id if p_status == "completed" or pay_status == "paid" else None,
                     plate_number=plate,
                     vehicle_type=rate.vehicle_type,
                     checkin_time=checkin,
