@@ -50,7 +50,7 @@
   },
   "permission": {
     "scope.userLocation": {
-      "desc": "用于获取您的位置，推荐附近景区"
+      "desc": "获取位置推荐附近景区"
     }
   },
   "requiredPrivateInfos": [
