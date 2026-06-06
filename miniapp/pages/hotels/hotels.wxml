@@ -133,8 +133,8 @@
         <text class="text-sm text-light">/间/晚</text>
       </view>
 
-      <view class="btn-primary mt-30" bindtap="onBookRoom" style="width:100%;">
-        提交预订
+      <view class="btn-primary mt-30" bindtap="onBookRoom" style="width:100%;{{submitting ? 'opacity:0.6;pointer-events:none;' : ''}}">
+        {{submitting ? '提交中...' : '提交预订'}}
       </view>
     </view>
   </block>
@@ -184,7 +184,9 @@
 
       <view class="flex-row mt-30" style="gap: 20rpx;">
         <view class="btn-outline flex-1" bindtap="onBackToList">返回</view>
-        <view wx:if="{{currentOrder.status==='pending'}}" class="btn-primary flex-1" bindtap="onPayOrder">去支付</view>
+        <view wx:if="{{currentOrder.status==='pending'}}" class="btn-primary flex-1" bindtap="onPayOrder" style="{{submitting ? 'opacity:0.6;pointer-events:none;' : ''}}">
+          {{submitting ? '支付中...' : '去支付'}}
+        </view>
       </view>
     </view>
   </block>

@@ -4,7 +4,13 @@
 -->
 <view class="page-container">
 
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-state">
+    <view class="text">加载中...</view>
+  </view>
+
   <!-- 景区头图 -->
+  <block wx:if="{{!loading}}">
   <view class="scenic-cover img-placeholder">
     <view class="cover-text text-xl text-bold">{{scenic.name || '泰山风景名胜区'}}</view>
     <view class="cover-rating mt-20">
@@ -82,5 +88,7 @@
   </view>
 
   <view class="safe-bottom" style="height: 40rpx;"></view>
+
+  </block>
 
 </view>

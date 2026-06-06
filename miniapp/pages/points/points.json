@@ -1,5 +1,8 @@
 {
   "navigationBarTitleText": "附近推荐",
+  "navigationBarBackgroundColor": "#c8a052",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#FAF7F2",
   "enablePullDownRefresh": true,
   "backgroundTextStyle": "dark",
   "usingComponents": {}

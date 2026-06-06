@@ -4,8 +4,13 @@
 -->
 <view class="page-container">
 
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-state">
+    <view class="text">加载中...</view>
+  </view>
+
   <!-- ===== 首页模式：停车场列表 + 登记 ===== -->
-  <block wx:if="{{viewMode === 'home'}}">
+  <block wx:if="{{!loading && viewMode === 'home'}}">
 
     <!-- 停车场选择 -->
     <view class="card">
@@ -56,8 +61,8 @@
         </view>
       </view>
 
-      <view class="btn-primary mt-30" bindtap="onCheckin" style="width:100%;">
-        登记进场
+      <view class="btn-primary mt-30" bindtap="onCheckin" style="width:100%;{{submitting ? 'opacity:0.6;pointer-events:none;' : ''}}">
+        {{submitting ? '登记中...' : '登记进场'}}
       </view>
     </view>
 

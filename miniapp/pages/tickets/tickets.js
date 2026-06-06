@@ -30,7 +30,8 @@ Page({
     // 价格
     unitPrice: 0,
     totalPrice: 0,
-    loading: true
+    loading: true,
+    submitting: false
   },
 
   onLoad() {
@@ -136,6 +137,7 @@ Page({
 
   // 提交订单 → POST /api/tickets/order
   async onSubmitOrder() {
+    if (this.data.submitting) return
     const { selectedType, selectedSlot, quantity, visitDate, visitorName, visitorPhone, visitorIdCard, spotId } = this.data
 
     if (!selectedType) {
@@ -162,6 +164,7 @@ Page({
     }
 
     wx.showLoading({ title: '提交中...' })
+    this.setData({ submitting: true })
 
     try {
       const orderData = {
@@ -184,7 +187,8 @@ Page({
       // 转换为展示格式
       this.setData({
         currentOrder: this._formatOrder(order),
-        viewMode: 'order'
+        viewMode: 'order',
+        submitting: false
       })
     } catch (err) {
       wx.hideLoading()
@@ -207,6 +211,7 @@ Page({
           viewMode: 'order'
         })
         wx.showToast({ title: '已生成模拟订单', icon: 'none' })
+        this.setData({ submitting: false })
       }
     }
   },
@@ -229,6 +234,7 @@ Page({
 
   // 去支付 → POST /api/payment/create
   async onPayOrder() {
+    if (this.data.submitting) return
     const { currentOrder } = this.data
     if (!currentOrder) return
 

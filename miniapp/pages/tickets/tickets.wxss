@@ -135,3 +135,15 @@
 .qr-code {
   /* placeholder */
 }
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 200rpx 0;
+}
+
+.loading-state .text {
+  font-size: 28rpx;
+  color: #B0A492;
+}

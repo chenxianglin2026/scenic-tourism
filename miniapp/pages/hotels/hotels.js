@@ -34,6 +34,7 @@ Page({
     // 分页
     ordersTotal: 0,
     ordersPage: 1,
+    submitting: false
   },
 
   onLoad() {
@@ -168,6 +169,7 @@ Page({
 
   // 提交预订 → POST /api/hotels/orders
   async onBookRoom() {
+    if (this.data.submitting) return
     const { selectedRoom, currentHotelId, checkInDate, checkOutDate, guestName, guestPhone, roomCount, remark } = this.data
 
     if (!selectedRoom) {
@@ -206,6 +208,7 @@ Page({
     }
 
     wx.showLoading({ title: '提交中...' })
+    this.setData({ submitting: true })
 
     try {
       const order = await api.post('/api/hotels/orders', {
@@ -219,7 +222,7 @@ Page({
         remark: remark || undefined,
       })
       wx.hideLoading()
-      this.setData({ currentOrder: order, viewMode: 'order' })
+      this.setData({ currentOrder: order, viewMode: 'order', submitting: false })
     } catch (err) {
       wx.hideLoading()
       // mock 降级
@@ -240,7 +243,8 @@ Page({
           guest_phone: guestPhone,
           created_at: new Date().toISOString()
         },
-        viewMode: 'order'
+        viewMode: 'order',
+        submitting: false
       })
       wx.showToast({ title: '已生成模拟订单', icon: 'none' })
     }
@@ -248,10 +252,12 @@ Page({
 
   // 支付 → POST /api/payment/create
   async onPayOrder() {
+    if (this.data.submitting) return
     const { currentOrder } = this.data
     if (!currentOrder) return
 
     wx.showLoading({ title: '支付中...' })
+    this.setData({ submitting: true })
 
     try {
       const payResult = await api.post('/api/payment/create', {
@@ -259,10 +265,11 @@ Page({
         order_type: 'hotel'
       })
       wx.hideLoading()
-
       if (payResult.success) {
+        // DEV_MODE 下直接支付成功
         this.setData({
-          currentOrder: { ...currentOrder, status: 'paid' }
+          currentOrder: { ...currentOrder, status: 'paid' },
+          submitting: false
         })
         wx.showToast({ title: '预订成功！', icon: 'success' })
       } else {
@@ -271,7 +278,8 @@ Page({
     } catch (err) {
       wx.hideLoading()
       this.setData({
-        currentOrder: { ...currentOrder, status: 'paid' }
+        currentOrder: { ...currentOrder, status: 'paid' },
+        submitting: false
       })
       wx.showToast({ title: '预订成功(模拟)', icon: 'success' })
     }

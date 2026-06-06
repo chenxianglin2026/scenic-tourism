@@ -22,7 +22,8 @@ Page({
     // 计时器
     timer: null,
     elapsed: '00:00:00',
-    loading: true
+    loading: true,
+    submitting: false
   },
 
   onLoad() {
@@ -104,6 +105,7 @@ Page({
 
   // 车辆进场 → POST /api/parking/checkin
   async onCheckin() {
+    if (this.data.submitting) return
     const { selectedLot, plateNumber } = this.data
 
     if (!selectedLot) {
@@ -122,6 +124,7 @@ Page({
     }
 
     wx.showLoading({ title: '登记中...' })
+    this.setData({ submitting: true })
 
     try {
       const record = await api.post('/api/parking/checkin', {
@@ -138,7 +141,7 @@ Page({
         lotId: selectedLot.id
       }
 
-      this.setData({ currentRecord, viewMode: 'active' })
+      this.setData({ currentRecord, viewMode: 'active', submitting: false })
       this.startTimer()
       wx.showToast({ title: '登记成功', icon: 'success' })
     } catch (err) {
@@ -153,7 +156,8 @@ Page({
           checkinTime: now,
           lotId: selectedLot.id
         },
-        viewMode: 'active'
+        viewMode: 'active',
+        submitting: false
       })
       this.startTimer()
       wx.showToast({ title: '登记成功(模拟)', icon: 'success' })
