@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "附近推荐",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {}
+}
