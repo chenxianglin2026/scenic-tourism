@@ -238,5 +238,10 @@ Page({
   // 联系客服
   onContact() {
     wx.makePhoneCall({ phoneNumber: '0571-88886666' })
+  },
+
+  // 常见问题
+  onFaq() {
+    wx.navigateTo({ url: '/pages/faq/faq' })
   }
 })

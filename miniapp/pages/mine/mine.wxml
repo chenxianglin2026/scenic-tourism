@@ -119,6 +119,11 @@
       <view class="text-sm text-light">0571-88886666</view>
     </view>
     <view class="divider"></view>
+    <view class="menu-item flex-between" bindtap="onFaq">
+      <view class="text-dark">❓ 常见问题</view>
+      <view class="text-sm text-light">→</view>
+    </view>
+    <view class="divider"></view>
     <view class="menu-item flex-between" bindtap="onLogout">
       <view class="text-dark" style="color:#C56C6C;">退出登录</view>
       <view class="text-sm text-light">→</view>

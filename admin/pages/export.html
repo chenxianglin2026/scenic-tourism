@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../css/admin.css">
+<style>
+  .section { margin-bottom:24px; }
+  .toast-msg { position:fixed; top:20px; left:50%; transform:translateX(-50%); padding:10px 24px; border-radius:6px; color:#fff; font-size:14px; z-index:9999; opacity:0; transition:opacity .3s; pointer-events:none; }
+  .toast-msg.show { opacity:1; }
+  .toast-msg.success { background:#52c41a; }
+  .toast-msg.error { background:#f5222d; }
+  .toast-msg.info { background:#1890ff; }
+  .tab-bar { display:flex; gap:0; margin-bottom:16px; border-bottom:2px solid var(--border); }
+  .tab-item { padding:8px 20px; cursor:pointer; font-size:14px; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:var(--transition); }
+  .tab-item.active { color:var(--gold-dark); border-bottom-color:var(--gold); font-weight:600; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+  .filter-row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:16px; }
+  .filter-row label { font-size:13px; color:var(--text-secondary); display:block; margin-bottom:4px; }
+  .filter-row input, .filter-row select { padding:6px 10px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; background:#fff; }
+  .filter-row button { padding:6px 20px; }
+  .preview-box { max-height:400px; overflow:auto; background:#faf8f5; border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-top:12px; font-family:monospace; font-size:12px; white-space:pre-wrap; display:none; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text-muted);">
+    <span style="color:var(--gold-dark);">🏠 首页</span>
+    <span>/</span>
+    <span style="color:var(--text-primary);font-weight:600;">导出数据</span>
+  </div>
+
+  <div class="page-title">数据导出</div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <div class="tab-item active" data-tab="tickets">🎫 票务导出</div>
+    <div class="tab-item" data-tab="revenue">💰 营收导出</div>
+    <div class="tab-item" data-tab="parking">🅿️ 停车导出</div>
+  </div>
+
+  <!-- ===== Tab: 票务导出 ===== -->
+  <div class="tab-content active" id="tab-tickets">
+    <div class="card">
+      <div class="card-header"><div class="card-title">票务数据筛选</div></div>
+      <div class="filter-row">
+        <div>
+          <label>起始日期</label>
+          <input type="date" id="tStartDate">
+        </div>
+        <div>
+          <label>结束日期</label>
+          <input type="date" id="tEndDate">
+        </div>
+        <div>
+          <label>景区</label>
+          <select id="tSpot"><option value="">全部景区</option></select>
+        </div>
+        <div>
+          <label>票种</label>
+          <select id="tTicketType"><option value="">全部票种</option></select>
+        </div>
+        <div>
+          <label>状态</label>
+          <select id="tStatus">
+            <option value="">全部状态</option>
+            <option value="paid">已支付</option>
+            <option value="verified">已核销</option>
+            <option value="pending">待支付</option>
+            <option value="cancelled">已取消</option>
+            <option value="refunded">已退款</option>
+            <option value="expired">已过期</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="exportTickets()">📥 导出 CSV</button>
+      <div class="preview-box" id="tPreview"></div>
+    </div>
+  </div>
+
+  <!-- ===== Tab: 营收导出 ===== -->
+  <div class="tab-content" id="tab-revenue">
+    <div class="card">
+      <div class="card-header"><div class="card-title">营收报表筛选</div></div>
+      <div class="filter-row">
+        <div>
+          <label>统计粒度</label>
+          <select id="rPeriod">
+            <option value="day">按日</option>
+            <option value="week">按周</option>
+            <option value="month">按月</option>
+          </select>
+        </div>
+        <div>
+          <label>起始日期</label>
+          <input type="date" id="rStartDate">
+        </div>
+        <div>
+          <label>结束日期</label>
+          <input type="date" id="rEndDate">
+        </div>
+        <div>
+          <label>景区</label>
+          <select id="rSpot"><option value="">全部景区</option></select>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="exportRevenue()">📥 导出 CSV</button>
+      <div class="preview-box" id="rPreview"></div>
+    </div>
+  </div>
+
+  <!-- ===== Tab: 停车导出 ===== -->
+  <div class="tab-content" id="tab-parking">
+    <div class="card">
+      <div class="card-header"><div class="card-title">停车记录筛选</div></div>
+      <div class="filter-row">
+        <div>
+          <label>起始日期</label>
+          <input type="date" id="pStartDate">
+        </div>
+        <div>
+          <label>结束日期</label>
+          <input type="date" id="pEndDate">
+        </div>
+        <div>
+          <label>车牌号</label>
+          <input type="text" id="pPlate" placeholder="模糊搜索...">
+        </div>
+        <div>
+          <label>状态</label>
+          <select id="pStatus">
+            <option value="">全部</option>
+            <option value="parking">停车中</option>
+            <option value="completed">已完成</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="exportParking()">📥 导出 CSV</button>
+      <div class="preview-box" id="pPreview"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast-msg" id="toast"></div>
+
+<script>
+(function() {
+  var token = localStorage.getItem('scenic_token');
+  if (!token) { window.top.location.href = '../pages/login.html'; return; }
+  var BASE = window.parent && window.parent.location ? '' : '';
+  var headers = { 'Authorization': 'Bearer ' + token };
+
+  // ── Toast ──
+  function toast(msg, cls) {
+    var el = document.getElementById('toast');
+    el.textContent = msg; el.className = 'toast-msg show ' + (cls||'info');
+    setTimeout(function() { el.classList.remove('show'); }, 2500);
+  }
+
+  // ── Tabs ──
+  document.querySelectorAll('.tab-item').forEach(function(t) {
+    t.addEventListener('click', function() {
+      document.querySelectorAll('.tab-item').forEach(function(x) { x.classList.remove('active'); });
+      document.querySelectorAll('.tab-content').forEach(function(x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ── Load dropdowns (spots, ticket types) ──
+  async function loadOptions() {
+    try {
+      // 景区列表
+      var sRes = await fetch('/api/scenic/list?page_size=200', { headers: headers });
+      if (sRes.ok) {
+        var sJson = await sRes.json();
+        var spots = sJson.items || sJson || [];
+        if (Array.isArray(spots)) {
+          var opts = spots.map(function(s) { return '<option value="'+s.id+'">'+s.name+'</option>'; }).join('');
+          document.querySelectorAll('#tSpot, #rSpot').forEach(function(el) { el.innerHTML = '<option value="">全部景区</option>' + opts; });
+        }
+      }
+      // 票种列表
+      var tRes = await fetch('/api/tickets/types', { headers: headers });
+      if (tRes.ok) {
+        var types = await tRes.json();
+        if (Array.isArray(types)) {
+          var topts = types.map(function(t) { return '<option value="'+t.id+'">'+t.name+' (¥'+t.price+')</option>'; }).join('');
+          document.getElementById('tTicketType').innerHTML = '<option value="">全部票种</option>' + topts;
+        }
+      }
+    } catch(e) { /* ignore */ }
+  }
+  loadOptions();
+
+  // ── Build query string from form ──
+  function buildParams(filters) {
+    var params = [];
+    Object.keys(filters).forEach(function(k) {
+      if (filters[k]) params.push(encodeURIComponent(k) + '=' + encodeURIComponent(filters[k]));
+    });
+    return params.length ? '?' + params.join('&') : '';
+  }
+
+  // ── Trigger download + show preview ──
+  async function doExport(url, previewEl) {
+    try {
+      var res = await fetch(url, { headers: headers });
+      if (res.status === 401) { window.top.location.href = '../pages/login.html'; return; }
+      if (!res.ok) {
+        var err = await res.json().catch(function() { return {detail:'导出失败'}; });
+        toast(err.detail || '导出失败', 'error');
+        return;
+      }
+      var text = await res.text();
+      // Preview first 50 lines
+      var lines = text.split('\n');
+      var preview = lines.slice(0, 50).join('\n');
+      if (lines.length > 50) preview += '\n... (共 ' + lines.length + ' 行)';
+      previewEl.textContent = preview;
+      previewEl.style.display = 'block';
+      // Trigger download via Blob
+      var blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8;' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = url.split('/').pop().split('?')[0] + '.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('导出成功，共 ' + (lines.length - 1) + ' 条数据', 'success');
+    } catch(e) {
+      toast('导出失败: ' + e.message, 'error');
+    }
+  }
+
+  // ── 票务导出 ──
+  window.exportTickets = function() {
+    var filters = {
+      start_date: document.getElementById('tStartDate').value,
+      end_date: document.getElementById('tEndDate').value,
+      spot_id: document.getElementById('tSpot').value,
+      ticket_type_id: document.getElementById('tTicketType').value,
+      status: document.getElementById('tStatus').value
+    };
+    doExport('/api/export/tickets' + buildParams(filters), document.getElementById('tPreview'));
+  };
+
+  // ── 营收导出 ──
+  window.exportRevenue = function() {
+    var filters = {
+      period: document.getElementById('rPeriod').value,
+      start_date: document.getElementById('rStartDate').value,
+      end_date: document.getElementById('rEndDate').value,
+      spot_id: document.getElementById('rSpot').value
+    };
+    doExport('/api/export/revenue' + buildParams(filters), document.getElementById('rPreview'));
+  };
+
+  // ── 停车导出 ──
+  window.exportParking = function() {
+    var filters = {
+      start_date: document.getElementById('pStartDate').value,
+      end_date: document.getElementById('pEndDate').value,
+      plate_number: document.getElementById('pPlate').value,
+      status: document.getElementById('pStatus').value
+    };
+    doExport('/api/export/parking' + buildParams(filters), document.getElementById('pPreview'));
+  };
+
+})();
+</script>
+</body>
+</html>
