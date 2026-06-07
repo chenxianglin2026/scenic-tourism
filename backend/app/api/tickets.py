@@ -445,27 +445,26 @@ async def refund_ticket_order(
             refund_amount=refund_amount,
         )
 
-    # 已支付但未到游览日期：正常退款
+    # 已支付但未到游览日期：正常退款 — 进入审核流程
     if order.status == TicketOrderStatus.PAID:
         refund_amount = order.total_price
-        order.status = TicketOrderStatus.REFUNDED
+        order.status = TicketOrderStatus.REFUNDING
         order.cancelled_at = datetime.utcnow()
 
-        # 同步更新支付记录
+        # 同步更新支付记录为 refunding（待管理员审核）
         from app.db import PaymentRecord
         pay_result = await db.execute(
             select(PaymentRecord).where(PaymentRecord.order_no == order.order_no)
         )
         pay_record = pay_result.scalar_one_or_none()
-        if pay_record:
-            pay_record.status = "refund"
-            pay_record.refund_time = datetime.utcnow()
+        if pay_record and pay_record.status == "success":
+            pay_record.status = "refunding"
 
         await db.flush()
         await db.refresh(order)
         return RefundResponse(
             success=True,
-            message=f"退款成功，已退还 ¥{refund_amount}",
+            message=f"退款申请已提交，¥{refund_amount}，等待管理员审核",
             order=await _enrich_order(order, db),
             refund_amount=refund_amount,
         )

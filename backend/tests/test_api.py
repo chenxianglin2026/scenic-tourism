@@ -654,6 +654,16 @@ class TestPurchasePayVerifyFlow:
         assert pay_resp.status_code == 200
         assert pay_resp.json()["success"] is True
         assert "transaction_id" in pay_resp.json()
+        transaction_id = pay_resp.json()["transaction_id"]
+
+        # 4.5 DEV_MODE 确认支付
+        confirm_resp = await client.post(
+            "/api/payment/confirm",
+            json={"transaction_id": transaction_id, "order_no": order_no},
+        )
+        assert confirm_resp.status_code == 200
+        assert confirm_resp.json()["success"] is True
+        assert confirm_resp.json()["status"] == "success"
 
         # 5. 查询支付状态
         status_resp = await client.get(

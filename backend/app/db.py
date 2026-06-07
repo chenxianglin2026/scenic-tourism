@@ -33,6 +33,7 @@ class TicketOrderStatus:
     PAID = "paid"              # 已支付（待使用）
     VERIFIED = "verified"      # 已核销（已使用）
     CANCELLED = "cancelled"    # 已取消
+    REFUNDING = "refunding"    # 退款审核中（待管理员确认）
     REFUNDED = "refunded"      # 已退款
     EXPIRED = "expired"        # 已过期
 
@@ -43,6 +44,7 @@ class HotelOrderStatus:
     CHECKED_IN = "checked_in"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+    REFUNDING = "refunding"    # 退款审核中
     REFUNDED = "refunded"
 
 
