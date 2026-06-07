@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../css/admin.css">
+<style>
+  .toast-msg { position:fixed; top:20px; left:50%; transform:translateX(-50%); padding:10px 24px; border-radius:6px; color:#fff; font-size:14px; z-index:9999; opacity:0; transition:opacity .3s; pointer-events:none; }
+  .toast-msg.show { opacity:1; }
+  .toast-msg.success { background:#52c41a; }
+  .toast-msg.error { background:#f5222d; }
+  .toast-msg.info { background:#1890ff; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text-muted);">
+    <span style="color:var(--gold-dark);">🏠 首页</span>
+    <span>/</span>
+    <span style="color:var(--text-primary);font-weight:600;">附近推荐管理</span>
+  </div>
+
+  <div class="page-title">附近推荐管理</div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <input class="form-input" id="searchKeyword" placeholder="🔍 搜索名称..." style="width:200px;">
+    <select class="form-select" id="categoryFilter">
+      <option value="">全部分类</option>
+      <option value="dining">餐饮</option>
+      <option value="shopping">购物</option>
+      <option value="entertainment">娱乐</option>
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="loadPoints()">查询</button>
+    <button class="btn btn-primary btn-sm" onclick="showCreateModal()">+ 新增推荐</button>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">推荐列表</div>
+      <span style="font-size:12px;color:var(--text-muted);" id="pointTotal">--</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>名称</th>
+            <th>分类</th>
+            <th>地址</th>
+            <th>评分</th>
+            <th>距离</th>
+            <th>电话</th>
+            <th>创建时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="pointList"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pointPager"></div>
+  </div>
+
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-mask" id="pointModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">新增推荐</div>
+    <div class="form-group">
+      <label>名称 <span style="color:var(--error)">*</span></label>
+      <input class="form-input" id="pointName" placeholder="请输入推荐名称" maxlength="100">
+    </div>
+    <div class="form-group">
+      <label>分类 <span style="color:var(--error)">*</span></label>
+      <select class="form-select" id="pointCategory">
+        <option value="dining">餐饮</option>
+        <option value="shopping">购物</option>
+        <option value="entertainment">娱乐</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>地址</label>
+      <input class="form-input" id="pointAddress" placeholder="请输入地址" maxlength="200">
+    </div>
+    <div class="form-group">
+      <label>电话</label>
+      <input class="form-input" id="pointPhone" placeholder="请输入联系电话" maxlength="20">
+    </div>
+    <div class="form-group">
+      <label>评分</label>
+      <input class="form-input" id="pointRating" type="number" step="0.1" min="0" max="5" placeholder="0 ~ 5" style="width:120px;">
+    </div>
+    <div class="form-group">
+      <label>距离（米）</label>
+      <input class="form-input" id="pointDistance" type="number" step="1" min="0" placeholder="距景区距离" style="width:150px;">
+    </div>
+    <div class="form-group">
+      <label>营业时间</label>
+      <input class="form-input" id="pointOpenTime" placeholder="如：09:00 ~ 21:00" maxlength="50">
+    </div>
+    <div class="form-group">
+      <label>描述</label>
+      <textarea id="pointDescription" placeholder="请输入描述信息..." rows="3"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="hidePointModal()">取消</button>
+      <button class="btn btn-primary btn-sm" onclick="submitPoint()" id="submitBtn">确认添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-msg" id="toast"></div>
+
+<script>
+(function() {
+  var token = localStorage.getItem('scenic_token');
+  if (!token) { window.top.location.href = 'pages/login.html'; return; }
+  var headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+  var pointPage = 1, pointPageSize = 20;
+  var editingId = null;
+
+  // ── Toast ──
+  function toast(msg, cls) {
+    var el = document.getElementById('toast');
+    el.textContent = msg; el.className = 'toast-msg show ' + (cls||'info');
+    setTimeout(function() { el.classList.remove('show'); }, 2500);
+  }
+
+  // ── Category helpers ──
+  function catLabel(c) {
+    var map = { dining:'餐饮', shopping:'购物', entertainment:'娱乐' };
+    return map[c] || c || '--';
+  }
+
+  function catTag(c) {
+    var map = { dining:'tag-warm', shopping:'tag-blue', entertainment:'tag-gold' };
+    return '<span class="tag ' + (map[c]||'tag-gray') + '">' + catLabel(c) + '</span>';
+  }
+
+  // ── Load Points ──
+  window.loadPoints = async function(page) {
+    if (page) pointPage = page;
+    try {
+      var keyword = document.getElementById('searchKeyword').value.trim();
+      var category = document.getElementById('categoryFilter').value;
+      var params = new URLSearchParams({ page: pointPage, page_size: pointPageSize });
+      if (keyword) params.set('keyword', keyword);
+      if (category) params.set('category', category);
+      var res = await fetch('/api/scenic/points?' + params, { headers: headers });
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) throw new Error('请求失败');
+      var json = await res.json();
+      renderPoints(json);
+    } catch(e) {
+      document.getElementById('pointList').innerHTML = '<tr><td colspan="8" class="empty">加载失败: ' + e.message + '</td></tr>';
+    }
+  };
+
+  function renderPoints(json) {
+    var items = json.items || json.data || [];
+    var total = json.total || 0;
+    document.getElementById('pointTotal').textContent = '共 ' + total + ' 条';
+    document.getElementById('pointList').innerHTML = items.length ? items.map(function(p) {
+      return '<tr>' +
+        '<td><b>' + escHtml(p.name||'--') + '</b></td>' +
+        '<td>' + catTag(p.category) + '</td>' +
+        '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;font-size:12px;">' + escHtml(p.address||'--') + '</td>' +
+        '<td>' + (p.rating != null ? '⭐ ' + Number(p.rating).toFixed(1) : '--') + '</td>' +
+        '<td>' + (p.distance != null ? Number(p.distance).toLocaleString() + 'm' : '--') + '</td>' +
+        '<td style="font-size:12px;">' + escHtml(p.phone||'--') + '</td>' +
+        '<td style="font-size:12px;">' + (p.created_at ? new Date(p.created_at).toLocaleDateString('zh-CN') : '--') + '</td>' +
+        '<td>' +
+          '<button class="btn btn-outline btn-sm" style="margin-right:6px;" onclick="showEditModal(' + p.id + ')">编辑</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="deletePoint(' + p.id + ')">删除</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('') : '<tr><td colspan="8" class="empty">暂无推荐数据</td></tr>';
+
+    var pages = Math.ceil(total / pointPageSize) || 1;
+    var pager = '';
+    for (var i = 1; i <= pages; i++) {
+      pager += '<button class="page-btn' + (i === pointPage ? ' active' : '') + '" onclick="loadPoints(' + i + ')">' + i + '</button>';
+    }
+    document.getElementById('pointPager').innerHTML = pages > 1 ? pager : '';
+  }
+
+  function escHtml(str) {
+    if (!str) return '--';
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ── Modal ──
+  window.showCreateModal = function() {
+    editingId = null;
+    document.getElementById('modalTitle').textContent = '新增推荐';
+    document.getElementById('submitBtn').textContent = '确认添加';
+    clearForm();
+    document.getElementById('pointModal').style.display = 'flex';
+  };
+
+  window.showEditModal = async function(id) {
+    editingId = id;
+    document.getElementById('modalTitle').textContent = '编辑推荐';
+    document.getElementById('submitBtn').textContent = '确认更新';
+
+    // Fetch point detail
+    try {
+      var res = await fetch('/api/scenic/points/' + id, { headers: headers });
+      if (!res.ok) throw new Error('请求失败');
+      var p = await res.json();
+      // API may return the object directly or wrapped in data
+      p = p.data || p;
+      document.getElementById('pointName').value = p.name || '';
+      document.getElementById('pointCategory').value = p.category || 'dining';
+      document.getElementById('pointAddress').value = p.address || '';
+      document.getElementById('pointPhone').value = p.phone || '';
+      document.getElementById('pointRating').value = p.rating != null ? p.rating : '';
+      document.getElementById('pointDistance').value = p.distance != null ? p.distance : '';
+      document.getElementById('pointOpenTime').value = p.open_time || '';
+      document.getElementById('pointDescription').value = p.description || '';
+      document.getElementById('pointModal').style.display = 'flex';
+    } catch(e) {
+      toast('加载推荐详情失败: ' + e.message, 'error');
+    }
+  };
+
+  window.hidePointModal = function() {
+    document.getElementById('pointModal').style.display = 'none';
+  };
+
+  function clearForm() {
+    document.getElementById('pointName').value = '';
+    document.getElementById('pointCategory').value = 'dining';
+    document.getElementById('pointAddress').value = '';
+    document.getElementById('pointPhone').value = '';
+    document.getElementById('pointRating').value = '';
+    document.getElementById('pointDistance').value = '';
+    document.getElementById('pointOpenTime').value = '';
+    document.getElementById('pointDescription').value = '';
+  }
+
+  // ── Submit ──
+  window.submitPoint = async function() {
+    var name = document.getElementById('pointName').value.trim();
+    if (!name) { toast('名称不能为空', 'error'); return; }
+
+    var ratingVal = document.getElementById('pointRating').value.trim();
+    var distanceVal = document.getElementById('pointDistance').value.trim();
+
+    var body = {
+      name: name,
+      category: document.getElementById('pointCategory').value,
+      address: document.getElementById('pointAddress').value.trim(),
+      phone: document.getElementById('pointPhone').value.trim(),
+      rating: ratingVal ? parseFloat(ratingVal) : null,
+      distance: distanceVal ? parseInt(distanceVal) : null,
+      open_time: document.getElementById('pointOpenTime').value.trim(),
+      description: document.getElementById('pointDescription').value.trim()
+    };
+
+    try {
+      var method = editingId ? 'PUT' : 'POST';
+      var url = editingId ? '/api/scenic/points/' + editingId : '/api/scenic/points';
+      var res = await fetch(url, {
+        method: method,
+        headers: headers,
+        body: JSON.stringify(body)
+      });
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) { var err = await res.json(); throw new Error(err.detail || err.message || '操作失败'); }
+      toast(editingId ? '推荐已更新' : '推荐已添加', 'success');
+      hidePointModal();
+      clearForm();
+      loadPoints();
+    } catch(e) {
+      toast('操作失败: ' + e.message, 'error');
+    }
+  };
+
+  // ── Delete ──
+  window.deletePoint = async function(id) {
+    if (!confirm('确认删除该推荐？此操作不可恢复。')) return;
+    try {
+      var res = await fetch('/api/scenic/points/' + id, { method: 'DELETE', headers: headers });
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '删除失败'); }
+      toast('推荐已删除', 'success');
+      loadPoints();
+    } catch(e) {
+      toast('删除失败: ' + e.message, 'error');
+    }
+  };
+
+  // ── Search on Enter ──
+  document.getElementById('searchKeyword').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') loadPoints();
+  });
+
+  // ── Click outside modal to close ──
+  document.getElementById('pointModal').addEventListener('click', function(e) {
+    if (e.target === this) hidePointModal();
+  });
+
+  // init
+  loadPoints();
+})();
+</script>
+</body>
+</html>
