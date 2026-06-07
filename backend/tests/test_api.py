@@ -875,3 +875,201 @@ class TestNewEndpoints:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 403
+
+
+class TestExportAPIs:
+    """数据导出 API 测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    # ── 鉴权测试 ──
+    async def test_export_tickets_no_auth(self, client):
+        resp = await client.get("/api/export/tickets")
+        assert resp.status_code == 401
+
+    async def test_export_revenue_no_auth(self, client):
+        resp = await client.get("/api/export/revenue")
+        assert resp.status_code == 401
+
+    async def test_export_parking_no_auth(self, client):
+        resp = await client.get("/api/export/parking")
+        assert resp.status_code == 401
+
+    async def test_guest_cannot_export_tickets(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.get(
+            "/api/export/tickets",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_guest_cannot_export_revenue(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.get(
+            "/api/export/revenue",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_guest_cannot_export_parking(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.get(
+            "/api/export/parking",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    # ── 票务导出 ──
+    async def test_export_tickets_csv(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/tickets",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+        csv_content = resp.text
+        assert "订单号" in csv_content
+
+    async def test_export_tickets_with_filters(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/tickets?start_date=2025-01-01&end_date=2030-12-31&spot_id=1",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+
+    async def test_export_tickets_by_status(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/tickets?status=paid",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+
+    async def test_export_tickets_bad_date(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/tickets?start_date=bad-date",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400
+
+    # ── 营收导出 ──
+    async def test_export_revenue_csv(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/revenue?period=day",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+        csv_content = resp.text
+        assert "门票收入" in csv_content
+        assert "酒店收入" in csv_content
+        assert "停车收入" in csv_content
+        assert "总计" in csv_content
+
+    async def test_export_revenue_week(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/revenue?period=week",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+
+    async def test_export_revenue_month(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/revenue?period=month",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+
+    async def test_export_revenue_with_dates(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/revenue?period=day&start_date=2025-01-01&end_date=2025-01-31",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+
+    async def test_export_revenue_with_spot(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/revenue?period=day&spot_id=1",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+
+    async def test_export_revenue_invalid_period(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/revenue?period=year",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400
+
+    async def test_export_revenue_bad_date(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/revenue?start_date=bad",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400
+
+    async def test_export_revenue_date_range_invalid(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/revenue?start_date=2030-01-01&end_date=2025-01-01",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400
+
+    # ── 停车导出 ──
+    async def test_export_parking_csv(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/parking",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+        csv_content = resp.text
+        assert "停车场" in csv_content
+        assert "车牌号" in csv_content
+
+    async def test_export_parking_with_filters(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/parking?start_date=2025-01-01&end_date=2030-12-31&plate_number=京A",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+
+    async def test_export_parking_by_status(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/parking?status=completed",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+
+    async def test_export_parking_bad_date(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/parking?start_date=bad-date",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400

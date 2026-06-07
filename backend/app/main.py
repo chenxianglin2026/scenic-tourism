@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import init_db
-from app.api import auth, tickets, hotels, dashboard, payment, scenic, parking
+from app.api import auth, tickets, hotels, dashboard, payment, scenic, parking, export
 
 
 @asynccontextmanager
@@ -47,6 +47,8 @@ app.include_router(payment.router)
 app.include_router(scenic.router)
 app.include_router(parking.router)
 
+# 注册导出路由
+app.include_router(export.router)
 
 # 健康检查
 @app.get("/health", tags=["系统"])
@@ -65,6 +67,7 @@ async def root():
             "payment": "/api/payment",
             "scenic": "/api/scenic",
             "parking": "/api/parking",
+            "export": "/api/export",
             "dashboard": "/api/dashboard",
         },
         "new_endpoints": {
