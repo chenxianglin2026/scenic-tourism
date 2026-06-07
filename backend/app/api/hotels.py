@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.db import (
     get_db, User, Hotel, Room, HotelOrder, HotelOrderStatus, ScenicSpot
@@ -183,7 +184,9 @@ def _generate_hotel_order_no() -> str:
 
 async def _get_hotel_order_by_id(order_id: int, db: AsyncSession, user_id: Optional[int] = None) -> Optional[HotelOrder]:
     """按ID查询酒店订单，可选过滤用户"""
-    q = select(HotelOrder).where(HotelOrder.id == order_id)
+    q = select(HotelOrder).where(HotelOrder.id == order_id).options(
+        selectinload(HotelOrder.hotel), selectinload(HotelOrder.room)
+    )
     if user_id is not None:
         q = q.where(HotelOrder.user_id == user_id)
     result = await db.execute(q)
@@ -219,7 +222,8 @@ async def create_hotel(
     db.add(hotel)
     await db.flush()
     await db.refresh(hotel)
-    hotel.rooms = []  # 新酒店无房型，避免序列化时触发 async lazy-loading
+    # 新酒店无房型 — 使用 set_committed_value 避免触发延迟加载
+    set_committed_value(hotel, 'rooms', [])
     return hotel
 
 

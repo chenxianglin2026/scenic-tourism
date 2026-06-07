@@ -20,3 +20,5 @@ dist/
 *.key
 credentials/
 secrets/
+.coverage
+htmlcov/

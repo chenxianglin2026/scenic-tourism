@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 
 from app.config import settings
 from app.db import init_db
@@ -49,6 +51,11 @@ app.include_router(parking.router)
 
 # 注册导出路由
 app.include_router(export.router)
+
+# 托管管理后台静态文件（本地调试）
+admin_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'admin')
+if os.path.exists(admin_path):
+    app.mount("/admin", StaticFiles(directory=admin_path, html=True), name="admin")
 
 # 健康检查
 @app.get("/health", tags=["系统"])
