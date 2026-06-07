@@ -132,6 +132,13 @@
   font-size: 100rpx;
 }
 
+.qr-code-wrapper {
+  background: #FFFFFF;
+  border: 2rpx solid #E8E0D5;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
 .qr-code {
   /* placeholder */
 }

@@ -4,6 +4,7 @@
  */
 const api = require('../../utils/api')
 const { ORDER_STATUS, PAGE_SIZE } = require('../../utils/const')
+const { generateQRMatrix, drawQRToCanvasContext } = require('../../utils/qrcode')
 
 Page({
   data: {
@@ -27,6 +28,8 @@ Page({
     loadingHotels: false,
     hotelsTotal: 0,
     hotelsPage: 1,
+    // 二维码展示映射: { orderId: true/false }
+    qrVisibleMap: {},
   },
 
   onShow() {
@@ -183,6 +186,38 @@ Page({
       content,
       showCancel: false
     })
+  },
+
+  // 切换票券二维码显示
+  onToggleTicketQR(e) {
+    const { id, orderNo } = e.currentTarget.dataset
+    const qrVisibleMap = { ...this.data.qrVisibleMap }
+    const currentlyVisible = qrVisibleMap[id]
+
+    if (currentlyVisible) {
+      qrVisibleMap[id] = false
+      this.setData({ qrVisibleMap })
+    } else {
+      qrVisibleMap[id] = true
+      this.setData({ qrVisibleMap })
+      // 延迟绘制二维码
+      setTimeout(() => this.drawTicketQR(id, orderNo), 200)
+    }
+  },
+
+  // 绘制票券二维码
+  drawTicketQR(ticketId, qrToken) {
+    if (!qrToken) return
+    try {
+      const canvasId = `ticketQrCanvas_${ticketId}`
+      const qrData = generateQRMatrix(qrToken)
+      const ctx = wx.createCanvasContext(canvasId, this)
+      const size = 200 // 较小尺寸适配列表
+      drawQRToCanvasContext(ctx, qrData.matrix, qrData.size, size, size)
+      ctx.draw()
+    } catch (e) {
+      console.error('票券QR绘制失败:', e)
+    }
   },
 
   // 实名认证

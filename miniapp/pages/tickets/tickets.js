@@ -4,6 +4,7 @@
  */
 const api = require('../../utils/api')
 const { TICKET_TYPES, TIME_SLOTS, ORDER_STATUS } = require('../../utils/const')
+const { generateQRMatrix, drawQRToCanvasContext } = require('../../utils/qrcode')
 
 Page({
   data: {
@@ -31,7 +32,9 @@ Page({
     unitPrice: 0,
     totalPrice: 0,
     loading: true,
-    submitting: false
+    submitting: false,
+    // 二维码canvas尺寸
+    qrCanvasSize: 300
   },
 
   onLoad() {
@@ -249,11 +252,14 @@ Page({
 
       if (payResult.success) {
         // DEV_MODE 下直接支付成功
+        const orderQR = currentOrder.qr_token || currentOrder.order_no
         this.setData({
           currentOrder: { ...currentOrder, status: 'paid' },
           viewMode: 'qr',
-          orderQR: currentOrder.qr_token || currentOrder.order_no
+          orderQR
         })
+        // 延迟绘制二维码（等待canvas节点就绪）
+        setTimeout(() => this.drawOrderQR(orderQR), 300)
         wx.showToast({ title: '支付成功', icon: 'success' })
       } else {
         wx.showToast({ title: payResult.message || '支付失败', icon: 'none' })
@@ -261,13 +267,29 @@ Page({
     } catch (err) {
       wx.hideLoading()
       // mock 降级
+      const orderQR = currentOrder.qr_token || currentOrder.order_no
       const updated = { ...currentOrder, status: 'paid' }
       this.setData({
         currentOrder: updated,
         viewMode: 'qr',
-        orderQR: currentOrder.qr_token || currentOrder.order_no
+        orderQR
       })
+      setTimeout(() => this.drawOrderQR(orderQR), 300)
       wx.showToast({ title: '支付成功(模拟)', icon: 'success' })
+    }
+  },
+
+  // 绘制订单二维码到canvas
+  drawOrderQR(qrToken) {
+    if (!qrToken) return
+    try {
+      const qrData = generateQRMatrix(qrToken)
+      const ctx = wx.createCanvasContext('orderQrCanvas', this)
+      const size = this.data.qrCanvasSize
+      drawQRToCanvasContext(ctx, qrData.matrix, qrData.size, size, size)
+      ctx.draw()
+    } catch (e) {
+      console.error('QR绘制失败:', e)
     }
   },
 

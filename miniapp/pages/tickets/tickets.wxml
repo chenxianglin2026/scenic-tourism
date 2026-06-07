@@ -160,14 +160,11 @@
 
       <view class="divider"></view>
 
-      <!-- 二维码占位 -->
-      <view class="qr-code img-placeholder" style="width:400rpx;height:400rpx;margin:0 auto;border-radius:16rpx;">
-        <view style="text-align:center;">
-          <view class="text-xl text-bold">电子票</view>
-          <view class="text-sm mt-20">{{currentOrder.order_no}}</view>
-          <view class="text-sm mt-10">{{currentOrder.ticket_type_name}} x{{currentOrder.quantity}}</view>
-          <view class="text-sm mt-10 text-light">验票码: {{orderQR}}</view>
-        </view>
+      <!-- 二维码Canvas -->
+      <view class="qr-code-wrapper" style="width:400rpx;height:400rpx;margin:0 auto;">
+        <canvas canvas-id="orderQrCanvas" id="orderQrCanvas" 
+          style="width:400rpx;height:400rpx;border-radius:16rpx;"
+        ></canvas>
       </view>
 
       <view class="mt-30" style="text-align:center;">
