@@ -7,7 +7,7 @@ from typing import Optional, List
 
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, DateTime, Date, Text,
-    ForeignKey, Enum as SAEnum, create_engine
+    ForeignKey, Enum as SAEnum, Index, create_engine
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -142,7 +142,7 @@ class TicketOrder(Base):
     ticket_type_id: Mapped[int] = mapped_column(ForeignKey("ticket_types.id", ondelete="CASCADE"), index=True)
     spot_id: Mapped[int] = mapped_column(ForeignKey("scenic_spots.id", ondelete="CASCADE"), index=True)
     quantity: Mapped[int] = mapped_column(Integer, default=1, comment="购买数量")
-    visit_date: Mapped[date] = mapped_column(Date, nullable=False, comment="游览日期")
+    visit_date: Mapped[date] = mapped_column(Date, nullable=False, comment="游览日期", index=True)
     time_slot: Mapped[str] = mapped_column(String(20), nullable=False, comment="分时段: 08:00-10:00 / 10:00-12:00 / 12:00-14:00 / 14:00-17:00")
     total_price: Mapped[float] = mapped_column(Float, nullable=False, comment="总价")
     status: Mapped[str] = mapped_column(String(20), default=TicketOrderStatus.PENDING, index=True)
@@ -161,6 +161,10 @@ class TicketOrder(Base):
     remark: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_ticket_orders_user_id_status", "user_id", "status"),
+    )
 
     # 关系
     user: Mapped["User"] = relationship(back_populates="ticket_orders", foreign_keys=[user_id])
@@ -232,8 +236,8 @@ class HotelOrder(Base):
     hotel_id: Mapped[int] = mapped_column(ForeignKey("hotels.id", ondelete="CASCADE"), index=True)
     room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id", ondelete="CASCADE"), index=True)
     room_count: Mapped[int] = mapped_column(Integer, default=1, comment="预订间数")
-    checkin_date: Mapped[date] = mapped_column(Date, nullable=False, comment="入住日期")
-    checkout_date: Mapped[date] = mapped_column(Date, nullable=False, comment="离店日期")
+    checkin_date: Mapped[date] = mapped_column(Date, nullable=False, comment="入住日期", index=True)
+    checkout_date: Mapped[date] = mapped_column(Date, nullable=False, comment="离店日期", index=True)
     nights: Mapped[int] = mapped_column(Integer, nullable=False, comment="入住天数")
     total_price: Mapped[float] = mapped_column(Float, nullable=False, comment="总价")
     status: Mapped[str] = mapped_column(String(20), default=HotelOrderStatus.PENDING, index=True)
@@ -245,6 +249,10 @@ class HotelOrder(Base):
     cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_hotel_orders_user_id_status", "user_id", "status"),
+    )
 
     # 关系
     user: Mapped["User"] = relationship(back_populates="hotel_orders")
@@ -316,11 +324,11 @@ class ParkingRecord(Base):
     user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
     plate_number: Mapped[str] = mapped_column(String(20), nullable=False, index=True, comment="车牌号")
     vehicle_type: Mapped[str] = mapped_column(String(20), default="car")
-    checkin_time: Mapped[datetime] = mapped_column(DateTime, nullable=False, comment="入场时间")
+    checkin_time: Mapped[datetime] = mapped_column(DateTime, nullable=False, comment="入场时间", index=True)
     checkout_time: Mapped[Optional[datetime]] = mapped_column(DateTime, comment="出场时间")
     duration_minutes: Mapped[Optional[int]] = mapped_column(Integer, comment="停车时长(分钟)")
     total_fee: Mapped[Optional[float]] = mapped_column(Float, comment="停车费(元)")
-    status: Mapped[str] = mapped_column(String(20), default="parking", comment="parking/completed/cancelled")
+    status: Mapped[str] = mapped_column(String(20), default="parking", comment="parking/completed/cancelled", index=True)
     pay_status: Mapped[str] = mapped_column(String(20), default="unpaid", comment="unpaid/paid")
     pay_method: Mapped[Optional[str]] = mapped_column(String(20), comment="wechat/alipay/cash")
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
@@ -350,6 +358,10 @@ class NearbyPoint(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    __table_args__ = (
+        Index("ix_nearby_points_spot_id_category", "spot_id", "category"),
+    )
+
 
 # ── 游客评价模型 ────────────────────────────────────
 class Review(Base):
@@ -367,6 +379,10 @@ class Review(Base):
     visit_date: Mapped[Optional[date]] = mapped_column(Date, comment="游览日期")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    __table_args__ = (
+        Index("ix_reviews_spot_id_rating", "spot_id", "rating"),
+    )
+
 
 # ── 支付记录模型 ────────────────────────────────────
 class PaymentRecord(Base):
@@ -377,13 +393,13 @@ class PaymentRecord(Base):
     order_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="ticket / hotel")
     transaction_id: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False, comment="微信支付交易号")
     amount: Mapped[float] = mapped_column(Float, nullable=False, comment="支付金额(元)")
-    status: Mapped[str] = mapped_column(String(20), default="pending", comment="pending / success / failed / refund")
+    status: Mapped[str] = mapped_column(String(20), default="pending", comment="pending / success / failed / refund", index=True)
     pay_method: Mapped[str] = mapped_column(String(20), default="wechat_jsapi")
     prepay_id: Mapped[Optional[str]] = mapped_column(String(64), comment="微信预支付ID")
     pay_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
     refund_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
     raw_data: Mapped[Optional[str]] = mapped_column(Text, comment="回调原始数据 JSON")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
