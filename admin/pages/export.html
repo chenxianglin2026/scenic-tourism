@@ -177,6 +177,7 @@
     try {
       // 景区列表
       var sRes = await fetch('/api/scenic/list?page_size=200', { headers: headers });
+      if (sRes.status === 401 || sRes.status === 403) { window.top.location.href = '../pages/login.html'; return; }
       if (sRes.ok) {
         var sJson = await sRes.json();
         var spots = sJson.items || sJson || [];
@@ -187,6 +188,7 @@
       }
       // 票种列表
       var tRes = await fetch('/api/tickets/types', { headers: headers });
+      if (tRes.status === 401 || tRes.status === 403) { window.top.location.href = '../pages/login.html'; return; }
       if (tRes.ok) {
         var types = await tRes.json();
         if (Array.isArray(types)) {

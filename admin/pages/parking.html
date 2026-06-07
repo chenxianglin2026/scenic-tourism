@@ -153,6 +153,7 @@
   async function loadRates() {
     try {
       var res = await fetch('/api/parking/rates');
+      if (res.status === 401 || res.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var rates = await res.json();
       renderRates(rates);

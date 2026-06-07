@@ -221,6 +221,7 @@
   async function loadScenicInfo() {
     try {
       var res = await fetch('/api/scenic/info');
+      if (res.status === 401 || res.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) { document.getElementById('scenicInfoDetail').innerHTML = '<div class="empty">加载失败</div>'; return; }
       var info = await res.json();
       spotId = info.id;
@@ -264,6 +265,7 @@
       if (spotId) params.set('spot_id', spotId);
       if (cat) params.set('category', cat);
       var res = await fetch('/api/scenic/announcements?' + params);
+      if (res.status === 401 || res.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var json = await res.json();
       renderAnnouncements(json);
@@ -352,6 +354,7 @@
       if (cat) params.set('category', cat);
       var url = '/api/scenic/pois' + (params.toString() ? '?' + params : '');
       var res = await fetch(url);
+      if (res.status === 401 || res.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var pois = await res.json();
       renderPois(pois);

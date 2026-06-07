@@ -270,6 +270,10 @@
     // Load scenic info
     try {
       var scenicRes = await fetch('/api/scenic/info');
+      if (scenicRes.status === 401 || scenicRes.status === 403) {
+        window.top.location.href = 'pages/login.html';
+        return;
+      }
       if (scenicRes.ok) {
         var scenicData = await scenicRes.json();
         renderScenicInfo(scenicData);
@@ -283,6 +287,10 @@
     // Load parking overview (admin all records)
     try {
       var parkRes = await fetch('/api/parking/records/all', { headers: headers });
+      if (parkRes.status === 401 || parkRes.status === 403) {
+        window.top.location.href = 'pages/login.html';
+        return;
+      }
       if (parkRes.ok) {
         var parkData = await parkRes.json();
         renderParkingOverview(parkData);

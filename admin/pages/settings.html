@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../css/admin.css">
+<style>
+  .section { margin-bottom: 24px; }
+  .toast-msg { position:fixed; top:20px; left:50%; transform:translateX(-50%); padding:10px 24px; border-radius:6px; color:#fff; font-size:14px; z-index:9999; opacity:0; transition:opacity .3s; pointer-events:none; }
+  .toast-msg.show { opacity:1; }
+  .toast-msg.success { background:#52c41a; }
+  .toast-msg.error { background:#f5222d; }
+  .toast-msg.info { background:#1890ff; }
+  .stats-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:20px; }
+  .stats-item { background:var(--bg-card); border-radius:var(--radius); padding:20px; text-align:center; box-shadow:var(--shadow); }
+  .stats-item .si-value { font-size:28px; font-weight:700; color:var(--gold-dark); }
+  .stats-item .si-label { font-size:12px; color:var(--text-muted); margin-top:4px; }
+  .form-section { background:var(--bg-card); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); margin-bottom:20px; }
+  .form-section .fs-title { font-size:16px; font-weight:600; color:var(--text-primary); margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+  .form-row { display:flex; gap:16px; margin-bottom:14px; }
+  .form-row .form-group { flex:1; }
+  .cache-info { font-size:13px; color:var(--text-muted); margin-top:8px; }
+  .cache-actions { display:flex; gap:10px; align-items:center; margin-top:12px; }
+  @media (max-width:768px) { .stats-grid { grid-template-columns:1fr; } .form-row { flex-direction:column; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text-muted);">
+    <span style="color:var(--gold-dark);">🏠 首页</span>
+    <span>/</span>
+    <span style="color:var(--text-primary);font-weight:600;">系统设置</span>
+  </div>
+
+  <div class="page-title">系统设置</div>
+
+  <!-- ========== 数据统计 ========== -->
+  <div class="section">
+    <div class="stats-grid" id="statsGrid">
+      <div class="stats-item"><div class="si-value">--</div><div class="si-label">总订单数</div></div>
+      <div class="stats-item"><div class="si-value">--</div><div class="si-label">总营收 (元)</div></div>
+      <div class="stats-item"><div class="si-value">--</div><div class="si-label">注册用户数</div></div>
+    </div>
+  </div>
+
+  <!-- ========== 基本设置 ========== -->
+  <div class="form-section">
+    <div class="fs-title">🏞️ 基本设置</div>
+    <div id="basicSettingsLoading" class="loading">加载中...</div>
+    <div id="basicSettingsForm" style="display:none;">
+      <div class="form-row">
+        <div class="form-group">
+          <label>景区名称 <span style="color:var(--error)">*</span></label>
+          <input class="form-input" id="scenicName" placeholder="请输入景区名称" maxlength="200">
+        </div>
+        <div class="form-group">
+          <label>联系电话</label>
+          <input class="form-input" id="scenicPhone" placeholder="请输入联系电话" maxlength="20">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>景区地址</label>
+          <input class="form-input" id="scenicAddress" placeholder="请输入景区地址" maxlength="500">
+        </div>
+        <div class="form-group">
+          <label>所在城市</label>
+          <input class="form-input" id="scenicCity" placeholder="请输入城市" maxlength="50">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>所在区县</label>
+          <input class="form-input" id="scenicDistrict" placeholder="请输入区县" maxlength="50">
+        </div>
+        <div class="form-group">
+          <label>日限流量</label>
+          <input class="form-input" id="scenicDailyLimit" type="number" min="1" placeholder="每日最大客流">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>景区描述</label>
+        <textarea id="scenicDescription" placeholder="请输入景区描述..." rows="3"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>开放时间</label>
+          <input class="form-input" id="scenicOpenTime" placeholder="如：06:00" maxlength="10">
+        </div>
+        <div class="form-group">
+          <label>关闭时间</label>
+          <input class="form-input" id="scenicCloseTime" placeholder="如：18:00" maxlength="10">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveBasicSettings()" style="margin-top:8px;">💾 保存设置</button>
+    </div>
+  </div>
+
+  <!-- ========== 缓存管理 ========== -->
+  <div class="form-section">
+    <div class="fs-title">🗄️ 缓存管理</div>
+    <div class="form-group">
+      <label>天气缓存</label>
+      <div class="cache-info" id="weatherCacheInfo">点击刷新获取最新天气数据</div>
+      <div class="cache-actions">
+        <button class="btn btn-primary btn-sm" onclick="refreshWeatherCache()" id="refreshWeatherBtn">🔄 刷新天气缓存</button>
+        <span style="font-size:12px;color:var(--text-muted);">调用后端刷新接口重新生成模拟天气数据</span>
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <div class="form-group">
+        <label>浏览器本地缓存</label>
+        <div class="cache-info">清除浏览器 localStorage 中的临时数据（Token 除外）</div>
+        <div class="cache-actions">
+          <button class="btn btn-outline btn-sm" onclick="clearLocalCache()">🗑️ 清除本地缓存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast-msg" id="toast"></div>
+
+<script>
+(function() {
+  var token = localStorage.getItem('scenic_token');
+  if (!token) { window.top.location.href = 'pages/login.html'; return; }
+  var headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+  // ── Toast ──
+  function toast(msg, cls) {
+    var el = document.getElementById('toast');
+    el.textContent = msg; el.className = 'toast-msg show ' + (cls||'info');
+    setTimeout(function() { el.classList.remove('show'); }, 2500);
+  }
+
+  function fmtMoney(n) { return '¥' + Number(n||0).toLocaleString('zh-CN', {minimumFractionDigits:0,maximumFractionDigits:0}); }
+
+  // ── 数据统计 ──
+  async function loadStats() {
+    var statsEl = document.getElementById('statsGrid');
+    try {
+      // 并行获取统计数据
+      var [ordersRes, revenueRes] = await Promise.all([
+        fetch('/api/dashboard/overview', { headers: headers }),
+        fetch('/api/dashboard/revenue?period=month', { headers: headers })
+      ]);
+
+      var totalOrders = 0;
+      var totalRevenue = 0;
+      var totalUsers = '--';
+
+      // 处理 overview 数据
+      if (ordersRes.ok) {
+        var overviewData = await ordersRes.json();
+        var d = overviewData.data || overviewData;
+        // totalUsers from reviews total
+        totalUsers = (d.reviews && d.reviews.total) ? d.reviews.total : '--';
+      }
+
+      // 处理 revenue 数据
+      if (revenueRes.ok) {
+        var revData = await revenueRes.json();
+        var rev = revData.data || revData;
+        if (rev.summary) {
+          totalRevenue = rev.summary.total_revenue || 0;
+        }
+      }
+
+      // 获取订单总数：tickets + hotels + parking
+      try {
+        var [ticketOrdRes, hotelOrdRes, parkRecRes] = await Promise.all([
+          fetch('/api/tickets/orders?page=1&page_size=1', { headers: headers }),
+          fetch('/api/hotels/orders?page=1&page_size=1', { headers: headers }),
+          fetch('/api/parking/records/all?page=1&page_size=1', { headers: headers })
+        ]);
+
+        var toCount = 0, hoCount = 0, prCount = 0;
+        if (ticketOrdRes.ok) {
+          var toJson = await ticketOrdRes.json();
+          toCount = toJson.total || 0;
+        }
+        if (hotelOrdRes.ok) {
+          var hoJson = await hotelOrdRes.json();
+          hoCount = hoJson.total || 0;
+        }
+        if (parkRecRes.ok) {
+          var prJson = await parkRecRes.json();
+          prCount = prJson.total || 0;
+        }
+        totalOrders = toCount + hoCount + prCount;
+      } catch(e) { /* ignore */ }
+
+      statsEl.innerHTML =
+        '<div class="stats-item"><div class="si-value">' + totalOrders.toLocaleString() + '</div><div class="si-label">总订单数</div></div>' +
+        '<div class="stats-item"><div class="si-value">' + fmtMoney(totalRevenue) + '</div><div class="si-label">总营收</div></div>' +
+        '<div class="stats-item"><div class="si-value">' + totalUsers + '</div><div class="si-label">总用户/评价数</div></div>';
+
+    } catch(e) {
+      statsEl.innerHTML =
+        '<div class="stats-item"><div class="si-value">--</div><div class="si-label">总订单数</div></div>' +
+        '<div class="stats-item"><div class="si-value">--</div><div class="si-label">总营收</div></div>' +
+        '<div class="stats-item"><div class="si-value">--</div><div class="si-label">总用户/评价数</div></div>';
+    }
+  }
+
+  // ── 基本设置 ──
+  async function loadBasicSettings() {
+    try {
+      var res = await fetch('/api/scenic/info');
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) throw new Error('加载失败');
+      var info = await res.json();
+
+      document.getElementById('scenicName').value = info.name || '';
+      document.getElementById('scenicPhone').value = info.phone || '';
+      document.getElementById('scenicAddress').value = info.address || '';
+      document.getElementById('scenicCity').value = info.city || '';
+      document.getElementById('scenicDistrict').value = info.district || '';
+      document.getElementById('scenicDailyLimit').value = info.daily_limit || '';
+      document.getElementById('scenicDescription').value = info.description || '';
+      document.getElementById('scenicOpenTime').value = info.open_time || '';
+      document.getElementById('scenicCloseTime').value = info.close_time || '';
+
+      document.getElementById('basicSettingsLoading').style.display = 'none';
+      document.getElementById('basicSettingsForm').style.display = 'block';
+    } catch(e) {
+      document.getElementById('basicSettingsLoading').innerHTML = '<div class="empty">加载失败: ' + e.message + '</div>';
+    }
+  }
+
+  window.saveBasicSettings = async function() {
+    var body = {
+      name: document.getElementById('scenicName').value.trim(),
+      phone: document.getElementById('scenicPhone').value.trim() || null,
+      address: document.getElementById('scenicAddress').value.trim() || null,
+      city: document.getElementById('scenicCity').value.trim() || null,
+      district: document.getElementById('scenicDistrict').value.trim() || null,
+      daily_limit: parseInt(document.getElementById('scenicDailyLimit').value) || null,
+      description: document.getElementById('scenicDescription').value.trim() || null,
+      open_time: document.getElementById('scenicOpenTime').value.trim() || null,
+      close_time: document.getElementById('scenicCloseTime').value.trim() || null
+    };
+
+    if (!body.name) { toast('景区名称不能为空', 'error'); return; }
+
+    try {
+      var res = await fetch('/api/scenic/info', {
+        method: 'PUT',
+        headers: headers,
+        body: JSON.stringify(body)
+      });
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '保存失败'); }
+      toast('设置已保存', 'success');
+    } catch(e) {
+      toast('保存失败: ' + e.message, 'error');
+    }
+  };
+
+  // ── 缓存管理 ──
+  window.refreshWeatherCache = async function() {
+    var btn = document.getElementById('refreshWeatherBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 刷新中...';
+    try {
+      var res = await fetch('/api/scenic/weather/refresh', { method: 'POST', headers: headers });
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '刷新失败'); }
+      var data = await res.json();
+      document.getElementById('weatherCacheInfo').innerHTML =
+        '✅ 天气缓存已刷新 — ' + data.weather + ' ' + data.temperature + '℃ | 湿度 ' + data.humidity + '% | ' + data.wind + ' | 更新于 ' + data.update_time;
+      toast('天气缓存刷新成功', 'success');
+    } catch(e) {
+      toast('刷新失败: ' + e.message, 'error');
+      document.getElementById('weatherCacheInfo').textContent = '刷新失败: ' + e.message;
+    }
+    btn.disabled = false;
+    btn.textContent = '🔄 刷新天气缓存';
+  };
+
+  window.clearLocalCache = function() {
+    if (!confirm('确定要清除浏览器本地缓存吗？Token 将被保留。')) return;
+    var token = localStorage.getItem('scenic_token');
+    localStorage.clear();
+    if (token) localStorage.setItem('scenic_token', token);
+    sessionStorage.clear();
+    toast('本地缓存已清除', 'success');
+  };
+
+  // init
+  loadStats();
+  loadBasicSettings();
+})();
+</script>
+</body>
+</html>
