@@ -151,7 +151,7 @@
 <script>
 (function() {
   var token = localStorage.getItem('scenic_token');
-  if (!token) { window.top.location.href = '../pages/login.html'; return; }
+  if (!token) { window.top.location.href = 'pages/login.html'; return; }
   var BASE = window.parent && window.parent.location ? '' : '';
   var headers = { 'Authorization': 'Bearer ' + token };
 
@@ -177,7 +177,7 @@
     try {
       // 景区列表
       var sRes = await fetch('/api/scenic/list?page_size=200', { headers: headers });
-      if (sRes.status === 401 || sRes.status === 403) { window.top.location.href = '../pages/login.html'; return; }
+      if (sRes.status === 401 || sRes.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (sRes.ok) {
         var sJson = await sRes.json();
         var spots = sJson.items || sJson || [];
@@ -188,7 +188,7 @@
       }
       // 票种列表
       var tRes = await fetch('/api/tickets/types', { headers: headers });
-      if (tRes.status === 401 || tRes.status === 403) { window.top.location.href = '../pages/login.html'; return; }
+      if (tRes.status === 401 || tRes.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (tRes.ok) {
         var types = await tRes.json();
         if (Array.isArray(types)) {
@@ -213,7 +213,7 @@
   async function doExport(url, previewEl) {
     try {
       var res = await fetch(url, { headers: headers });
-      if (res.status === 401) { window.top.location.href = '../pages/login.html'; return; }
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) {
         var err = await res.json().catch(function() { return {detail:'导出失败'}; });
         toast(err.detail || '导出失败', 'error');

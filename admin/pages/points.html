@@ -213,6 +213,7 @@
     // Fetch point detail
     try {
       var res = await fetch('/api/scenic/points/' + id, { headers: headers });
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var p = await res.json();
       // API may return the object directly or wrapped in data

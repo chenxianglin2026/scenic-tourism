@@ -263,6 +263,10 @@
     if (!confirm('确定要删除该评价吗？此操作不可恢复。')) return;
     try {
       var res = await fetch('/api/scenic/reviews/' + id, { method: 'DELETE', headers: headers });
+      if (res.status === 401 || res.status === 403) {
+        window.top.location.href = 'pages/login.html';
+        return;
+      }
       if (res.ok) {
         showToast('评价已删除', 'success');
         loadReviews();

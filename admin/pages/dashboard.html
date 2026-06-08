@@ -420,6 +420,10 @@
   async function loadReviewStats() {
     try {
       var res = await fetch('/api/scenic/reviews?page=1&page_size=1', { headers: headers });
+      if (res.status === 401 || res.status === 403) {
+        window.top.location.href = 'pages/login.html';
+        return;
+      }
       if (!res.ok) {
         document.getElementById('reviewStatsCard').innerHTML = '<div class="empty">评价数据加载失败</div>';
         document.getElementById('reviewDistCard').innerHTML = '<div class="empty">评价数据加载失败</div>';
