@@ -11,7 +11,7 @@ import os
 class Settings(BaseSettings):
     # 应用基础
     APP_NAME: str = "景区智慧管理系统"
-    APP_VERSION: str = "0.1.0"
+    APP_VERSION: str = "0.2.0"
     DEBUG: bool = True
 
     # 开发模式开关

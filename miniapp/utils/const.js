@@ -8,7 +8,7 @@ const config = {
   // ═══════════════════════════════════════════
 
   /** API 基础地址 */
-  API_BASE: 'http://127.0.0.1:8000',
+  API_BASE: 'https://43.163.5.90/scenic',
 
   /** 开发模式 */
   DEV_MODE: true,

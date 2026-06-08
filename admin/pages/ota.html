@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../css/admin.css">
+<style>
+  .tab-bar { display:flex; gap:0; margin-bottom:16px; border-bottom:2px solid var(--border); }
+  .tab-item { padding:8px 20px; cursor:pointer; font-size:14px; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:var(--transition); }
+  .tab-item.active { color:var(--gold-dark); border-bottom-color:var(--gold); font-weight:600; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+  .toast-msg { position:fixed; top:20px; left:50%; transform:translateX(-50%); padding:10px 24px; border-radius:6px; color:#fff; font-size:14px; z-index:9999; opacity:0; transition:opacity .3s; pointer-events:none; }
+  .toast-msg.show { opacity:1; }
+  .toast-msg.success { background:#52c41a; }
+  .toast-msg.error { background:#f5222d; }
+  .toast-msg.info { background:#1890ff; }
+  .config-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px; }
+  .config-card { background:var(--bg-card); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; border-left:4px solid var(--gold); }
+  .config-card.meituan { border-left-color:#f60; }
+  .config-card.fliggy { border-left-color:#f40; }
+  .config-card .cc-header { padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  .config-card .cc-name { font-size:16px; font-weight:700; }
+  .config-card .cc-body { padding:14px 16px; font-size:13px; color:var(--text-secondary); line-height:2; }
+  .config-card .cc-actions { padding:12px 16px; border-top:1px solid var(--border); display:flex; gap:8px; }
+  .sync-result { background:#faf8f3; border-radius:8px; padding:12px; margin-top:12px; font-size:12px; max-height:300px; overflow:auto; }
+  .revenue-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:16px; }
+  .revenue-card { background:var(--bg-card); border-radius:var(--radius); padding:20px; text-align:center; box-shadow:var(--shadow); }
+  .revenue-card .rv-platform { font-size:18px; font-weight:700; color:var(--text-primary); }
+  .revenue-card .rv-amount { font-size:28px; font-weight:700; color:var(--gold-dark); margin:8px 0; }
+  .revenue-card .rv-meta { font-size:12px; color:var(--text-muted); line-height:1.6; }
+  @media (max-width:768px) { .config-cards,.revenue-grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text-muted);">
+    <span style="color:var(--gold-dark);">🏠 首页</span>
+    <span>/</span>
+    <span style="color:var(--text-primary);font-weight:600;">OTA渠道管理</span>
+  </div>
+
+  <div class="page-title">OTA渠道管理</div>
+
+  <div class="tab-bar">
+    <div class="tab-item active" data-tab="configs">渠道配置</div>
+    <div class="tab-item" data-tab="orders">OTA订单</div>
+    <div class="tab-item" data-tab="sync">库存同步</div>
+    <div class="tab-item" data-tab="revenue">渠道营收</div>
+  </div>
+
+  <!-- Tab: 渠道配置 -->
+  <div class="tab-content active" id="tab-configs">
+    <div class="config-cards" id="configCards"><div class="loading">加载中...</div></div>
+  </div>
+
+  <!-- Tab: OTA订单 -->
+  <div class="tab-content" id="tab-orders">
+    <div class="filter-bar">
+      <select class="form-select" id="otaPlatformFilter">
+        <option value="">全部平台</option>
+        <option value="ctrip">携程</option>
+        <option value="meituan">美团</option>
+        <option value="fliggy">飞猪</option>
+      </select>
+      <select class="form-select" id="otaOrderStatusFilter">
+        <option value="">全部状态</option>
+        <option value="synced">已同步</option>
+        <option value="pending">待处理</option>
+        <option value="confirmed">已确认</option>
+        <option value="cancelled">已取消</option>
+        <option value="error">同步失败</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="loadOtaOrders()">查询</button>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">OTA订单列表</div>
+        <span style="font-size:12px;color:var(--text-muted);" id="otaOrderTotal">--</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>OTA订单号</th>
+              <th>平台</th>
+              <th>本地订单号</th>
+              <th>类型</th>
+              <th>操作</th>
+              <th>状态</th>
+              <th>时间</th>
+            </tr>
+          </thead>
+          <tbody id="otaOrderList"><tr><td colspan="7" class="empty">加载中...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="otaOrderPager"></div>
+    </div>
+  </div>
+
+  <!-- Tab: 库存同步 -->
+  <div class="tab-content" id="tab-sync">
+    <div class="card">
+      <div class="card-header"><div class="card-title">批量同步库存到OTA</div></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="form-group">
+          <label>目标平台</label>
+          <select class="form-select" id="syncPlatform">
+            <option value="ctrip">携程</option>
+            <option value="meituan">美团</option>
+            <option value="fliggy">飞猪</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>产品类型</label>
+          <select class="form-select" id="syncProductType">
+            <option value="">全部</option>
+            <option value="ticket">票务</option>
+            <option value="room">酒店房型</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <button class="btn btn-primary" onclick="batchSyncStock()">🔄 同步库存</button>
+        </div>
+      </div>
+      <div class="sync-result" id="syncResult" style="display:none;"></div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><div class="card-title">可同步产品列表</div></div>
+      <div id="syncableProducts"><div class="loading">加载中...</div></div>
+    </div>
+  </div>
+
+  <!-- Tab: 渠道营收 -->
+  <div class="tab-content" id="tab-revenue">
+    <div class="revenue-grid" id="revenueGrid"><div class="loading">加载中...</div></div>
+  </div>
+
+</div>
+
+<!-- Edit Config Modal -->
+<div class="modal-mask" id="configModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title">编辑渠道配置 - <span id="configModalPlatform">--</span></div>
+    <div class="form-group">
+      <label>API Key</label>
+      <input class="form-input" id="configApiKey" placeholder="API Key">
+    </div>
+    <div class="form-group">
+      <label>OTA侧酒店ID</label>
+      <input class="form-input" id="configHotelId" placeholder="OTA平台酒店ID">
+    </div>
+    <div class="form-group">
+      <label>OTA侧景区ID</label>
+      <input class="form-input" id="configSpotId" placeholder="OTA平台景区ID">
+    </div>
+    <div class="form-group">
+      <label>同步间隔(分钟)</label>
+      <input class="form-input" type="number" id="configSyncInterval" min="1" max="1440" value="5">
+    </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="configEnabled" checked>
+        <span>启用该渠道</span>
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="hideConfigModal()">取消</button>
+      <button class="btn btn-primary btn-sm" onclick="saveConfig()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-msg" id="toast"></div>
+
+<script>
+(function() {
+  var token = localStorage.getItem('scenic_token');
+  if (!token) { window.top.location.href = 'pages/login.html'; return; }
+  var headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+  var otaOrderPage = 1, otaOrderPageSize = 20;
+
+  // ── Toast ──
+  function toast(msg, cls) {
+    var el = document.getElementById('toast');
+    el.textContent = msg; el.className = 'toast-msg show ' + (cls||'info');
+    setTimeout(function() { el.classList.remove('show'); }, 2500);
+  }
+
+  // ── Tabs ──
+  document.querySelectorAll('.tab-item').forEach(function(t) {
+    t.addEventListener('click', function() {
+      document.querySelectorAll('.tab-item').forEach(function(x) { x.classList.remove('active'); });
+      document.querySelectorAll('.tab-content').forEach(function(x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+      if (t.dataset.tab === 'configs') loadConfigs();
+      if (t.dataset.tab === 'orders') loadOtaOrders();
+      if (t.dataset.tab === 'sync') loadSyncableProducts();
+      if (t.dataset.tab === 'revenue') loadRevenue();
+    });
+  });
+
+  function fmtMoney(n) { return '¥' + Number(n||0).toFixed(2); }
+  function platformLabel(p) {
+    var map = { ctrip:'携程', meituan:'美团', fliggy:'飞猪' };
+    return map[p] || p || '--';
+  }
+
+  function statusTag(s) {
+    var map = { synced:['已同步','tag-green'], pending:['待处理','tag-warm'],
+      confirmed:['已确认','tag-blue'], cancelled:['已取消','tag-gray'],
+      refunded:['已退款','tag-red'], error:['失败','tag-red'] };
+    var m = map[s] || [s,'tag-gray'];
+    return '<span class="tag ' + m[1] + '">' + m[0] + '</span>';
+  }
+
+  // ── Configs ──
+  async function loadConfigs() {
+    try {
+      var res = await fetch('/api/ota/configs', { headers: headers });
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) throw new Error('请求失败');
+      var json = await res.json();
+      renderConfigs(json.items || []);
+    } catch(e) {
+      document.getElementById('configCards').innerHTML = '<div class="loading" style="color:var(--error);">加载失败: ' + e.message + '</div>';
+    }
+  }
+
+  function renderConfigs(items) {
+    document.getElementById('configCards').innerHTML = items.length ? items.map(function(c) {
+      var cls = c.platform === 'meituan' ? 'meituan' : c.platform === 'fliggy' ? 'fliggy' : '';
+      return '<div class="config-card ' + cls + '">' +
+        '<div class="cc-header">' +
+          '<span class="cc-name">' + platformLabel(c.platform) + '</span>' +
+          '<span class="tag ' + (c.is_enabled ? 'tag-green' : 'tag-gray') + '">' + (c.is_enabled ? '已启用' : '已禁用') + '</span>' +
+        '</div>' +
+        '<div class="cc-body">' +
+          '<div>🔑 API Key: ' + (c.api_key ? '****' + (c.api_key||'').slice(-4) : '--') + '</div>' +
+          '<div>🏨 OTA酒店ID: ' + (c.hotel_id || '--') + '</div>' +
+          '<div>🏞️ OTA景区ID: ' + (c.spot_id || '--') + '</div>' +
+          '<div>⏱ 同步间隔: ' + (c.sync_interval_minutes||5) + '分钟</div>' +
+          '<div>🌐 Webhook: ' + (c.webhook_url ? c.webhook_url.substring(0, 40) + '...' : '--') + '</div>' +
+          (c.last_sync_at ? '<div>📅 上次同步: ' + new Date(c.last_sync_at).toLocaleString('zh-CN') + '</div>' : '') +
+        '</div>' +
+        '<div class="cc-actions">' +
+          '<button class="btn btn-outline btn-sm" onclick="editConfig(\'' + c.platform + '\')">⚙️ 编辑</button>' +
+          '<button class="btn btn-outline btn-sm" onclick="testConnection(\'' + c.platform + '\')">🔗 测试连接</button>' +
+        '</div>' +
+      '</div>';
+    }).join('') : '<div style="grid-column:1/-1;" class="empty">暂无渠道配置</div>';
+  }
+
+  window.editConfig = function(platform) {
+    fetch('/api/ota/configs/' + platform, { headers: headers })
+      .then(function(r) { return r.json(); })
+      .then(function(c) {
+        document.getElementById('configModalPlatform').textContent = platformLabel(platform);
+        document.getElementById('configModalPlatform').dataset.platform = platform;
+        document.getElementById('configHotelId').value = c.hotel_id || '';
+        document.getElementById('configSpotId').value = c.spot_id || '';
+        document.getElementById('configSyncInterval').value = c.sync_interval_minutes || 5;
+        document.getElementById('configEnabled').checked = c.is_enabled !== false;
+        document.getElementById('configModal').style.display = 'flex';
+      })
+      .catch(function(e) { toast('加载配置失败: ' + e.message, 'error'); });
+  };
+
+  window.hideConfigModal = function() {
+    document.getElementById('configModal').style.display = 'none';
+  };
+
+  window.saveConfig = function() {
+    var platform = document.getElementById('configModalPlatform').dataset.platform;
+    var body = {
+      platform: platform,
+      hotel_id: document.getElementById('configHotelId').value.trim() || null,
+      spot_id: document.getElementById('configSpotId').value.trim() || null,
+      sync_interval_minutes: parseInt(document.getElementById('configSyncInterval').value) || 5,
+      is_enabled: document.getElementById('configEnabled').checked
+    };
+    fetch('/api/ota/configs/' + platform, {
+      method: 'PUT', headers: headers, body: JSON.stringify(body)
+    }).then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success) {
+          toast('配置已更新', 'success');
+          hideConfigModal();
+          loadConfigs();
+        } else {
+          toast('保存失败: ' + (data.message || '未知错误'), 'error');
+        }
+      })
+      .catch(function(e) { toast('保存失败: ' + e.message, 'error'); });
+  };
+
+  window.testConnection = function(platform) {
+    fetch('/api/ota/configs/' + platform, { headers: headers })
+      .then(function() { toast(platformLabel(platform) + ' 连接测试成功', 'success'); })
+      .catch(function(e) { toast(platformLabel(platform) + ' 连接测试失败: ' + e.message, 'error'); });
+  };
+
+  // ── OTA Orders ──
+  window.loadOtaOrders = async function(page) {
+    if (page) otaOrderPage = page;
+    try {
+      var platform = document.getElementById('otaPlatformFilter').value;
+      var status = document.getElementById('otaOrderStatusFilter').value;
+      var params = new URLSearchParams({ page: otaOrderPage, page_size: otaOrderPageSize });
+      if (platform) params.set('platform', platform);
+      if (status) params.set('status', status);
+      var res = await fetch('/api/ota/orders?' + params, { headers: headers });
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) throw new Error('请求失败');
+      var json = await res.json();
+      renderOtaOrders(json);
+    } catch(e) {
+      document.getElementById('otaOrderList').innerHTML = '<tr><td colspan="7" class="empty">加载失败: ' + e.message + '</td></tr>';
+    }
+  };
+
+  function renderOtaOrders(json) {
+    var items = json.items || [];
+    document.getElementById('otaOrderTotal').textContent = '共 ' + (json.total||0) + ' 条';
+    document.getElementById('otaOrderList').innerHTML = items.length ? items.map(function(o) {
+      return '<tr>' +
+        '<td style="font-family:monospace;font-size:12px;">' + (o.ota_order_id||'--') + '</td>' +
+        '<td>' + platformLabel(o.platform) + '</td>' +
+        '<td style="font-family:monospace;font-size:12px;">' + (o.local_order_no||'--') + '</td>' +
+        '<td>' + (o.product_type === 'ticket' ? '🎫 票务' : o.product_type === 'hotel' ? '🏨 酒店' : o.product_type||'--') + '</td>' +
+        '<td>' + (o.action||'--') + '</td>' +
+        '<td>' + statusTag(o.status) + '</td>' +
+        '<td style="font-size:12px;">' + (o.created_at ? new Date(o.created_at).toLocaleString('zh-CN') : '--') + '</td>' +
+      '</tr>';
+    }).join('') : '<tr><td colspan="7" class="empty">暂无OTA订单</td></tr>';
+
+    var total = json.total || 0;
+    var pages = Math.ceil(total / otaOrderPageSize) || 1;
+    var pager = '';
+    for (var i = 1; i <= pages; i++) {
+      pager += '<button class="page-btn' + (i === otaOrderPage ? ' active' : '') + '" onclick="loadOtaOrders(' + i + ')">' + i + '</button>';
+    }
+    document.getElementById('otaOrderPager').innerHTML = pages > 1 ? pager : '';
+  }
+
+  // ── Stock Sync ──
+  window.batchSyncStock = async function() {
+    var platform = document.getElementById('syncPlatform').value;
+    var productType = document.getElementById('syncProductType').value;
+    var body = { platform: platform };
+    if (productType) body.product_type = productType;
+
+    var el = document.getElementById('syncResult');
+    el.style.display = 'block';
+    el.innerHTML = '⏳ 正在同步...';
+
+    try {
+      var res = await fetch('/api/ota/stock/batch-sync', {
+        method: 'POST', headers: headers, body: JSON.stringify(body)
+      });
+      var data = await res.json();
+      if (data.success) {
+        el.innerHTML = '✅ 同步完成！成功: ' + data.synced_count + ' 个, 失败: ' + data.failed_count + ' 个' +
+          (data.details && data.details.length ? '<br>详情: ' + JSON.stringify(data.details) : '');
+        toast('库存同步完成', 'success');
+      } else {
+        el.innerHTML = '❌ 同步失败: ' + (data.message || '未知错误');
+        toast('同步失败', 'error');
+      }
+    } catch(e) {
+      el.innerHTML = '❌ 同步失败: ' + e.message;
+      toast('同步失败', 'error');
+    }
+  };
+
+  async function loadSyncableProducts() {
+    try {
+      var res = await fetch('/api/ota/products/syncable', { headers: headers });
+      if (!res.ok) throw new Error('请求失败');
+      var json = await res.json();
+      var el = document.getElementById('syncableProducts');
+      if (!json.items || !json.items.length) {
+        el.innerHTML = '<div class="empty">暂无可同步产品</div>';
+        return;
+      }
+      el.innerHTML = '<div class="table-wrap"><table><thead><tr><th>类型</th><th>名称</th><th>价格</th><th>库存</th><th>景区</th></tr></thead><tbody>' +
+        json.items.map(function(p) {
+          return '<tr>' +
+            '<td>' + (p.type === 'ticket' ? '🎫 票种' : '🏨 房型') + '</td>' +
+            '<td><b>' + (p.name||'--') + '</b></td>' +
+            '<td>' + (p.price ? fmtMoney(p.price) : '--') + '</td>' +
+            '<td>' + (p.available_stock !== undefined ? p.available_stock : '--') + '</td>' +
+            '<td>' + (p.spot_name||'--') + '</td>' +
+          '</tr>';
+        }).join('') + '</tbody></table></div>';
+    } catch(e) {
+      document.getElementById('syncableProducts').innerHTML = '<div class="loading" style="color:var(--error);">加载失败: ' + e.message + '</div>';
+    }
+  }
+
+  // ── Revenue ──
+  async function loadRevenue() {
+    try {
+      var res = await fetch('/api/ota/revenue', { headers: headers });
+      if (!res.ok) throw new Error('请求失败');
+      var json = await res.json();
+      renderRevenue(json);
+    } catch(e) {
+      document.getElementById('revenueGrid').innerHTML = '<div class="loading" style="color:var(--error);">加载失败: ' + e.message + '</div>';
+    }
+  }
+
+  function renderRevenue(json) {
+    var items = json.data || json.items || [];
+    if (!items.length) {
+      document.getElementById('revenueGrid').innerHTML = '<div style="grid-column:1/-1;" class="empty">暂无营收数据</div>';
+      return;
+    }
+    document.getElementById('revenueGrid').innerHTML = items.map(function(r) {
+      return '<div class="revenue-card">' +
+        '<div class="rv-platform">' + platformLabel(r.platform) + '</div>' +
+        '<div class="rv-amount">' + fmtMoney(r.total_revenue||0) + '</div>' +
+        '<div class="rv-meta">' +
+          '订单数: ' + (r.total_orders||0) + '<br>' +
+          '佣金: ' + fmtMoney(r.total_commission||0) + '<br>' +
+          '净收入: ' + fmtMoney(r.net_revenue||0) + '<br>' +
+          '🎫 票务 ' + (r.ticket_count||0) + ' | 🏨 酒店 ' + (r.hotel_count||0) +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // init
+  loadConfigs();
+})();
+</script>
+</body>
+</html>

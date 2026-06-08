@@ -111,6 +111,7 @@ def seed():
                                "有'泰山安，四海皆安'的说法。1987年被列为世界文化与自然双重遗产。",
                 "open_time": "06:00", "close_time": "18:00",
                 "daily_limit": 10000, "rating": 4.8,
+                "lat": 36.2580, "lng": 117.1250,
                 "tickets": [
                     {"name": "成人票", "category": "standard", "price": 115.0,
                      "original_price": 150.0, "daily_stock": 5000,
@@ -299,6 +300,7 @@ def seed():
                                "著名的西湖十景闻名中外。2011年被列为世界文化景观遗产。",
                 "open_time": "00:00", "close_time": "23:59",
                 "daily_limit": 50000, "rating": 4.9,
+                "lat": 30.2375, "lng": 120.1398,
                 "tickets": [
                     {"name": "成人票", "category": "standard", "price": 90.0,
                      "original_price": 100.0, "daily_stock": 15000,
@@ -474,6 +476,7 @@ def seed():
                                "徐霞客曾赞叹：'五岳归来不看山，黄山归来不看岳'。",
                 "open_time": "06:30", "close_time": "17:00",
                 "daily_limit": 8000, "rating": 4.9,
+                "lat": 30.1420, "lng": 118.1650,
                 "tickets": [
                     {"name": "成人票", "category": "standard", "price": 190.0,
                      "original_price": 230.0, "daily_stock": 4000,
@@ -658,6 +661,7 @@ def seed():
                 phone=spot_cfg["phone"], description=spot_cfg["description"],
                 open_time=spot_cfg["open_time"], close_time=spot_cfg["close_time"],
                 daily_limit=spot_cfg["daily_limit"], rating=spot_cfg["rating"],
+                lat=spot_cfg.get("lat"), lng=spot_cfg.get("lng"),
                 is_active=True,
             )
             session.add(spot)

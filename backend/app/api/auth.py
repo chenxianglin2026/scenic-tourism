@@ -19,7 +19,7 @@ from app.db import get_db, User
 
 router = APIRouter(prefix="/api/auth", tags=["认证"])
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 # ── 密码工具 ─────────────────────────────────────────
@@ -96,7 +96,7 @@ def _token_response(user: User) -> TokenResponse:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """从 JWT token 解析当前用户（作为依赖注入使用）"""
@@ -105,6 +105,8 @@ async def get_current_user(
         detail="无效的认证凭据",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if credentials is None:
+        raise credentials_exception
     try:
         payload = jwt.decode(credentials.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id_str = payload.get("sub")

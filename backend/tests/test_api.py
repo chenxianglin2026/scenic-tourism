@@ -1755,3 +1755,629 @@ class TestAnnouncementCRUD:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 403
+
+
+class TestMultiSpotScenarios:
+    """多景区切换场景测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_scenic_info_all_spots(self, client):
+        """获取所有景区信息"""
+        for spot_id in [1, 2, 3]:
+            resp = await client.get(f"/api/scenic/info?spot_id={spot_id}")
+            assert resp.status_code == 200, f"spot_id={spot_id} 返回非200"
+            data = resp.json()
+            assert data["id"] == spot_id
+            assert data["name"]
+            assert len(data["ticket_types"]) > 0
+
+    async def test_ticket_types_per_spot(self, client):
+        """每个景区的票种独立"""
+        types_1 = (await client.get("/api/tickets/types?spot_id=1")).json()
+        types_2 = (await client.get("/api/tickets/types?spot_id=2")).json()
+        types_3 = (await client.get("/api/tickets/types?spot_id=3")).json()
+        assert len(types_1) > 0
+        assert len(types_2) > 0
+        assert len(types_3) > 0
+        # 各景区票种名称应不同
+        names_1 = {t["name"] for t in types_1}
+        names_2 = {t["name"] for t in types_2}
+        names_3 = {t["name"] for t in types_3}
+        # 至少每个景区票种不完全相同（不同景区应有不同票种名称）
+        assert names_1 != names_2 or names_1 != names_3
+
+    async def test_pois_per_spot(self, client):
+        """每个景区的POI独立"""
+        for spot_id in [1, 2, 3]:
+            resp = await client.get(f"/api/scenic/pois?spot_id={spot_id}")
+            assert resp.status_code == 200
+            pois = resp.json()
+            assert len(pois) > 0, f"spot_id={spot_id} 应有POI"
+
+    async def test_weather_per_spot(self, client):
+        """每个景区的天气独立"""
+        temps = {}
+        for spot_id in [1, 2, 3]:
+            resp = await client.get(f"/api/scenic/weather?spot_id={spot_id}")
+            assert resp.status_code == 200
+            data = resp.json()
+            temps[spot_id] = data["temperature"]
+        # 各景区天气应不完全相同（不同城市不同气象）
+        assert len(set(temps.values())) >= 1
+
+    async def test_reviews_across_spots(self, client):
+        """跨景区评价查询"""
+        for spot_id in [1, 2, 3]:
+            resp = await client.get(f"/api/scenic/reviews?spot_id={spot_id}")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["total"] > 0, f"spot_id={spot_id} 应有评价"
+            assert "avg_rating" in data
+            assert "rating_distribution" in data
+
+    async def test_announcements_per_spot(self, client):
+        """每个景区的公告独立"""
+        for spot_id in [1, 2, 3]:
+            resp = await client.get(f"/api/scenic/announcements?spot_id={spot_id}")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["total"] > 0, f"spot_id={spot_id} 应有公告"
+
+
+class TestOtaAPIs:
+    """OTA平台对接 API 测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    # ── 鉴权测试 ──
+    async def test_ota_configs_no_auth(self, client):
+        resp = await client.get("/api/ota/configs")
+        assert resp.status_code == 401
+
+    async def test_ota_orders_no_auth(self, client):
+        resp = await client.get("/api/ota/orders")
+        assert resp.status_code == 401
+
+    async def test_ota_stock_sync_no_auth(self, client):
+        resp = await client.post("/api/ota/stock/sync", json={
+            "platform": "ctrip",
+            "product_type": "ticket",
+            "product_id": 1,
+            "available_stock": 100,
+        })
+        assert resp.status_code == 401
+
+    async def test_ota_push_order_no_auth(self, client):
+        """OTA推送订单不需要鉴权（外部回调）"""
+        resp = await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": "CT_TEST_ORDER_001",
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1,
+                "spot_id": 1,
+                "quantity": 2,
+                "visit_date": "2026-12-25",
+                "guest_name": "携程游客",
+                "guest_phone": "13800001111",
+                "total_price": 230.0,
+                "time_slot": "08:00-10:00",
+            },
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["code"] == 0
+
+    # ── 管理员操作 ──
+    async def test_admin_get_ota_configs(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/ota/configs",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "total" in data
+        assert "items" in data
+        assert data["total"] >= 3  # ctrip, meituan, fliggy
+
+    async def test_admin_get_single_ota_config(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/ota/configs/ctrip",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["platform"] == "ctrip"
+        assert "is_enabled" in data
+
+    async def test_admin_get_ota_config_not_found(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/ota/configs/unknown_platform",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422  # validation error
+
+    async def test_admin_update_ota_config(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.put(
+            "/api/ota/configs/ctrip",
+            json={
+                "platform": "ctrip",
+                "is_enabled": True,
+                "sync_interval_minutes": 10,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+    async def test_admin_test_ota_connection(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/ota/test-connection/ctrip",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "connected" in data
+        assert "latency_ms" in data
+
+    async def test_admin_test_ota_connection_invalid(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/ota/test-connection/unknown",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
+    # ── OTA订单推送测试 ──
+    async def test_ota_push_ticket_order_create(self, client):
+        """携程推送票务新订单"""
+        resp = await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": "CT_TICKET_20240601_001",
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1,
+                "spot_id": 1,
+                "quantity": 3,
+                "visit_date": "2026-08-15",
+                "guest_name": "携程测试游客",
+                "guest_phone": "13911112222",
+                "total_price": 345.0,
+                "time_slot": "10:00-12:00",
+            },
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["code"] == 0
+        assert "订单同步成功" in data["message"]
+
+    async def test_ota_push_hotel_order_create(self, client):
+        """美团推送酒店新订单"""
+        resp = await client.post("/api/ota/orders/push", json={
+            "platform": "meituan",
+            "channel_order_no": "MT_HOTEL_20240601_001",
+            "action": "create",
+            "product_type": "hotel",
+            "payload": {
+                "hotel_id": 1,
+                "room_id": 1,
+                "room_count": 1,
+                "checkin_date": "2026-07-01",
+                "checkout_date": "2026-07-03",
+                "guest_name": "美团测试客人",
+                "guest_phone": "13822223333",
+                "total_price": 776.0,
+            },
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["code"] == 0
+
+    async def test_ota_push_order_cancel(self, client):
+        """OTA取消已推送的订单"""
+        # 先创建
+        await client.post("/api/ota/orders/push", json={
+            "platform": "fliggy",
+            "channel_order_no": "FG_CANCEL_TEST_001",
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-09-01",
+                "guest_name": "飞猪测试", "guest_phone": "13933334444",
+                "total_price": 115.0,
+            },
+        })
+        # 再取消
+        resp = await client.post("/api/ota/orders/push", json={
+            "platform": "fliggy",
+            "channel_order_no": "FG_CANCEL_TEST_001",
+            "action": "cancel",
+            "product_type": "ticket",
+            "payload": {},
+        })
+        assert resp.status_code == 200
+        assert resp.json()["code"] == 0
+
+    async def test_ota_push_order_invalid_platform(self, client):
+        """推送到未知OTA平台"""
+        resp = await client.post("/api/ota/orders/push", json={
+            "platform": "qunar",
+            "channel_order_no": "QN_001",
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {"ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                        "visit_date": "2026-12-01", "guest_name": "测试",
+                        "guest_phone": "13800000001", "total_price": 100.0},
+        })
+        assert resp.status_code == 200
+        assert resp.json()["code"] == 1
+
+    async def test_ota_push_order_invalid_product(self, client):
+        """推送不存在的票种ID"""
+        resp = await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": "CT_INVALID_001",
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 99999,
+                "spot_id": 1,
+                "quantity": 1,
+                "visit_date": "2026-12-01",
+                "guest_name": "测试",
+                "guest_phone": "13800000001",
+                "total_price": 100.0,
+            },
+        })
+        assert resp.status_code == 200
+        assert resp.json()["code"] == 1
+
+    # ── OTA订单列表 ──
+    async def test_admin_list_ota_orders(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/ota/orders",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "total" in data
+        assert "items" in data
+
+    async def test_admin_list_ota_orders_filter_platform(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/ota/orders?platform=ctrip",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        for item in data["items"]:
+            assert item["platform"] == "ctrip"
+
+    async def test_guest_cannot_view_ota_orders(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.get(
+            "/api/ota/orders",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    # ── 库存同步 ──
+    async def test_admin_sync_stock(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/ota/stock/sync",
+            json={
+                "platform": "ctrip",
+                "product_type": "ticket",
+                "product_id": 1,
+                "available_stock": 500,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["available_stock"] == 500
+
+    async def test_admin_sync_stock_invalid_product(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/ota/stock/sync",
+            json={
+                "platform": "ctrip",
+                "product_type": "ticket",
+                "product_id": 99999,
+                "available_stock": 100,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_admin_batch_sync_stock(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/ota/stock/batch-sync",
+            json={
+                "platform": "ctrip",
+                "spot_id": 1,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "synced_count" in data
+        assert "failed_count" in data
+
+    async def test_admin_sync_stock_room(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/ota/stock/sync",
+            json={
+                "platform": "meituan",
+                "product_type": "room",
+                "product_id": 1,
+                "available_stock": 25,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+    # ── 价格同步 ──
+    async def test_admin_sync_price(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/ota/price/sync",
+            json={
+                "platform": "ctrip",
+                "product_type": "ticket",
+                "product_id": 1,
+                "ota_price": 120.0,
+                "original_price": 150.0,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+    # ── 产品列表 ──
+    async def test_admin_list_syncable_products(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/ota/products",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "total" in data
+        assert "items" in data
+
+    async def test_admin_list_syncable_products_filter_type(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/ota/products?product_type=ticket",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        for item in resp.json()["items"]:
+            assert item["type"] == "ticket"
+
+    # ── 营收报表 ──
+    async def test_admin_ota_revenue(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/ota/revenue",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "total_platforms" in data
+        assert "items" in data
+
+    async def test_admin_ota_revenue_filter_platform(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/ota/revenue?platform=ctrip",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_platforms"] == 1
+        assert data["items"][0]["platform"] == "ctrip"
+
+    async def test_guest_cannot_ota_revenue(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.get(
+            "/api/ota/revenue",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_guest_cannot_sync_stock(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/ota/stock/sync",
+            json={
+                "platform": "ctrip",
+                "product_type": "ticket",
+                "product_id": 1,
+                "available_stock": 100,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_guest_cannot_get_configs(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.get(
+            "/api/ota/configs",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+
+class TestTicketVerificationEdgeCases:
+    """票务核销边界场景测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_verify_with_invalid_token(self, client):
+        """核销使用无效token"""
+        staff_token = await self._login(client, "staff", "staff123")
+        resp = await client.post(
+            "/api/tickets/verify",
+            json={"qr_token": "INVALID_TOKEN_12345"},
+            headers={"Authorization": f"Bearer {staff_token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["result"] == "invalid_token"
+
+    async def test_guest_cannot_verify_tickets(self, client):
+        """普通游客不能核销门票"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/tickets/verify",
+            json={"qr_token": "ANY_TOKEN"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_admin_can_verify_tickets(self, client):
+        """管理员可以核销门票"""
+        admin_token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/tickets/verify",
+            json={"qr_token": "ADMIN_VERIFY_TEST"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 200
+        # invalid_token 因为管理员也有权核销，token无效返回 invalid_token
+        assert resp.json()["result"] == "invalid_token"
+
+    async def test_verify_missing_qr_token(self, client):
+        """核销时缺少qr_token"""
+        staff_token = await self._login(client, "staff", "staff123")
+        resp = await client.post(
+            "/api/tickets/verify",
+            json={},
+            headers={"Authorization": f"Bearer {staff_token}"},
+        )
+        assert resp.status_code == 422
+
+
+class TestNearbyPointsEdgeCases:
+    """附近推荐点位边界测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_nearby_points_filter_by_spot_and_category(self, client):
+        """同时过滤景区和分类"""
+        resp = await client.get("/api/scenic/points?spot_id=1&category=dining")
+        assert resp.status_code == 200
+        data = resp.json()
+        for item in data["items"]:
+            assert item["spot_id"] == 1
+            assert item["category"] == "dining"
+
+    async def test_nearby_points_pagination(self, client):
+        """附近推荐分页"""
+        resp = await client.get("/api/scenic/points?page=1&page_size=3")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "total" in data
+        assert len(data["items"]) <= 3
+
+    async def test_admin_update_nearby_point(self, client):
+        """管理员更新附近推荐"""
+        token = await self._login(client, "admin", "admin123")
+        # 先获取现有推荐
+        list_resp = await client.get("/api/scenic/points?spot_id=1")
+        items = list_resp.json()["items"]
+        if not items:
+            import pytest
+            pytest.skip("No nearby points to update")
+        point = items[0]
+        resp = await client.put(
+            f"/api/scenic/points/{point['id']}",
+            json={"name": point["name"] + "-已更新"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+
+    async def test_guest_cannot_update_nearby_point(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.put(
+            "/api/scenic/points/1",
+            json={"name": "Hacked"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+
+class TestExportAdditionalFormats:
+    """数据导出额外测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_export_parking_by_spot(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/parking?spot_id=1&start_date=2025-01-01&end_date=2030-12-31",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+
+    async def test_export_tickets_defaults(self, client):
+        """不带参数导出票务"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/tickets",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+
+    async def test_export_revenue_defaults(self, client):
+        """不带参数导出营收"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/revenue",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200

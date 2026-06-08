@@ -17,7 +17,7 @@ App({
       description: '杭州西湖，人间天堂'
     },
     // API 基础地址
-    apiBase: 'http://127.0.0.1:8000',
+    apiBase: 'https://43.163.5.90/scenic',
     // 当前定位
     location: {
       lat: 30.2375,
