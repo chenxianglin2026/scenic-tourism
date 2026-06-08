@@ -14,7 +14,7 @@
 .page-title {
   font-size: 36rpx;
   font-weight: 700;
-  color: #2c2416;
+  color: #3D3226;
   margin-bottom: 30rpx;
 }
 
@@ -64,4 +64,16 @@
 
 .text-primary {
   color: #c8a052;
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 120rpx 0;
+}
+
+.loading-state .text {
+  font-size: 28rpx;
+  color: #B0A492;
 }

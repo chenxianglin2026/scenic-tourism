@@ -27,8 +27,8 @@
       <view class="tab-item" style="flex:1;text-align:center;" bindtap="onViewOrders">我的订单</view>
     </view>
 
-    <view wx:if="{{loading}}">
-      <view class="loading-text">加载中...</view>
+    <view wx:if="{{loading}}" class="loading-state" style="padding: 60rpx 0;">
+      <view class="text">加载中...</view>
     </view>
 
     <view wx:for="{{roomTypes}}" wx:key="id" class="card room-card" bindtap="onRoomDetail" data-id="{{item.id}}">
@@ -206,8 +206,8 @@
       <view class="tag {{statusFilter==='checked_in'?'tag-gold':'tag-warm'}}" bindtap="onStatusFilter" data-status="checked_in">已入住</view>
     </view>
 
-    <view wx:if="{{loadingOrders}}">
-      <view class="loading-text">加载中...</view>
+    <view wx:if="{{loadingOrders}}" class="loading-state" style="padding: 60rpx 0;">
+      <view class="text">加载中...</view>
     </view>
 
     <view wx:for="{{orders}}" wx:key="id" class="card">

@@ -2,21 +2,21 @@
   票务页: 票种选择 + 分时 + 购票 + 二维码
 -->
 
-<view class=\"page-container\">
+<view class="page-container">
 
   <!-- 加载状态 -->
-  <view wx:if=\"{{loading}}\" class=\"loading-state\">
-    <view class=\"text\">加载中...</view>
+  <view wx:if="{{loading}}" class="loading-state">
+    <view class="text">加载中...</view>
   </view>
 
   <!-- ===== 选购模式 ===== -->
-  <block wx:if=\"{{!loading && viewMode === 'shop'}}\">
+  <block wx:if="{{!loading && viewMode === 'shop'}}">
 
     <!-- 票种选择 -->
-    <view class=\"card\">
-      <view class=\"section-title text-lg text-bold text-dark mb-20\">选择票种</view>
-      <view wx:if=\"{{ticketTypes.length === 0}}\" class=\"empty-state\" style=\"padding: 40rpx 0;\">
-        <view class=\"text\">暂无票种可选</view>
+    <view class="card">
+      <view class="section-title text-lg text-bold text-dark mb-20">选择票种</view>
+      <view wx:if="{{ticketTypes.length === 0}}" class="empty-state" style="padding: 40rpx 0;">
+        <view class="text">暂无票种可选</view>
       </view>
       <view class="ticket-type-grid">
         <view

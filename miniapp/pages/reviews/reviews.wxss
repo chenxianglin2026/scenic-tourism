@@ -1,5 +1,14 @@
 /* 评价页面样式 */
 
+.page-container {
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* 评分概览 */
 .rating-overview {
   padding: 40rpx 30rpx;

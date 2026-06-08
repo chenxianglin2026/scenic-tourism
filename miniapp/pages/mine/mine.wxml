@@ -70,7 +70,9 @@
 
     <!-- 票务订单 -->
     <view wx:if="{{activeTab==='tickets'}}">
-      <view wx:if="{{loadingTickets}}" class="loading-text">加载中...</view>
+      <view wx:if="{{loadingTickets}}" class="empty-state" style="padding: 60rpx 0;">
+        <view class="text">加载中...</view>
+      </view>
       <view wx:for="{{ticketOrders}}" wx:key="id" class="order-item">
         <view class="flex-between" bindtap="onOrderDetail" data-id="{{item.id}}">
           <view class="text-bold text-dark">{{item.ticket_type_name}}</view>
@@ -102,7 +104,9 @@
 
     <!-- 客房订单 -->
     <view wx:if="{{activeTab==='hotels'}}">
-      <view wx:if="{{loadingHotels}}" class="loading-text">加载中...</view>
+      <view wx:if="{{loadingHotels}}" class="empty-state" style="padding: 60rpx 0;">
+        <view class="text">加载中...</view>
+      </view>
       <view wx:for="{{hotelOrders}}" wx:key="id" class="order-item" bindtap="onOrderDetail" data-id="{{item.id}}">
         <view class="flex-between">
           <view class="text-bold text-dark">{{item.room_name}}</view>

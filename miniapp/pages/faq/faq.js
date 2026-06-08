@@ -3,7 +3,9 @@
  */
 Page({
   data: {
-    faqList: [
+    loading: false,
+    faqList: [],
+    _allFaq: [
       { id: 1, q: '如何购买门票？', a: '在首页选择景区和票种，填写游览日期和游客信息后支付即可。支持微信支付。', open: false },
       { id: 2, q: '门票可以退吗？', a: '未核销的门票可在游览日期前申请退款，退款将在3-5个工作日内原路返回。已核销或过期门票不支持退款。', open: false },
       { id: 3, q: '如何核销电子票？', a: '购票成功后，在"我的"页面查看订单，点击订单可查看电子票二维码。在景区入口出示二维码，工作人员扫码核销即可。', open: false },
@@ -15,6 +17,17 @@ Page({
       { id: 9, q: '景区开放时间是？', a: '大部分景区开放时间为8:00-17:00，节假日可能延长。具体时间请在首页景区详情中查看。', open: false },
       { id: 10, q: '实名认证有什么用？', a: '根据规定，部分景区需实名制购票。完成实名认证后可快速购票，无需每次填写身份信息。', open: false },
     ]
+  },
+
+  onLoad() {
+    // 模拟短暂加载后展示
+    this.setData({ loading: true })
+    setTimeout(() => {
+      this.setData({
+        faqList: this.data._allFaq.map(item => ({ ...item })),
+        loading: false
+      })
+    }, 200)
   },
 
   onToggle(e) {
