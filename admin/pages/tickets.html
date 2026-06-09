@@ -131,6 +131,57 @@
 
 <!-- Toast -->
 <div class="toast-msg" id="toast"></div>
+<!-- Create Ticket Type Modal -->
+<div class="modal-mask" id="createTypeModal" style="display:none;">
+ <div class="modal" style="max-width:480px;">
+   <div class="modal-title">新增票种</div>
+   <div class="form-group">
+     <label>票种名称 <span style="color:var(--error)">*</span></label>
+     <input class="form-input" id="newTypeName" placeholder="如：成人票、儿童票" maxlength="100">
+   </div>
+   <div class="form-group">
+     <label>类别</label>
+     <select class="form-select" id="newTypeCategory">
+       <option value="adult">成人票</option>
+       <option value="child">儿童票</option>
+       <option value="senior">老人票</option>
+       <option value="group">团体票</option>
+       <option value="standard">标准票</option>
+     </select>
+   </div>
+   <div class="form-group">
+     <label>售价（元） <span style="color:var(--error)">*</span></label>
+     <input class="form-input" id="newTypePrice" type="number" step="0.01" min="0.01" placeholder="如：100.00">
+   </div>
+   <div class="form-group">
+     <label>原价（元，可选）</label>
+     <input class="form-input" id="newTypeOriginalPrice" type="number" step="0.01" min="0" placeholder="划线原价">
+   </div>
+   <div class="form-group">
+     <label>每日库存</label>
+     <input class="form-input" id="newTypeDailyStock" type="number" step="1" min="1" value="1000">
+   </div>
+   <div style="display:flex;gap:12px;">
+     <div class="form-group" style="flex:1;">
+       <label>最低年龄</label>
+       <input class="form-input" id="newTypeMinAge" type="number" step="1" min="0" placeholder="不限则留空">
+     </div>
+     <div class="form-group" style="flex:1;">
+       <label>最高年龄</label>
+       <input class="form-input" id="newTypeMaxAge" type="number" step="1" min="0" placeholder="不限则留空">
+     </div>
+   </div>
+   <div class="form-group">
+     <label>描述（可选）</label>
+     <textarea id="newTypeDesc" placeholder="票种说明..." rows="2"></textarea>
+   </div>
+   <div class="modal-actions">
+     <button class="btn btn-outline btn-sm" onclick="hideCreateTypeModal()">取消</button>
+     <button class="btn btn-primary btn-sm" onclick="createTicketType()">确认添加</button>
+   </div>
+ </div>
+</div>
+
 
 <script>
 (function() {
@@ -270,6 +321,71 @@
       }
     } catch(e) { toast('核销失败: ' + e.message, 'error'); }
   };
+
+  // ── Create Ticket Type Modal ──
+  window.showCreateTypeModal = function() {
+    document.getElementById('newTypeName').value = '';
+    document.getElementById('newTypeCategory').value = 'adult';
+    document.getElementById('newTypePrice').value = '';
+    document.getElementById('newTypeOriginalPrice').value = '';
+    document.getElementById('newTypeDailyStock').value = '1000';
+    document.getElementById('newTypeMinAge').value = '';
+    document.getElementById('newTypeMaxAge').value = '';
+    document.getElementById('newTypeDesc').value = '';
+    document.getElementById('createTypeModal').style.display = 'flex';
+  };
+
+  window.hideCreateTypeModal = function() {
+    document.getElementById('createTypeModal').style.display = 'none';
+  };
+
+  window.createTicketType = async function() {
+    var name = document.getElementById('newTypeName').value.trim();
+    var priceStr = document.getElementById('newTypePrice').value.trim();
+    if (!name) { toast('请输入票种名称', 'error'); return; }
+    if (!priceStr || parseFloat(priceStr) <= 0) { toast('请输入有效售价', 'error'); return; }
+
+    // Get spot_id from scenic info
+    var spotId = null;
+    try {
+      var infoRes = await fetch('/api/scenic/info');
+      if (infoRes.ok) {
+        var info = await infoRes.json();
+        spotId = info.id;
+      }
+    } catch(e) {}
+    if (!spotId) { toast('无法获取景区信息', 'error'); return; }
+
+    var body = {
+      spot_id: spotId,
+      name: name,
+      category: document.getElementById('newTypeCategory').value,
+      price: parseFloat(priceStr),
+      original_price: document.getElementById('newTypeOriginalPrice').value.trim() ? parseFloat(document.getElementById('newTypeOriginalPrice').value) : null,
+      daily_stock: parseInt(document.getElementById('newTypeDailyStock').value) || 1000,
+      min_age: document.getElementById('newTypeMinAge').value.trim() ? parseInt(document.getElementById('newTypeMinAge').value) : null,
+      max_age: document.getElementById('newTypeMaxAge').value.trim() ? parseInt(document.getElementById('newTypeMaxAge').value) : null,
+      description: document.getElementById('newTypeDesc').value.trim() || null
+    };
+
+    try {
+      var res = await fetch('/api/tickets/types', {
+        method: 'POST', headers: headers, body: JSON.stringify(body)
+      });
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '创建失败'); }
+      toast('票种创建成功', 'success');
+      hideCreateTypeModal();
+      loadTypes();
+    } catch(e) {
+      toast('创建失败: ' + e.message, 'error');
+    }
+  };
+
+  // Close modal on mask click
+  document.addEventListener('click', function(e) {
+    if (e.target.id === 'createTypeModal') hideCreateTypeModal();
+  });
 
   // init
   loadTypes();

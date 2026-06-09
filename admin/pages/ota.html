@@ -301,8 +301,15 @@
   };
 
   window.testConnection = function(platform) {
-    fetch('/api/ota/configs/' + platform, { headers: headers })
-      .then(function() { toast(platformLabel(platform) + ' 连接测试成功', 'success'); })
+    fetch('/api/ota/test-connection/' + platform, { method: 'POST', headers: headers })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.connected) {
+          toast(platformLabel(platform) + ' 连接正常 (延迟 ' + data.latency_ms + 'ms)', 'success');
+        } else {
+          toast(platformLabel(platform) + ' 连接失败: ' + (data.message||'已禁用'), 'error');
+        }
+      })
       .catch(function(e) { toast(platformLabel(platform) + ' 连接测试失败: ' + e.message, 'error'); });
   };
 
@@ -381,7 +388,7 @@
 
   async function loadSyncableProducts() {
     try {
-      var res = await fetch('/api/ota/products/syncable', { headers: headers });
+      var res = await fetch('/api/ota/products', { headers: headers });
       if (!res.ok) throw new Error('请求失败');
       var json = await res.json();
       var el = document.getElementById('syncableProducts');
@@ -391,12 +398,14 @@
       }
       el.innerHTML = '<div class="table-wrap"><table><thead><tr><th>类型</th><th>名称</th><th>价格</th><th>库存</th><th>景区</th></tr></thead><tbody>' +
         json.items.map(function(p) {
+          var stockVal = (p.stock !== undefined ? p.stock : p.available_stock !== undefined ? p.available_stock : '--');
+          var spotName = p.hotel_name || p.spot_name || '--';
           return '<tr>' +
             '<td>' + (p.type === 'ticket' ? '🎫 票种' : '🏨 房型') + '</td>' +
             '<td><b>' + (p.name||'--') + '</b></td>' +
             '<td>' + (p.price ? fmtMoney(p.price) : '--') + '</td>' +
-            '<td>' + (p.available_stock !== undefined ? p.available_stock : '--') + '</td>' +
-            '<td>' + (p.spot_name||'--') + '</td>' +
+            '<td>' + stockVal + '</td>' +
+            '<td>' + spotName + '</td>' +
           '</tr>';
         }).join('') + '</tbody></table></div>';
     } catch(e) {

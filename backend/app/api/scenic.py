@@ -217,6 +217,42 @@ async def scenic_info(
     )
 
 
+# ── 景区列表 ─────────────────────────────────────────
+class ScenicListItem(BaseModel):
+    id: int
+    name: str
+    city: str
+    district: Optional[str] = None
+    is_active: bool
+    rating: float
+
+    model_config = {"from_attributes": True}
+
+
+class ScenicListResponse(BaseModel):
+    total: int
+    items: List[ScenicListItem]
+
+
+@router.get("/list", response_model=ScenicListResponse, summary="获取景区列表")
+async def list_scenic_spots(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(200, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    """返回所有景区列表，供管理后台筛选使用"""
+    count_q = select(func.count(ScenicSpot.id))
+    total_result = await db.execute(count_q)
+    total = total_result.scalar() or 0
+
+    q = select(ScenicSpot).order_by(ScenicSpot.id)
+    q = q.offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(q)
+    items = result.scalars().all()
+
+    return ScenicListResponse(total=total, items=items)
+
+
 # ── 公告列表 ─────────────────────────────────────────
 @router.get("/announcements", response_model=AnnouncementListResponse, summary="公告列表")
 async def list_announcements(
