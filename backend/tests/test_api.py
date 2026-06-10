@@ -399,6 +399,103 @@ class TestAdminEndpoints:
         assert data["name"] == "测试推荐餐厅"
         assert data["category"] == "dining"
 
+    async def test_admin_get_nearby_point(self, client):
+        token = await self._login(client, "admin", "admin123")
+        # First create a point
+        create_resp = await client.post(
+            "/api/scenic/points",
+            json={"spot_id": 1, "name": "获取测试餐厅", "category": "dining", "rating": 4.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert create_resp.status_code == 201
+        point_id = create_resp.json()["id"]
+        # Get it
+        resp = await client.get(f"/api/scenic/points/{point_id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["name"] == "获取测试餐厅"
+        assert data["spot_id"] == 1
+
+    async def test_update_nearby_point(self, client):
+        token = await self._login(client, "admin", "admin123")
+        # Create a point
+        create_resp = await client.post(
+            "/api/scenic/points",
+            json={"spot_id": 1, "name": "待编辑餐厅", "category": "dining", "rating": 3.5},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert create_resp.status_code == 201
+        point_id = create_resp.json()["id"]
+        # Update it
+        resp = await client.put(
+            f"/api/scenic/points/{point_id}",
+            json={"name": "已编辑餐厅", "rating": 4.8, "distance": 300},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["name"] == "已编辑餐厅"
+        assert data["rating"] == 4.8
+        assert data["distance"] == 300
+
+    async def test_delete_nearby_point(self, client):
+        token = await self._login(client, "admin", "admin123")
+        # Create a point to delete
+        create_resp = await client.post(
+            "/api/scenic/points",
+            json={"spot_id": 1, "name": "待删除餐厅", "category": "dining", "rating": 4.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert create_resp.status_code == 201
+        point_id = create_resp.json()["id"]
+        # Delete it
+        resp = await client.delete(
+            f"/api/scenic/points/{point_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+        # Verify deleted
+        get_resp = await client.get(f"/api/scenic/points/{point_id}")
+        assert get_resp.status_code == 404
+
+    async def test_get_nonexistent_nearby_point(self, client):
+        resp = await client.get("/api/scenic/points/99999")
+        assert resp.status_code == 404
+
+    async def test_delete_nonexistent_nearby_point(self, client):
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.delete(
+            "/api/scenic/points/99999",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_guest_cannot_delete_nearby_point(self, client):
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.delete(
+            "/api/scenic/points/1",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_keyword_search_nearby_points(self, client):
+        token = await self._login(client, "admin", "admin123")
+        # Create a unique-named point
+        create_resp = await client.post(
+            "/api/scenic/points",
+            json={"spot_id": 1, "name": "测试搜索唯一关键字XYZ987", "category": "dining", "rating": 4.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert create_resp.status_code == 201
+        # Search for it
+        resp = await client.get("/api/scenic/points?keyword=XYZ987")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] >= 1
+        found = [p for p in data["items"] if p["name"] == "测试搜索唯一关键字XYZ987"]
+        assert len(found) == 1
+
     async def test_admin_delete_review(self, client):
         token = await self._login(client, "admin", "admin123")
         # First create a review as guest

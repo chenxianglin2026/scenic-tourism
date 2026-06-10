@@ -74,6 +74,12 @@
       <input class="form-input" id="pointName" placeholder="请输入推荐名称" maxlength="100">
     </div>
     <div class="form-group">
+      <label>景区 <span style="color:var(--error)">*</span></label>
+      <select class="form-select" id="pointSpotId">
+        <option value="">请选择景区</option>
+      </select>
+    </div>
+    <div class="form-group">
       <label>分类 <span style="color:var(--error)">*</span></label>
       <select class="form-select" id="pointCategory">
         <option value="dining">餐饮</option>
@@ -120,6 +126,23 @@
   var token = localStorage.getItem('scenic_token');
   if (!token) { window.top.location.href = 'pages/login.html'; return; }
   var headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+  // ── Load option lists ──
+  async function loadOptions() {
+    try {
+      var sRes = await fetch('/api/scenic/list?page_size=200', { headers: headers });
+      if (sRes.status === 401 || sRes.status === 403) { window.top.location.href = 'pages/login.html'; return; }
+      if (sRes.ok) {
+        var sJson = await sRes.json();
+        var spots = sJson.items || sJson || [];
+        if (Array.isArray(spots)) {
+          var opts = spots.map(function(s) { return '<option value="'+s.id+'">'+s.name+'</option>'; }).join('');
+          document.getElementById('pointSpotId').innerHTML = '<option value="">请选择景区</option>' + opts;
+        }
+      }
+    } catch(e) { /* ignore */ }
+  }
+  loadOptions();
 
   var pointPage = 1, pointPageSize = 20;
   var editingId = null;
@@ -219,6 +242,7 @@
       // API may return the object directly or wrapped in data
       p = p.data || p;
       document.getElementById('pointName').value = p.name || '';
+      document.getElementById('pointSpotId').value = p.spot_id || '';
       document.getElementById('pointCategory').value = p.category || 'dining';
       document.getElementById('pointAddress').value = p.address || '';
       document.getElementById('pointPhone').value = p.phone || '';
@@ -238,6 +262,7 @@
 
   function clearForm() {
     document.getElementById('pointName').value = '';
+    document.getElementById('pointSpotId').value = '';
     document.getElementById('pointCategory').value = 'dining';
     document.getElementById('pointAddress').value = '';
     document.getElementById('pointPhone').value = '';
@@ -254,8 +279,11 @@
 
     var ratingVal = document.getElementById('pointRating').value.trim();
     var distanceVal = document.getElementById('pointDistance').value.trim();
+    var spotIdVal = document.getElementById('pointSpotId').value;
+    if (!spotIdVal) { toast('请选择景区', 'error'); return; }
 
     var body = {
+      spot_id: parseInt(spotIdVal),
       name: name,
       category: document.getElementById('pointCategory').value,
       address: document.getElementById('pointAddress').value.trim(),

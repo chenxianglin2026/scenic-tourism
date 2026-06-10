@@ -567,6 +567,7 @@ class ReviewUpdate(BaseModel):
 async def list_nearby_points(
     spot_id: Optional[int] = Query(None, description="景区ID"),
     category: Optional[str] = Query(None, description="dining/shopping/entertainment"),
+    keyword: Optional[str] = Query(None, description="搜索名称或描述"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -581,6 +582,15 @@ async def list_nearby_points(
     if category:
         base_q = base_q.where(NearbyPoint.category == category)
         count_q = count_q.where(NearbyPoint.category == category)
+    if keyword:
+        from sqlalchemy import or_
+        kw_filter = or_(
+            NearbyPoint.name.like(f"%{keyword}%"),
+            NearbyPoint.description.like(f"%{keyword}%"),
+            NearbyPoint.address.like(f"%{keyword}%"),
+        )
+        base_q = base_q.where(kw_filter)
+        count_q = count_q.where(kw_filter)
 
     total_result = await db.execute(count_q)
     total = total_result.scalar() or 0
@@ -628,6 +638,19 @@ async def create_nearby_point(
     return point
 
 
+@router.get("/points/{point_id}", response_model=NearbyPointOut, summary="获取单个推荐点位")
+async def get_nearby_point(
+    point_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """获取单个推荐点位详情"""
+    result = await db.execute(select(NearbyPoint).where(NearbyPoint.id == point_id))
+    point = result.scalar_one_or_none()
+    if not point:
+        raise HTTPException(status_code=404, detail="推荐点位不存在")
+    return point
+
+
 @router.put("/points/{point_id}", response_model=NearbyPointOut, summary="编辑附近推荐点位（管理员）")
 async def update_nearby_point(
     point_id: int,
@@ -648,6 +671,22 @@ async def update_nearby_point(
     await db.flush()
     await db.refresh(point)
     return point
+
+
+@router.delete("/points/{point_id}", summary="删除推荐点位（管理员）")
+async def delete_nearby_point(
+    point_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """管理员删除推荐点位"""
+    result = await db.execute(select(NearbyPoint).where(NearbyPoint.id == point_id))
+    point = result.scalar_one_or_none()
+    if not point:
+        raise HTTPException(status_code=404, detail="推荐点位不存在")
+    await db.delete(point)
+    await db.flush()
+    return {"success": True, "message": "推荐点位已删除"}
 
 
 @router.get("/reviews", response_model=ReviewListResponse, summary="游客评价列表")
