@@ -84,6 +84,7 @@
         <option value="expired">已过期</option>
       </select>
       <button class="btn btn-primary btn-sm" onclick="loadOrders()">查询</button>
+      <button class="btn btn-outline btn-sm" onclick="exportOrdersCSV()" style="margin-left:8px;">📥 导出CSV</button>
     </div>
     <div class="card">
       <div class="card-header">
@@ -380,6 +381,30 @@
     } catch(e) {
       toast('创建失败: ' + e.message, 'error');
     }
+  };
+
+  // ── Export Orders CSV ──
+  window.exportOrdersCSV = function() {
+    var status = document.getElementById('orderStatusFilter').value;
+    var params = [];
+    if (status) params.push('status=' + encodeURIComponent(status));
+    var url = '/api/export/tickets' + (params.length ? '?' + params.join('&') : '');
+    
+    fetch(url, { headers: headers })
+      .then(function(res) {
+        if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
+        if (!res.ok) return res.json().then(function(e) { throw new Error(e.detail || '导出失败'); });
+        return res.blob();
+      })
+      .then(function(blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'ticket_orders_export.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast('导出成功', 'success');
+      })
+      .catch(function(e) { toast('导出失败: ' + e.message, 'error'); });
   };
 
   // Close modal on mask click

@@ -162,6 +162,10 @@
       <input class="form-input" type="number" id="configSyncInterval" min="1" max="1440" value="5">
     </div>
     <div class="form-group">
+      <label>Webhook URL</label>
+      <input class="form-input" id="configWebhookUrl" placeholder="OTA回调地址">
+    </div>
+    <div class="form-group">
       <label style="display:flex;align-items:center;gap:8px;">
         <input type="checkbox" id="configEnabled" checked>
         <span>启用该渠道</span>
@@ -263,9 +267,11 @@
       .then(function(c) {
         document.getElementById('configModalPlatform').textContent = platformLabel(platform);
         document.getElementById('configModalPlatform').dataset.platform = platform;
+        document.getElementById('configApiKey').value = c.api_key || '';
         document.getElementById('configHotelId').value = c.hotel_id || '';
         document.getElementById('configSpotId').value = c.spot_id || '';
         document.getElementById('configSyncInterval').value = c.sync_interval_minutes || 5;
+        document.getElementById('configWebhookUrl').value = c.webhook_url || '';
         document.getElementById('configEnabled').checked = c.is_enabled !== false;
         document.getElementById('configModal').style.display = 'flex';
       })
@@ -280,10 +286,12 @@
     var platform = document.getElementById('configModalPlatform').dataset.platform;
     var body = {
       platform: platform,
+      api_key: document.getElementById('configApiKey').value.trim() || null,
       hotel_id: document.getElementById('configHotelId').value.trim() || null,
       spot_id: document.getElementById('configSpotId').value.trim() || null,
       sync_interval_minutes: parseInt(document.getElementById('configSyncInterval').value) || 5,
-      is_enabled: document.getElementById('configEnabled').checked
+      is_enabled: document.getElementById('configEnabled').checked,
+      webhook_url: document.getElementById('configWebhookUrl').value.trim() || null
     };
     fetch('/api/ota/configs/' + platform, {
       method: 'PUT', headers: headers, body: JSON.stringify(body)

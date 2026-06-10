@@ -58,6 +58,8 @@
     <span>/</span>
     <span style="color:var(--text-primary);font-weight:600;">数据看板</span>
     <span style="margin-left:auto;font-size:14px;color:var(--text-primary);font-weight:600;" id="dashboardClock">--</span>
+    <button class="btn btn-outline btn-sm" onclick="refreshAll()" title="手动刷新" style="margin-left:8px;padding:2px 10px;font-size:12px;">🔄 刷新</button>
+    <span id="liveIndicator" style="font-size:11px;color:var(--text-muted);margin-left:4px;"></span>
   </div>
 
   <!-- Stat Cards -->
@@ -132,7 +134,8 @@
       { icon:'🎫', cls:'gold', val: d.tickets_sold_today || 0, label: '今日售票', sub: '有效售票数量' },
       { icon:'🚶', cls:'green', val: d.tickets_verified_today || 0, label: '今日入园', sub: '已核销验票' },
       { icon:'🏨', cls:'blue', val: d.occupied_rooms || 0, label: '今日客房入住', sub: '已占用房间数' },
-      { icon:'💰', cls:'gold', val: fmtMoney(d.total_revenue_today), label: '今日营收', sub: '票务+酒店总收入' }
+      { icon:'🅿️', cls:'green', val: (d.parking_active_count || 0), label: '在场车辆', sub: '停车中: ' + fmtMoney(d.parking_revenue_today || 0) + ' 今日收入' },
+      { icon:'💰', cls:'gold', val: fmtMoney(d.total_revenue_today), label: '今日营收', sub: '票务+酒店+停车总收入' }
     ];
     document.getElementById('statCards').innerHTML = cards.map(function(s) {
       return '<div class="stat-card">' +
@@ -144,6 +147,13 @@
         '</div>' +
       '</div>';
     }).join('');
+    // Update last-updated indicator
+    var liveEl = document.getElementById('liveIndicator');
+    if (liveEl && d.last_updated) {
+      liveEl.textContent = '更新于 ' + d.last_updated;
+      liveEl.style.color = 'var(--gold-dark)';
+      setTimeout(function() { liveEl.style.color = 'var(--text-muted)'; }, 2000);
+    }
   }
 
   function renderChart(id, trend, cls, fmt) {
@@ -443,6 +453,11 @@
   function loadDashboardExtended() {
     loadRevenueReport(currentPeriod);
     loadReviewStats();
+  }
+
+  function refreshAll() {
+    loadDashboard();
+    loadDashboardExtended();
   }
 
   loadDashboard();

@@ -39,11 +39,16 @@ class DashboardStats(BaseModel):
     total_rooms: int = 0
     occupied_rooms: int = 0
     hotel_revenue_today: float = 0.0
+    # 停车
+    parking_revenue_today: float = 0.0
+    parking_active_count: int = 0
     # 汇总
     total_revenue_today: float = 0.0
     # 趋势
     ticket_revenue_trend: List[TrendPoint] = []
     tickets_sold_trend: List[TrendPoint] = []
+    # 元信息
+    last_updated: str = ""
 
 
 class DashboardResponse(BaseModel):
@@ -163,8 +168,28 @@ async def dashboard_stats(
     )
     stats.hotel_revenue_today = round(float(hotel_rev.scalar() or 0), 2)
 
+    # ── 停车统计 ──
+    parking_rev = await db.execute(
+        select(func.coalesce(func.sum(ParkingRecord.total_fee), 0.0)).where(
+            ParkingRecord.pay_status == "paid",
+            ParkingRecord.paid_at >= today_start,
+            ParkingRecord.paid_at < today_end,
+        )
+    )
+    stats.parking_revenue_today = round(float(parking_rev.scalar() or 0), 2)
+
+    parking_active = await db.execute(
+        select(func.count(ParkingRecord.id)).where(
+            ParkingRecord.status == "parking",
+        )
+    )
+    stats.parking_active_count = parking_active.scalar() or 0
+
     # 汇总总收入
-    stats.total_revenue_today = round(stats.ticket_revenue_today + stats.hotel_revenue_today, 2)
+    stats.total_revenue_today = round(stats.ticket_revenue_today + stats.hotel_revenue_today + stats.parking_revenue_today, 2)
+
+    # 最后更新时间
+    stats.last_updated = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
     # ── 近7天票务营收趋势 ──
     ticket_revenue_trend = []

@@ -242,8 +242,10 @@ async def list_ota_configs(
     """管理员查看所有OTA渠道配置"""
     configs = []
     for platform, cfg in _ota_configs.items():
+        api_key = cfg.get("api_key", "")
         configs.append({
             "platform": platform,
+            "api_key": api_key,
             "hotel_id": cfg.get("hotel_id"),
             "spot_id": cfg.get("spot_id"),
             "is_enabled": cfg.get("is_enabled"),
