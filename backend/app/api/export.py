@@ -314,6 +314,7 @@ async def export_revenue_csv(
 async def export_parking_csv(
     start_date: Optional[str] = Query(None, description="起始日期 YYYY-MM-DD"),
     end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    spot_id: Optional[int] = Query(None, description="景区ID"),
     plate_number: Optional[str] = Query(None, description="车牌号搜索"),
     status: Optional[str] = Query(None, description="parking/completed"),
     db: AsyncSession = Depends(get_db),
@@ -343,6 +344,11 @@ async def export_parking_csv(
 
     if status:
         q = q.where(ParkingRecord.status == status)
+
+    if spot_id:
+        q = q.join(ParkingRate, ParkingRecord.rate_id == ParkingRate.id).where(
+            ParkingRate.spot_id == spot_id
+        )
 
     q = q.order_by(ParkingRecord.checkin_time.desc())
 

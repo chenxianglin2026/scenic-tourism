@@ -1569,6 +1569,331 @@ class TestHotelFlow:
         assert resp.status_code == 200
 
 
+class TestPaymentMock:
+    """支付模块 Mock 测试：各种支付场景的 mock 覆盖"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def _create_ticket_order(self, client, token, ticket_type_id=1, spot_id=1):
+        from datetime import date
+        today = date.today().isoformat()
+        resp = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": spot_id,
+                "quantity": 1, "visit_date": today, "time_slot": "08:00-10:00",
+                "visitor_name": "Mock游客", "visitor_phone": "13800000001",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        return resp
+
+    async def test_payment_create_ticket_order_mock(self, client):
+        """Mock: 创建票务支付"""
+        token = await self._login(client, "guest", "guest123")
+        order_resp = await self._create_ticket_order(client, token)
+        assert order_resp.status_code == 201
+        order_no = order_resp.json()["order_no"]
+
+        pay_resp = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert pay_resp.status_code == 200
+        data = pay_resp.json()
+        assert data["success"] is True
+        assert "transaction_id" in data
+        assert "payment_params" in data  # DEV_MODE returns mock JSAPI params
+
+    async def test_payment_create_hotel_order_mock(self, client):
+        """Mock: 创建酒店支付"""
+        admin_token = await self._login(client, "admin", "admin123")
+        guest_token = await self._login(client, "guest", "guest123")
+
+        # 创建酒店和房型
+        hotel_resp = await client.post(
+            "/api/hotels",
+            json={"spot_id": 1, "name": "Mock支付酒店", "address": "Mock地址", "city": "泰安"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        hotel_id = hotel_resp.json()["id"]
+        room_resp = await client.post(
+            f"/api/hotels/{hotel_id}/rooms",
+            json={"hotel_id": hotel_id, "name": "Mock支付房型", "price": 200.0, "total_count": 5},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        room_id = room_resp.json()["id"]
+
+        # 创建酒店订单
+        from datetime import date, timedelta
+        checkin = date.today() + timedelta(days=3)
+        checkout = date.today() + timedelta(days=5)
+        order_resp = await client.post(
+            "/api/hotels/orders",
+            json={
+                "hotel_id": hotel_id, "room_id": room_id, "room_count": 1,
+                "checkin_date": checkin.isoformat(), "checkout_date": checkout.isoformat(),
+                "guest_name": "Mock酒店支付", "guest_phone": "13900001111",
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        order_no = order_resp.json()["order_no"]
+
+        pay_resp = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "hotel"},
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert pay_resp.status_code == 200
+        assert pay_resp.json()["success"] is True
+
+    async def test_payment_create_duplicate_pending(self, client):
+        """Mock: 重复创建待支付订单 - 应被拒绝"""
+        token = await self._login(client, "guest", "guest123")
+        order_resp = await self._create_ticket_order(client, token)
+        order_no = order_resp.json()["order_no"]
+
+        # 第一次支付
+        r1 = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r1.status_code == 200
+
+        # 第二次支付（重复）- 应拒绝
+        r2 = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r2.status_code == 400
+        assert "已有待支付记录" in r2.json()["detail"]
+
+    async def test_payment_create_already_paid(self, client):
+        """Mock: 对已支付的订单创建支付 - 应返回400"""
+        token = await self._login(client, "guest", "guest123")
+        order_resp = await self._create_ticket_order(client, token)
+        order_no = order_resp.json()["order_no"]
+
+        # 支付 + 确认
+        pay = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        txn_id = pay.json()["transaction_id"]
+        await client.post("/api/payment/confirm", json={
+            "transaction_id": txn_id, "order_no": order_no,
+        })
+
+        # 再次支付 - 订单状态已为paid，不支持支付
+        r2 = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r2.status_code == 400
+        assert "不支持支付" in r2.json()["detail"]
+
+    async def test_payment_confirm_idempotent(self, client):
+        """Mock: 支付确认幂等性 - 重复确认返回success"""
+        token = await self._login(client, "guest", "guest123")
+        order_resp = await self._create_ticket_order(client, token)
+        order_no = order_resp.json()["order_no"]
+
+        pay = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        txn_id = pay.json()["transaction_id"]
+
+        # 第一次确认
+        r1 = await client.post("/api/payment/confirm", json={
+            "transaction_id": txn_id, "order_no": order_no,
+        })
+        assert r1.status_code == 200
+        assert r1.json()["status"] == "success"
+
+        # 第二次确认（幂等）
+        r2 = await client.post("/api/payment/confirm", json={
+            "transaction_id": txn_id, "order_no": order_no,
+        })
+        assert r2.status_code == 200
+        assert r2.json()["status"] == "success"
+        assert "已完成" in r2.json()["message"]
+
+    async def test_payment_confirm_not_found(self, client):
+        """Mock: 确认不存在的支付记录"""
+        resp = await client.post("/api/payment/confirm", json={
+            "transaction_id": "FAKE_TXN_99999", "order_no": "FAKE_ORDER_99999",
+        })
+        assert resp.status_code == 404
+
+    async def test_payment_notify_mock_success(self, client):
+        """Mock: 支付回调 - 成功场景"""
+        token = await self._login(client, "guest", "guest123")
+        order_resp = await self._create_ticket_order(client, token)
+        order_no = order_resp.json()["order_no"]
+
+        # 先创建支付记录
+        pay = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        txn_id = pay.json()["transaction_id"]
+
+        # 模拟微信回调
+        notify = await client.post("/api/payment/notify", json={
+            "transaction_id": txn_id,
+            "order_no": order_no,
+            "order_type": "ticket",
+            "amount": 100.0,
+            "result_code": "SUCCESS",
+        })
+        assert notify.status_code == 200
+        data = notify.json()
+        assert data["return_code"] == "SUCCESS"
+
+        # 验证订单状态已更新
+        status_resp = await client.get(
+            f"/api/payment/status/{order_no}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert status_resp.json()["status"] == "success"
+
+    async def test_payment_notify_mock_failure(self, client):
+        """Mock: 支付回调 - 失败场景"""
+        token = await self._login(client, "guest", "guest123")
+        order_resp = await self._create_ticket_order(client, token)
+        order_no = order_resp.json()["order_no"]
+
+        # 模拟失败的微信回调（使用随机transaction_id避免UNIQUE冲突）
+        import uuid as _uuid
+        fail_txn = f"WX_FAIL_{_uuid.uuid4().hex[:8].upper()}"
+        notify = await client.post("/api/payment/notify", json={
+            "transaction_id": fail_txn,
+            "order_no": order_no,
+            "order_type": "ticket",
+            "amount": 100.0,
+            "result_code": "FAIL",
+        })
+        assert notify.status_code == 200
+        data = notify.json()
+        assert data["return_code"] == "FAIL"
+
+    async def test_payment_cancel_success_mock(self, client):
+        """Mock: 成功取消未支付订单"""
+        token = await self._login(client, "guest", "guest123")
+        order_resp = await self._create_ticket_order(client, token)
+        order_no = order_resp.json()["order_no"]
+
+        # 创建支付
+        await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        # 取消支付
+        cancel = await client.post(
+            "/api/payment/cancel",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert cancel.status_code == 200
+        assert cancel.json()["success"] is True
+
+        # 确认订单状态变为取消
+        order_check = await client.get(
+            f"/api/tickets/order/{order_no}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert order_check.json()["status"] == "cancelled"
+
+    async def test_payment_cancel_after_paid(self, client):
+        """Mock: 已支付后取消 - 应失败"""
+        token = await self._login(client, "guest", "guest123")
+        order_resp = await self._create_ticket_order(client, token)
+        order_no = order_resp.json()["order_no"]
+
+        pay = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        txn_id = pay.json()["transaction_id"]
+        await client.post("/api/payment/confirm", json={
+            "transaction_id": txn_id, "order_no": order_no,
+        })
+
+        # 已支付的订单取消应失败
+        cancel = await client.post(
+            "/api/payment/cancel",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert cancel.status_code == 400
+
+    async def test_payment_invalid_order_type(self, client):
+        """Mock: 无效的order_type"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/payment/create",
+            json={"order_no": "TEST-001", "order_type": "invalid"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400
+
+    async def test_payment_others_order(self, client):
+        """Mock: 支付他人的订单 - 应被拒绝"""
+        guest_token = await self._login(client, "guest", "guest123")
+
+        # 创建订单
+        order_resp = await self._create_ticket_order(client, guest_token)
+        order_no = order_resp.json()["order_no"]
+
+        # 注册另一个用户尝试支付（使用随机手机号避免冲突）
+        import uuid as _uuid
+        import random
+        uname = f"other_user_{_uuid.uuid4().hex[:8]}"
+        phone = f"139{random.randint(10000000, 99999999)}"
+        reg_resp = await client.post("/api/auth/register", json={
+            "username": uname, "password": "test123456",
+            "phone": phone, "nickname": "其他用户",
+        })
+        # 注册可能因手机号/用户名重复而失败，但至少尝试
+        assert reg_resp.status_code in (200, 400)
+        if reg_resp.status_code == 400:
+            # 如果注册失败(重复)，使用已有的guest2账号
+            uname = "guest2"
+            phone = "13900000001"
+        other_login = await client.post("/api/auth/login", json={
+            "username": uname, "password": "test123456",
+        })
+        assert other_login.status_code in (200, 401)
+        if other_login.status_code != 200:
+            import pytest
+            pytest.skip("无法创建其他用户进行测试")
+
+        other_token = other_login.json()["access_token"]
+
+        resp = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {other_token}"},
+        )
+        assert resp.status_code == 404  # 订单不属于该用户
+
+
 class TestPaymentAdmin:
     """支付管理测试：退款审核 + 自动取消超时订单"""
 

@@ -808,3 +808,297 @@ async def list_syncable_products(
             })
 
     return {"total": len(products), "items": products}
+
+
+# ═══════════════════════════════════════════════════════════
+# 9. OTA 订单状态双向同步
+# ═══════════════════════════════════════════════════════════
+
+# 本地订单状态到OTA订单状态的映射
+_LOCAL_TO_OTA_STATUS = {
+    # TicketOrderStatus → OtaOrderStatus
+    TicketOrderStatus.PENDING: OtaOrderStatus.PENDING,
+    TicketOrderStatus.PAID: OtaOrderStatus.CONFIRMED,
+    TicketOrderStatus.VERIFIED: OtaOrderStatus.CONFIRMED,
+    TicketOrderStatus.CANCELLED: OtaOrderStatus.CANCELLED,
+    TicketOrderStatus.REFUNDING: OtaOrderStatus.PENDING,
+    TicketOrderStatus.REFUNDED: OtaOrderStatus.REFUNDED,
+    TicketOrderStatus.EXPIRED: OtaOrderStatus.CANCELLED,
+    # HotelOrderStatus → OtaOrderStatus
+    HotelOrderStatus.PENDING: OtaOrderStatus.PENDING,
+    HotelOrderStatus.PAID: OtaOrderStatus.CONFIRMED,
+    HotelOrderStatus.CHECKED_IN: OtaOrderStatus.CONFIRMED,
+    HotelOrderStatus.COMPLETED: OtaOrderStatus.CONFIRMED,
+    HotelOrderStatus.CANCELLED: OtaOrderStatus.CANCELLED,
+    HotelOrderStatus.REFUNDING: OtaOrderStatus.PENDING,
+    HotelOrderStatus.REFUNDED: OtaOrderStatus.REFUNDED,
+}
+
+
+def _sync_local_status_to_ota_store(local_order_no: str, local_status: str):
+    """将本地订单状态同步到OTA内存仓库"""
+    for ota_id, stored in _ota_order_store.items():
+        if stored.get("local_order_no") == local_order_no:
+            ota_status = _LOCAL_TO_OTA_STATUS.get(local_status)
+            if ota_status:
+                stored["status"] = ota_status.value
+                stored["local_status"] = local_status
+                stored["last_sync_at"] = datetime.utcnow().isoformat()
+            return ota_id
+    return None
+
+
+class OtaOrderStatusQuery(BaseModel):
+    """按本地订单号查询OTA状态"""
+    local_order_no: Optional[str] = Field(None, description="本地订单号")
+    ota_order_id: Optional[str] = Field(None, description="OTA订单号")
+
+    def model_post_init(self, __context):
+        if not self.local_order_no and not self.ota_order_id:
+            raise ValueError("必须提供 local_order_no 或 ota_order_id 之一")
+
+
+@router.get("/orders/status", summary="查询OTA订单状态")
+async def query_ota_order_status(
+    local_order_no: Optional[str] = Query(None, description="本地订单号"),
+    ota_order_id: Optional[str] = Query(None, description="OTA订单号"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """查询某个订单在OTA侧的同步状态。支持按本地订单号或OTA订单号查询。"""
+    if not local_order_no and not ota_order_id:
+        raise HTTPException(status_code=400, detail="必须提供 local_order_no 或 ota_order_id")
+
+    # 按OTA订单号查
+    if ota_order_id and ota_order_id in _ota_order_store:
+        stored = _ota_order_store[ota_order_id]
+        return {
+            "found": True,
+            "ota_order_id": ota_order_id,
+            "platform": stored.get("platform"),
+            "local_order_no": stored.get("local_order_no"),
+            "status": stored.get("status"),
+            "action": stored.get("action"),
+            "product_type": stored.get("product_type"),
+            "created_at": stored.get("created_at"),
+            "last_sync_at": stored.get("last_sync_at"),
+            "local_status": stored.get("local_status"),
+        }
+
+    # 按本地订单号查
+    if local_order_no:
+        for ota_id, stored in _ota_order_store.items():
+            if stored.get("local_order_no") == local_order_no:
+                return {
+                    "found": True,
+                    "ota_order_id": ota_id,
+                    "platform": stored.get("platform"),
+                    "local_order_no": local_order_no,
+                    "status": stored.get("status"),
+                    "action": stored.get("action"),
+                    "product_type": stored.get("product_type"),
+                    "created_at": stored.get("created_at"),
+                    "last_sync_at": stored.get("last_sync_at"),
+                    "local_status": stored.get("local_status"),
+                }
+
+    # 也尝试从本地数据库查找关联
+    if local_order_no:
+        # 查找票务订单
+        ticket_result = await db.execute(
+            select(TicketOrder).where(TicketOrder.order_no == local_order_no)
+        )
+        ticket_order = ticket_result.scalar_one_or_none()
+        if ticket_order:
+            ota_status = _LOCAL_TO_OTA_STATUS.get(ticket_order.status)
+            return {
+                "found": False,
+                "local_order_no": local_order_no,
+                "local_type": "ticket",
+                "local_status": ticket_order.status,
+                "ota_status": ota_status.value if ota_status else "unknown",
+                "message": "该订单未在OTA仓库中找到，可能非OTA来源",
+            }
+
+        # 查找酒店订单
+        hotel_result = await db.execute(
+            select(HotelOrder).where(HotelOrder.order_no == local_order_no)
+        )
+        hotel_order = hotel_result.scalar_one_or_none()
+        if hotel_order:
+            ota_status = _LOCAL_TO_OTA_STATUS.get(hotel_order.status)
+            return {
+                "found": False,
+                "local_order_no": local_order_no,
+                "local_type": "hotel",
+                "local_status": hotel_order.status,
+                "ota_status": ota_status.value if ota_status else "unknown",
+                "message": "该订单未在OTA仓库中找到，可能非OTA来源",
+            }
+
+    raise HTTPException(status_code=404, detail="未找到对应的OTA订单记录")
+
+
+class OtaStatusSyncRequest(BaseModel):
+    """手动触发OTA状态同步"""
+    local_order_no: str = Field(..., description="本地订单号")
+    new_status: Optional[str] = Field(None, description="强制设置OTA状态，不传则自动从本地DB同步")
+
+
+@router.post("/orders/sync-status", summary="手动同步OTA订单状态")
+async def sync_ota_order_status(
+    req: OtaStatusSyncRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """
+    手动触发单个订单的OTA状态同步。
+    可从本地数据库读取最新状态并同步到OTA内存仓库，
+    也支持手动指定目标状态。
+    """
+    local_order_no = req.local_order_no
+
+    # 先从本地数据库查找
+    local_status = None
+    order_type = None
+
+    ticket_result = await db.execute(
+        select(TicketOrder).where(TicketOrder.order_no == local_order_no)
+    )
+    ticket_order = ticket_result.scalar_one_or_none()
+    if ticket_order:
+        local_status = ticket_order.status
+        order_type = "ticket"
+    else:
+        hotel_result = await db.execute(
+            select(HotelOrder).where(HotelOrder.order_no == local_order_no)
+        )
+        hotel_order = hotel_result.scalar_one_or_none()
+        if hotel_order:
+            local_status = hotel_order.status
+            order_type = "hotel"
+
+    if not local_status:
+        raise HTTPException(status_code=404, detail="本地订单不存在")
+
+    target_status = req.new_status or local_status
+
+    # 同步到OTA仓库
+    synced_id = _sync_local_status_to_ota_store(local_order_no, target_status)
+
+    if synced_id:
+        return {
+            "success": True,
+            "local_order_no": local_order_no,
+            "ota_order_id": synced_id,
+            "order_type": order_type,
+            "previous_local_status": local_status,
+            "synced_status": target_status,
+            "message": f"OTA状态已同步: {target_status}",
+        }
+
+    return {
+        "success": True,
+        "local_order_no": local_order_no,
+        "order_type": order_type,
+        "local_status": local_status,
+        "synced": False,
+        "message": "该订单非OTA来源，无需同步到OTA仓库",
+    }
+
+
+# ═══════════════════════════════════════════════════════════
+# 10. OTA 订单状态变更回调（本系统 → OTA 平台）
+# ═══════════════════════════════════════════════════════════
+
+class OtaStatusCallbackRequest(BaseModel):
+    """本系统主动通知OTA平台订单状态变更"""
+    local_order_no: str = Field(..., description="本地订单号")
+    action: str = Field(..., description="confirm/cancel/refund/complete")
+    reason: Optional[str] = Field(None, description="变更原因")
+
+
+@router.post("/orders/callback", summary="向OTA平台回传订单状态变更")
+async def callback_to_ota(
+    req: OtaStatusCallbackRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """
+    模拟向OTA平台回传订单状态变更。
+    本系统状态变更后，通过此接口通知携程/美团/飞猪。
+    """
+    # 在OTA仓库中查找
+    ota_order_id = None
+    platform = None
+
+    for oid, stored in _ota_order_store.items():
+        if stored.get("local_order_no") == req.local_order_no:
+            ota_order_id = oid
+            platform = stored.get("platform")
+            break
+
+    if not ota_order_id:
+        raise HTTPException(status_code=404, detail="未找到对应的OTA订单，无法回传状态")
+
+    if platform not in _ota_configs:
+        raise HTTPException(status_code=404, detail=f"OTA平台 {platform} 未配置")
+
+    cfg = _ota_configs[platform]
+    if not cfg.get("is_enabled"):
+        raise HTTPException(status_code=400, detail=f"OTA平台 {platform} 已禁用")
+
+    # 更新OTA仓库状态
+    stored = _ota_order_store[ota_order_id]
+
+    action_map = {
+        "confirm": OtaOrderStatus.CONFIRMED,
+        "cancel": OtaOrderStatus.CANCELLED,
+        "refund": OtaOrderStatus.REFUNDED,
+        "complete": OtaOrderStatus.CONFIRMED,
+    }
+    new_status = action_map.get(req.action, OtaOrderStatus.CONFIRMED)
+    stored["status"] = new_status.value
+    stored["last_sync_at"] = datetime.utcnow().isoformat()
+    stored["callback_reason"] = req.reason
+
+    # 模拟OTA API调用签名
+    mock_sign = _mock_ota_sign(platform, {
+        "order_no": ota_order_id,
+        "action": req.action,
+        "timestamp": datetime.utcnow().isoformat(),
+    })
+
+    # 如果OTA端需要更新本地订单状态
+    if req.action == "cancel":
+        if stored.get("product_type") == "ticket":
+            t_result = await db.execute(
+                select(TicketOrder).where(TicketOrder.order_no == req.local_order_no)
+            )
+            t_order = t_result.scalar_one_or_none()
+            if t_order and t_order.status == TicketOrderStatus.PAID:
+                t_order.status = TicketOrderStatus.CANCELLED
+                t_order.cancelled_at = datetime.utcnow()
+                t_order.remark = f"[OTA回传] {req.reason or '管理员取消'}"
+        else:
+            h_result = await db.execute(
+                select(HotelOrder).where(HotelOrder.order_no == req.local_order_no)
+            )
+            h_order = h_result.scalar_one_or_none()
+            if h_order and h_order.status == HotelOrderStatus.PAID:
+                h_order.status = HotelOrderStatus.CANCELLED
+                h_order.cancelled_at = datetime.utcnow()
+                h_order.cancel_reason = f"[OTA回传] {req.reason or '管理员取消'}"
+
+    await db.flush()
+
+    return {
+        "success": True,
+        "ota_order_id": ota_order_id,
+        "platform": platform,
+        "local_order_no": req.local_order_no,
+        "action": req.action,
+        "new_status": new_status.value,
+        "callback_sign": mock_sign,
+        "message": f"已向 {platform} 回传状态变更: {req.action}",
+    }
