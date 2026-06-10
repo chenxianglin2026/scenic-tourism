@@ -54,7 +54,7 @@ Page({
     }
 
     try {
-      const spotId = getApp().globalData.currentScenic?.id
+      const spotId = (getApp().globalData.currentScenic || {}).id
       if (spotId) params.spot_id = spotId
 
       const res = await api.get('/api/scenic/points', params)

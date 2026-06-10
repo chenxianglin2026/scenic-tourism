@@ -74,7 +74,7 @@ Page({
   // 加载POI点位 → GET /api/scenic/pois
   async loadPOIs() {
     try {
-      const spotId = getApp().globalData.currentScenic?.id || 1
+      const spotId = (getApp().globalData.currentScenic || {}).id || 1
       const pois = await api.get('/api/scenic/pois', { spot_id: spotId })
       const list = (Array.isArray(pois) ? pois : (pois.items || []))
 
@@ -145,7 +145,7 @@ Page({
     if (poi) {
       wx.showModal({
         title: poi.name,
-        content: `${poi.description || '暂无描述'}\n\n坐标: ${poi.lat?.toFixed(4)}, ${poi.lng?.toFixed(4)}`,
+        content: `${poi.description || '暂无描述'}\n\n坐标: ${(poi.lat||0).toFixed(4)}, ${(poi.lng||0).toFixed(4)}`,
         showCancel: false,
         confirmText: '知道了'
       })

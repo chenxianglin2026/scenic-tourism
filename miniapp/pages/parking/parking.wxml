@@ -69,16 +69,16 @@
     <!-- 最近记录 -->
     <view class="card" wx:if="{{records.length > 0}}">
       <view class="text-lg text-bold text-dark mb-20">📋 最近停车记录</view>
-      <view wx:for="{{records.slice(0, 5)}}" wx:key="id" class="record-item" bindtap="onRecordTap" data-id="{{item.id}}">
+      <view wx:for="{{records}}" wx:key="id" class="record-item" bindtap="onRecordTap" data-id="{{item.id}}">
         <view class="flex-between">
           <view>
             <text class="text-bold text-dark">{{item.plateNumber}}</text>
             <text class="tag {{item.status === 'active' ? 'tag-green' : 'tag-warm'}} ml-10">{{item.status === 'active' ? '进行中' : '已完成'}}</text>
           </view>
-          <text class="price">¥{{item.fee ? item.fee.toFixed(2) : '0.00'}}</text>
+          <text class="price">¥{{item.feeStr}}</text>
         </view>
         <view class="text-sm text-light mt-10">{{item.lotName}}</view>
-        <view class="text-sm text-light">{{item.checkinTime ? item.checkinTime.slice(0, 16) : ''}}</view>
+        <view class="text-sm text-light">{{item.timeStr}}</view>
       </view>
     </view>
 
@@ -111,7 +111,7 @@
         </view>
         <view class="flex-between mb-20">
           <text class="text-light">进场时间</text>
-          <text class="text-dark">{{currentRecord.checkinTime ? currentRecord.checkinTime.slice(0, 19) : ''}}</text>
+          <text class="text-dark">{{currentRecord.timeStr}}</text>
         </view>
         <view class="flex-between mb-20">
           <text class="text-light">预估费用</text>

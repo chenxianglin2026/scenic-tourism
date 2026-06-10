@@ -57,7 +57,7 @@ Page({
   // 加载酒店列表 → GET /api/hotels
   async loadHotels() {
     try {
-      const spotId = getApp().globalData.currentScenic?.id || 1
+      const spotId = (getApp().globalData.currentScenic || {}).id || 1
       const hotels = await api.get('/api/hotels', { spot_id: spotId })
       this.setData({ hotels })
       if (hotels.length > 0) {

@@ -102,7 +102,7 @@ Page({
   // 加载热门票种 → GET /api/tickets/types
   async loadTickets() {
     try {
-      const spotId = getApp().globalData.currentScenic?.id || 1
+      const spotId = (getApp().globalData.currentScenic || {}).id || 1
       const types = await api.get('/api/tickets/types', { spot_id: spotId })
       const tickets = (types || []).slice(0, 4).map(t => ({
         id: t.id,
@@ -126,7 +126,7 @@ Page({
   // 加载酒店 → GET /api/hotels
   async loadHotels() {
     try {
-      const spotId = getApp().globalData.currentScenic?.id || 1
+      const spotId = (getApp().globalData.currentScenic || {}).id || 1
       const hotels = await api.get('/api/hotels', { spot_id: spotId })
       this.setData({ hotels: (hotels || []).slice(0, 3) })
     } catch (err) {

@@ -73,9 +73,9 @@
           <view class="flex-between">
             <view>
               <text class="text-bold text-dark">{{item.nickname || item.username || '游客'}}</text>
-              <text class="review-stars ml-10">{{'★'.repeat(item.rating) + '☆'.repeat(5-item.rating)}}</text>
+              <text class="review-stars ml-10">{{item.starDisplay}}</text>
             </view>
-            <text class="text-sm text-lighter">{{item.created_at ? item.created_at.slice(0,10) : ''}}</text>
+            <text class="text-sm text-lighter">{{item.dateStr}}</text>
           </view>
           <view wx:if="{{item.visit_date}}" class="text-sm text-light mt-10">
             🗓️ 游玩日期: {{item.visit_date}}

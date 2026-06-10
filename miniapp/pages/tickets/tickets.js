@@ -43,7 +43,7 @@ Page({
     const app = getApp()
     this.setData({
       visitDate: dateStr,
-      spotId: app.globalData.currentScenic?.id || 1
+      spotId: (app.globalData.currentScenic || {}).id || 1
     })
     this.loadTicketTypes()
   },
@@ -202,7 +202,7 @@ Page({
           currentOrder: {
             id: Date.now(),
             order_no: orderNo,
-            ticket_type_name: this.data.ticketTypes.find(t => t.id === selectedType)?.name || '门票',
+            ticket_type_name: (this.data.ticketTypes.find(t => t.id === selectedType) || {}).name || '门票',
             quantity,
             total_price: this.data.totalPrice,
             status: 'pending',

@@ -17,10 +17,10 @@
 
     <view wx:if="{{isLogin}}" class="flex-row" style="padding:30rpx;">
       <view class="user-avatar img-placeholder" style="width:120rpx;height:120rpx;border-radius:50%;flex-shrink:0;">
-        {{userInfo?.nickname || '👤'}}
+        {{userInfo.nickname || '👤'}}
       </view>
       <view class="flex-1 ml-20">
-        <view class="text-lg text-bold text-dark">{{userInfo?.nickname || '游客'}}</view>
+        <view class="text-lg text-bold text-dark">{{userInfo.nickname || '游客'}}</view>
         <view class="text-sm text-light mt-10">📱 {{phoneNumber || '未绑定手机'}}</view>
         <button
           wx:if="{{!phoneNumber}}"

@@ -176,7 +176,7 @@ Page({
 
     let content = ''
     if (this.data.activeTab === 'tickets') {
-      content = `订单号: ${order.order_no}\n票种: ${order.ticket_type_name || ''}\n数量: ${order.quantity}张\n金额: ¥${order.total_price}\n日期: ${order.visit_date} ${order.time_slot || ''}\n状态: ${ORDER_STATUS[order.status]?.label || order.status}`
+      content = `订单号: ${order.order_no}\n票种: ${order.ticket_type_name || ''}\n数量: ${order.quantity}张\n金额: ¥${order.total_price}\n日期: ${order.visit_date} ${order.time_slot || ''}\n状态: ${(ORDER_STATUS[order.status] || {}).label || order.status}`
     } else {
       content = `订单号: ${order.order_no}\n房型: ${order.room_name || ''}\n入住: ${order.checkin_date || order.check_in}\n离店: ${order.checkout_date || order.check_out}\n晚数: ${order.nights || 1}晚\n金额: ¥${order.total_price || order.amount}\n住客: ${order.guest_name}\n状态: ${order.status}`
     }

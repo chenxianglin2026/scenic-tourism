@@ -305,7 +305,7 @@ Page({
       const status = record.status === 'active' ? '进行中' : '已完成'
       wx.showModal({
         title: '停车记录',
-        content: `车牌: ${record.plateNumber}\n停车场: ${record.lotName}\n进场: ${record.checkinTime?.slice(0, 19) || '--'}\n${record.checkoutTime ? '离场: ' + record.checkoutTime.slice(0, 19) : ''}\n费用: ¥${(record.fee || 0).toFixed(2)}\n状态: ${status}`,
+        content: `车牌: ${record.plateNumber}\n停车场: ${record.lotName}\n进场: ${(record.checkinTime || '').slice(0, 19) || '--'}\n${record.checkoutTime ? '离场: ' + record.checkoutTime.slice(0, 19) : ''}\n费用: ¥${(record.fee || 0).toFixed(2)}\n状态: ${status}`,
         showCancel: false,
         confirmText: '关闭'
       })

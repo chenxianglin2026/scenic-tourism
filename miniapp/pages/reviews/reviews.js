@@ -61,7 +61,7 @@ Page({
     }
 
     try {
-      const spotId = getApp().globalData.currentScenic?.id
+      const spotId = (getApp().globalData.currentScenic || {}).id
       if (spotId) params.spot_id = spotId
 
       const res = await api.get('/api/scenic/reviews', params)
@@ -154,7 +154,7 @@ Page({
 
     this.setData({ submitting: true })
     try {
-      const spotId = getApp().globalData.currentScenic?.id || 1
+      const spotId = (getApp().globalData.currentScenic || {}).id || 1
       await api.post('/api/scenic/reviews', {
         spot_id: spotId,
         rating: commentRating,
