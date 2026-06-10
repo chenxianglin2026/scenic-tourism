@@ -2561,8 +2561,9 @@ class TestPaymentCancelFlow:
         guest1_token = await self._login(client, "guest", "guest123")
         # 注册另一个用户
         rand_user = f"user_{uuid.uuid4().hex[:8]}"
+        phone_suffix = str(uuid.uuid4().int)[:8]
         reg_resp = await client.post("/api/auth/register", json={
-            "username": rand_user, "password": "test123", "phone": f"139{uuid.uuid4().hex[:8]}",
+            "username": rand_user, "password": "test123", "phone": f"139{phone_suffix}",
         })
         if reg_resp.status_code != 200:
             import pytest
@@ -2719,10 +2720,17 @@ class TestParkingCheckoutFlow:
         """停车入场→出场缴费完整流程"""
         token = await self._login(client, "guest", "guest123")
 
+        # 获取有效费率
+        rates_resp = await client.get("/api/parking/rates")
+        assert rates_resp.status_code == 200
+        rates = rates_resp.json()
+        assert len(rates) > 0
+        rate_id = rates[0]["id"]
+
         # 入场
         checkin_resp = await client.post(
             "/api/parking/checkin",
-            json={"spot_id": 1, "plate": "鲁J-TEST01"},
+            json={"rate_id": rate_id, "plate_number": "鲁J-TEST01"},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert checkin_resp.status_code == 200
@@ -2731,18 +2739,19 @@ class TestParkingCheckoutFlow:
         # 出场缴费
         checkout_resp = await client.post(
             f"/api/parking/checkout/{record_id}",
+            json={},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert checkout_resp.status_code == 200
         assert checkout_resp.json()["success"] is True
-        assert "fee" in checkout_resp.json()
+        assert "total_fee" in checkout_resp.json()
 
-    async def test_parking_checkin_invalid_spot(self, client):
-        """入场无效景区"""
+    async def test_parking_checkin_invalid_rate(self, client):
+        """入场无效费率"""
         token = await self._login(client, "guest", "guest123")
         resp = await client.post(
             "/api/parking/checkin",
-            json={"spot_id": 9999, "plate": "鲁J-TEST02"},
+            json={"rate_id": 9999, "plate_number": "鲁J-TEST02"},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 404
@@ -2803,3 +2812,73 @@ class TestAdditionalScenarios:
         )
         assert resp.status_code == 200
         assert "text/csv" in resp.headers["content-type"]
+
+    async def test_parking_my_records(self, client):
+        """我的停车记录"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.get(
+            "/api/parking/records",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "total" in data
+        assert "items" in data
+
+    async def test_dashboard_stats_admin(self, client):
+        """管理员仪表盘统计"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/dashboard/stats",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "data" in data
+
+    async def test_dashboard_overview(self, client):
+        """管理员综合总览"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/dashboard/overview",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "data" in data
+        assert isinstance(data["data"], dict)
+
+    async def test_payment_status_query(self, client):
+        """查询支付状态（不存在的订单）"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.get(
+            "/api/payment/status/NONEXIST-ORDER-001",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "order_no" in data
+        assert data["order_no"] == "NONEXIST-ORDER-001"
+
+    async def test_ota_connection_test(self, client):
+        """OTA平台连接测试"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/ota/test-connection/ctrip",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "platform" in data
+        assert data["platform"] == "ctrip"
+
+    async def test_weather_refresh(self, client):
+        """管理员刷新天气缓存"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/scenic/weather/refresh",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "temperature" in data or "weather" in data
