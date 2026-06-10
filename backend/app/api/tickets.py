@@ -12,7 +12,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import (
-    get_db, User, ScenicSpot, TicketType, TicketOrder,
+    get_db, User, ScenicSpot, TicketType, TicketOrder, TicketInventory,
     TicketOrderStatus, VerifyResult
 )
 from app.api.auth import get_current_user, require_admin, require_staff
@@ -197,23 +197,63 @@ async def create_ticket_order(
     if not ticket_type:
         raise HTTPException(status_code=404, detail="票种不存在")
 
-    # 分时库存并发控制：统计该票种当天该时段已售出数量
-    sold_result = await db.execute(
-        select(func.coalesce(func.sum(TicketOrder.quantity), 0)).where(
-            TicketOrder.ticket_type_id == req.ticket_type_id,
-            TicketOrder.visit_date == req.visit_date,
-            TicketOrder.time_slot == req.time_slot,
-            TicketOrder.status.in_([TicketOrderStatus.PAID, TicketOrderStatus.VERIFIED, TicketOrderStatus.PENDING]),
+    # 原子库存扣减：使用 TicketInventory 表 + 乐观锁保证并发安全
+    # 首次访问该时段时自动创建库存记录
+    inv_result = await db.execute(
+        select(TicketInventory).where(
+            TicketInventory.ticket_type_id == req.ticket_type_id,
+            TicketInventory.visit_date == req.visit_date,
+            TicketInventory.time_slot == req.time_slot,
         )
     )
-    sold = int(sold_result.scalar() or 0)
+    inventory = inv_result.scalar_one_or_none()
 
-    remaining = ticket_type.daily_stock - sold
-    if remaining < req.quantity:
-        raise HTTPException(
-            status_code=400,
-            detail=f"该时段仅剩 {remaining} 张票，无法购买 {req.quantity} 张"
+    if not inventory:
+        # 初始化库存记录（total_stock 取自票种配置）
+        inventory = TicketInventory(
+            ticket_type_id=req.ticket_type_id,
+            visit_date=req.visit_date,
+            time_slot=req.time_slot,
+            total_stock=ticket_type.daily_stock,
+            sold_count=0,
+            version=0,
         )
+        db.add(inventory)
+        await db.flush()
+        await db.refresh(inventory)
+
+    # 原子扣减：UPDATE + version 乐观锁
+    from sqlalchemy import update as sa_update
+    old_version = inventory.version
+    deduct_result = await db.execute(
+        sa_update(TicketInventory)
+        .where(
+            TicketInventory.id == inventory.id,
+            TicketInventory.version == old_version,
+            TicketInventory.sold_count + req.quantity <= TicketInventory.total_stock,
+        )
+        .values(
+            sold_count=TicketInventory.sold_count + req.quantity,
+            version=TicketInventory.version + 1,
+        )
+    )
+    if deduct_result.rowcount == 0:
+        # 版本冲突或库存不足 — 重新读取确认原因
+        await db.refresh(inventory)
+        remaining = inventory.total_stock - inventory.sold_count
+        if remaining < req.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"该时段仅剩 {remaining} 张票，无法购买 {req.quantity} 张"
+            )
+        else:
+            raise HTTPException(
+                status_code=409,
+                detail="系统繁忙，请稍后重试（库存并发冲突）"
+            )
+
+    # 刷新 inventory 以获取最新 sold_count
+    await db.refresh(inventory)
 
     # 生成订单（状态为 PENDING，支付后变为 PAID）
     order_no = _generate_order_no()
@@ -371,6 +411,31 @@ async def verify_ticket(
     )
 
 
+async def _release_inventory(order: TicketOrder, db: AsyncSession):
+    """原子释放 TicketInventory 库存（取消/退款时调用）"""
+    from sqlalchemy import update as sa_update
+    inv_result = await db.execute(
+        select(TicketInventory).where(
+            TicketInventory.ticket_type_id == order.ticket_type_id,
+            TicketInventory.visit_date == order.visit_date,
+            TicketInventory.time_slot == order.time_slot,
+        )
+    )
+    inventory = inv_result.scalar_one_or_none()
+    if inventory and inventory.sold_count >= order.quantity:
+        await db.execute(
+            sa_update(TicketInventory)
+            .where(
+                TicketInventory.id == inventory.id,
+                TicketInventory.sold_count >= order.quantity,
+            )
+            .values(
+                sold_count=TicketInventory.sold_count - order.quantity,
+                version=TicketInventory.version + 1,
+            )
+        )
+
+
 # ── 退款 ─────────────────────────────────────────────
 @router.post("/order/{order_id}/refund", response_model=RefundResponse, summary="申请退款")
 async def refund_ticket_order(
@@ -404,9 +469,11 @@ async def refund_ticket_order(
         raise HTTPException(status_code=400, detail="该票已过期，系统将自动退款")
 
     if order.status == TicketOrderStatus.PENDING:
-        # 未支付订单直接取消
+        # 未支付订单直接取消 — 释放库存
         order.status = TicketOrderStatus.CANCELLED
         order.cancelled_at = datetime.utcnow()
+        # 释放 TicketInventory 库存
+        await _release_inventory(order, db)
         await db.flush()
         await db.refresh(order)
         return RefundResponse(
@@ -424,6 +491,8 @@ async def refund_ticket_order(
         # 自动退款（全款）
         refund_amount = order.total_price
         order.status = TicketOrderStatus.REFUNDED
+        # 释放库存
+        await _release_inventory(order, db)
         await db.flush()
         await db.refresh(order)
 
@@ -512,6 +581,8 @@ async def batch_expire_orders(
         order.cancelled_at = datetime.utcnow()
         # 再转为已退款
         order.status = TicketOrderStatus.REFUNDED
+        # 释放库存
+        await _release_inventory(order, db)
 
         # 更新支付记录
         from app.db import PaymentRecord

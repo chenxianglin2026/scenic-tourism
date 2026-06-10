@@ -403,6 +403,30 @@ class PaymentRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+# ── 票务库存模型（原子扣减） ─────────────────────────
+class TicketInventory(Base):
+    """票务库存表：按票种+日期+时段粒度管理可售库存，支持原子扣减"""
+    __tablename__ = "ticket_inventory"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    ticket_type_id: Mapped[int] = mapped_column(
+        ForeignKey("ticket_types.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    visit_date: Mapped[date] = mapped_column(Date, nullable=False, index=True, comment="游览日期")
+    time_slot: Mapped[str] = mapped_column(String(20), nullable=False, comment="时段")
+    total_stock: Mapped[int] = mapped_column(Integer, nullable=False, comment="该时段总库存")
+    sold_count: Mapped[int] = mapped_column(Integer, default=0, comment="已售数量")
+    version: Mapped[int] = mapped_column(Integer, default=0, comment="乐观锁版本号")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    __table_args__ = (
+        Index("ix_ticket_inventory_type_date_slot", "ticket_type_id", "visit_date", "time_slot", unique=True),
+    )
+
+
 # ── 天气缓存模型 ────────────────────────────────────
 class WeatherCache(Base):
     """景区天气缓存表"""

@@ -103,9 +103,29 @@ class RefundApproveResponse(BaseModel):
 
 # ── 内部辅助：释放库存 ─────────────────────────────────
 async def _release_ticket_stock(order: TicketOrder, db: AsyncSession):
-    """取消/退款票务订单时释放库存（不直接操作，标记取消即可，
-       库存统计用 status 过滤，取消后不计入已售）"""
-    pass  # 库存通过 status 过滤自动释放
+    """取消/退款票务订单时释放 TicketInventory 库存（原子操作）"""
+    from app.db import TicketInventory
+    from sqlalchemy import update as sa_update
+    inv_result = await db.execute(
+        select(TicketInventory).where(
+            TicketInventory.ticket_type_id == order.ticket_type_id,
+            TicketInventory.visit_date == order.visit_date,
+            TicketInventory.time_slot == order.time_slot,
+        )
+    )
+    inventory = inv_result.scalar_one_or_none()
+    if inventory and inventory.sold_count >= order.quantity:
+        await db.execute(
+            sa_update(TicketInventory)
+            .where(
+                TicketInventory.id == inventory.id,
+                TicketInventory.sold_count >= order.quantity,
+            )
+            .values(
+                sold_count=TicketInventory.sold_count - order.quantity,
+                version=TicketInventory.version + 1,
+            )
+        )
 
 
 async def _release_hotel_stock(order: HotelOrder, db: AsyncSession):

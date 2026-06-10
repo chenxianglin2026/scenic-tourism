@@ -1016,7 +1016,7 @@ async def sync_ota_order_status(
 class OtaStatusCallbackRequest(BaseModel):
     """本系统主动通知OTA平台订单状态变更"""
     local_order_no: str = Field(..., description="本地订单号")
-    action: str = Field(..., description="confirm/cancel/refund/complete")
+    action: str = Field(..., description="confirm/cancel/refund/complete/expire")
     reason: Optional[str] = Field(None, description="变更原因")
 
 
@@ -1027,17 +1027,20 @@ async def callback_to_ota(
     current_user: User = Depends(require_admin),
 ):
     """
-    模拟向OTA平台回传订单状态变更。
-    本系统状态变更后，通过此接口通知携程/美团/飞猪。
+    向OTA平台回传订单状态变更（携程/美团/飞猪）。
+    支持全部状态流转：confirm(确认) / cancel(取消) / refund(退款) / complete(完成) / expire(过期)
+    同时同步更新本地订单状态以保持数据一致。
     """
-    # 在OTA仓库中查找
+    # 在OTA仓库中查找对应的OTA订单
     ota_order_id = None
     platform = None
+    product_type = None
 
     for oid, stored in _ota_order_store.items():
         if stored.get("local_order_no") == req.local_order_no:
             ota_order_id = oid
             platform = stored.get("platform")
+            product_type = stored.get("product_type")
             break
 
     if not ota_order_id:
@@ -1050,49 +1053,78 @@ async def callback_to_ota(
     if not cfg.get("is_enabled"):
         raise HTTPException(status_code=400, detail=f"OTA平台 {platform} 已禁用")
 
-    # 更新OTA仓库状态
     stored = _ota_order_store[ota_order_id]
 
-    action_map = {
+    # ── 状态映射 ──
+    ota_action_status_map = {
         "confirm": OtaOrderStatus.CONFIRMED,
         "cancel": OtaOrderStatus.CANCELLED,
         "refund": OtaOrderStatus.REFUNDED,
         "complete": OtaOrderStatus.CONFIRMED,
+        "expire": OtaOrderStatus.CANCELLED,
     }
-    new_status = action_map.get(req.action, OtaOrderStatus.CONFIRMED)
-    stored["status"] = new_status.value
+    new_ota_status = ota_action_status_map.get(req.action)
+    if not new_ota_status:
+        raise HTTPException(status_code=400, detail=f"不支持的操作: {req.action}，可选: confirm/cancel/refund/complete/expire")
+
+    # ── 幂等检查：相同状态不重复处理 ──
+    if stored.get("status") == new_ota_status.value:
+        return {
+            "success": True,
+            "ota_order_id": ota_order_id,
+            "platform": platform,
+            "local_order_no": req.local_order_no,
+            "action": req.action,
+            "new_status": new_ota_status.value,
+            "message": f"状态已是 {new_ota_status.value}，无需重复处理（幂等）",
+        }
+
+    # ── 更新OTA仓库状态 ──
+    stored["status"] = new_ota_status.value
     stored["last_sync_at"] = datetime.utcnow().isoformat()
     stored["callback_reason"] = req.reason
+    stored["callback_action"] = req.action
+    stored["callback_by"] = current_user.username
 
-    # 模拟OTA API调用签名
+    # ── 同步更新本地订单状态 ──
+    local_update_result = None
+    try:
+        if product_type == "ticket":
+            t_result = await db.execute(
+                select(TicketOrder).where(TicketOrder.order_no == req.local_order_no)
+            )
+            t_order = t_result.scalar_one_or_none()
+            if not t_order:
+                local_update_result = "本地票务订单不存在"
+            else:
+                local_update_result = await _apply_ota_callback_to_ticket(
+                    t_order, req.action, req.reason, platform, db
+                )
+        elif product_type == "hotel":
+            h_result = await db.execute(
+                select(HotelOrder).where(HotelOrder.order_no == req.local_order_no)
+            )
+            h_order = h_result.scalar_one_or_none()
+            if not h_order:
+                local_update_result = "本地酒店订单不存在"
+            else:
+                local_update_result = await _apply_ota_callback_to_hotel(
+                    h_order, req.action, req.reason, platform, db
+                )
+        else:
+            local_update_result = f"未知产品类型: {product_type}"
+    except Exception as e:
+        # 记录错误但继续返回OTA侧结果
+        local_update_result = f"本地同步失败: {str(e)}"
+
+    await db.flush()
+
+    # 模拟OTA API签名
     mock_sign = _mock_ota_sign(platform, {
         "order_no": ota_order_id,
         "action": req.action,
         "timestamp": datetime.utcnow().isoformat(),
     })
-
-    # 如果OTA端需要更新本地订单状态
-    if req.action == "cancel":
-        if stored.get("product_type") == "ticket":
-            t_result = await db.execute(
-                select(TicketOrder).where(TicketOrder.order_no == req.local_order_no)
-            )
-            t_order = t_result.scalar_one_or_none()
-            if t_order and t_order.status == TicketOrderStatus.PAID:
-                t_order.status = TicketOrderStatus.CANCELLED
-                t_order.cancelled_at = datetime.utcnow()
-                t_order.remark = f"[OTA回传] {req.reason or '管理员取消'}"
-        else:
-            h_result = await db.execute(
-                select(HotelOrder).where(HotelOrder.order_no == req.local_order_no)
-            )
-            h_order = h_result.scalar_one_or_none()
-            if h_order and h_order.status == HotelOrderStatus.PAID:
-                h_order.status = HotelOrderStatus.CANCELLED
-                h_order.cancelled_at = datetime.utcnow()
-                h_order.cancel_reason = f"[OTA回传] {req.reason or '管理员取消'}"
-
-    await db.flush()
 
     return {
         "success": True,
@@ -1100,7 +1132,139 @@ async def callback_to_ota(
         "platform": platform,
         "local_order_no": req.local_order_no,
         "action": req.action,
-        "new_status": new_status.value,
+        "new_status": new_ota_status.value,
         "callback_sign": mock_sign,
-        "message": f"已向 {platform} 回传状态变更: {req.action}",
+        "local_sync": local_update_result,
+        "message": f"已向 {platform} 回传状态变更: {req.action} → {new_ota_status.value}",
     }
+
+
+async def _apply_ota_callback_to_ticket(
+    order: TicketOrder, action: str, reason: Optional[str], platform: str, db: AsyncSession
+) -> str:
+    """将OTA回传的状态变更应用到本地票务订单"""
+    remark_tag = f"[OTA:{platform}回传] {reason or action}"
+    now = datetime.utcnow()
+
+    if action == "confirm":
+        if order.status in (TicketOrderStatus.PENDING, TicketOrderStatus.PAID):
+            order.status = TicketOrderStatus.PAID
+            if not order.paid_at:
+                order.paid_at = now
+            order.remark = remark_tag
+            return "已确认支付"
+        return f"订单状态 {order.status} 不支持确认操作"
+
+    elif action == "cancel":
+        if order.status in (TicketOrderStatus.PENDING, TicketOrderStatus.PAID):
+            order.status = TicketOrderStatus.CANCELLED
+            order.cancelled_at = now
+            order.remark = remark_tag
+            # 释放库存
+            from app.api.tickets import _release_inventory as _rel_inv
+            await _rel_inv(order, db)
+            return "已取消（库存已释放）"
+        return f"订单状态 {order.status} 不支持取消操作"
+
+    elif action == "refund":
+        if order.status in (TicketOrderStatus.PAID, TicketOrderStatus.REFUNDING):
+            order.status = TicketOrderStatus.REFUNDED
+            order.cancelled_at = order.cancelled_at or now
+            order.remark = remark_tag
+            # 释放库存
+            from app.api.tickets import _release_inventory as _rel_inv
+            await _rel_inv(order, db)
+            # 同步支付记录
+            from app.db import PaymentRecord
+            pay_result = await db.execute(
+                select(PaymentRecord).where(PaymentRecord.order_no == order.order_no)
+            )
+            pay_record = pay_result.scalar_one_or_none()
+            if pay_record:
+                pay_record.status = "refund"
+                pay_record.refund_time = now
+            return "已退款（库存已释放）"
+        return f"订单状态 {order.status} 不支持退款操作"
+
+    elif action == "complete":
+        if order.status == TicketOrderStatus.PAID:
+            order.status = TicketOrderStatus.VERIFIED
+            order.verified_at = now
+            order.remark = remark_tag
+            return "已完成（标记为已核销）"
+        return f"订单状态 {order.status} 不支持完成操作"
+
+    elif action == "expire":
+        if order.status == TicketOrderStatus.PAID:
+            order.status = TicketOrderStatus.EXPIRED
+            order.cancelled_at = now
+            order.remark = remark_tag
+            return "已标记为过期"
+        return f"订单状态 {order.status} 不支持过期操作"
+
+    return f"未知操作: {action}"
+
+
+async def _apply_ota_callback_to_hotel(
+    order: HotelOrder, action: str, reason: Optional[str], platform: str, db: AsyncSession
+) -> str:
+    """将OTA回传的状态变更应用到本地酒店订单"""
+    remark_tag = f"[OTA:{platform}回传] {reason or action}"
+    now = datetime.utcnow()
+
+    if action == "confirm":
+        if order.status in (HotelOrderStatus.PENDING, HotelOrderStatus.PAID):
+            order.status = HotelOrderStatus.PAID
+            if not order.paid_at:
+                order.paid_at = now
+            order.remark = remark_tag
+            return "已确认支付"
+        return f"订单状态 {order.status} 不支持确认操作"
+
+    elif action == "cancel":
+        if order.status in (HotelOrderStatus.PENDING, HotelOrderStatus.PAID):
+            order.status = HotelOrderStatus.CANCELLED
+            order.cancelled_at = now
+            order.cancel_reason = remark_tag
+            # 释放酒店库存
+            from app.api.payment import _release_hotel_stock
+            await _release_hotel_stock(order, db)
+            return "已取消（库存已释放）"
+        return f"订单状态 {order.status} 不支持取消操作"
+
+    elif action == "refund":
+        if order.status in (HotelOrderStatus.PAID, HotelOrderStatus.REFUNDING):
+            order.status = HotelOrderStatus.REFUNDED
+            order.cancelled_at = order.cancelled_at or now
+            order.cancel_reason = remark_tag
+            # 释放酒店库存
+            from app.api.payment import _release_hotel_stock
+            await _release_hotel_stock(order, db)
+            # 同步支付记录
+            from app.db import PaymentRecord
+            pay_result = await db.execute(
+                select(PaymentRecord).where(PaymentRecord.order_no == order.order_no)
+            )
+            pay_record = pay_result.scalar_one_or_none()
+            if pay_record:
+                pay_record.status = "refund"
+                pay_record.refund_time = now
+            return "已退款（库存已释放）"
+        return f"订单状态 {order.status} 不支持退款操作"
+
+    elif action == "complete":
+        if order.status == HotelOrderStatus.CHECKED_IN:
+            order.status = HotelOrderStatus.COMPLETED
+            order.remark = remark_tag
+            return "已完成（标记为已离店）"
+        return f"订单状态 {order.status} 不支持完成操作"
+
+    elif action == "expire":
+        if order.status == HotelOrderStatus.PAID:
+            order.status = HotelOrderStatus.CANCELLED
+            order.cancelled_at = now
+            order.cancel_reason = remark_tag
+            return "已标记为过期取消"
+        return f"订单状态 {order.status} 不支持过期操作"
+
+    return f"未知操作: {action}"
