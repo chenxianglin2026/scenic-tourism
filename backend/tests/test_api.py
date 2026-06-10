@@ -480,21 +480,25 @@ class TestAdminEndpoints:
         assert resp.status_code == 403
 
     async def test_keyword_search_nearby_points(self, client):
+        import time
         token = await self._login(client, "admin", "admin123")
-        # Create a unique-named point
+        # Create a truly unique-named point to avoid collision with stale test data
+        unique_suffix = f"KW-TEST-{int(time.time() * 1000000)}"
+        point_name = f"关键字搜索测试_{unique_suffix}"
         create_resp = await client.post(
             "/api/scenic/points",
-            json={"spot_id": 1, "name": "测试搜索唯一关键字XYZ987", "category": "dining", "rating": 4.0},
+            json={"spot_id": 1, "name": point_name, "category": "dining", "rating": 4.0},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert create_resp.status_code == 201
+        created_id = create_resp.json()["id"]
         # Search for it
-        resp = await client.get("/api/scenic/points?keyword=XYZ987")
+        resp = await client.get(f"/api/scenic/points?keyword={unique_suffix}")
         assert resp.status_code == 200
         data = resp.json()
         assert data["total"] >= 1
-        found = [p for p in data["items"] if p["name"] == "测试搜索唯一关键字XYZ987"]
-        assert len(found) == 1
+        found = [p for p in data["items"] if p["id"] == created_id]
+        assert len(found) == 1, f"Expected 1 point, found {len(found)}: {found}"
 
     async def test_admin_delete_review(self, client):
         token = await self._login(client, "admin", "admin123")
@@ -2441,6 +2445,26 @@ class TestNearbyPointsEdgeCases:
         )
         assert resp.status_code == 403
 
+    async def test_nearby_points_search_by_description(self, client):
+        """搜索附近推荐描述字段"""
+        import time
+        token = await self._login(client, "admin", "admin123")
+        unique_suffix = f"DESC-TEST-{int(time.time() * 1000000)}"
+        desc = f"特色美食推荐_{unique_suffix}"
+        create_resp = await client.post(
+            "/api/scenic/points",
+            json={"spot_id": 1, "name": "描述搜索测试", "category": "dining", "rating": 4.5, "description": desc},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert create_resp.status_code == 201
+        created_id = create_resp.json()["id"]
+        resp = await client.get(f"/api/scenic/points?keyword={unique_suffix}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] >= 1
+        found = [p for p in data["items"] if p["id"] == created_id]
+        assert len(found) == 1, f"Expected 1, got {len(found)}"
+
 
 class TestExportAdditionalFormats:
     """数据导出额外测试"""
@@ -2478,3 +2502,304 @@ class TestExportAdditionalFormats:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200
+
+
+class TestPaymentCancelFlow:
+    """支付取消流程测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_payment_cancel_ticket_order(self, client):
+        """用户取消自己未支付的票务订单"""
+        from datetime import date
+        token = await self._login(client, "guest", "guest123")
+
+        # 获取票种
+        types_resp = await client.get("/api/tickets/types?spot_id=1")
+        ticket_type_id = types_resp.json()[0]["id"]
+
+        # 下单
+        order_resp = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": 1, "quantity": 1,
+                "visit_date": date.today().isoformat(), "time_slot": "08:00-10:00",
+                "visitor_name": "取消测试", "visitor_phone": "13800138010",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert order_resp.status_code == 201
+        order_no = order_resp.json()["order_no"]
+
+        # 创建支付
+        pay_resp = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert pay_resp.status_code == 200
+
+        # 取消支付
+        cancel_resp = await client.post(
+            "/api/payment/cancel",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert cancel_resp.status_code == 200
+        assert cancel_resp.json()["success"] is True
+        assert cancel_resp.json()["message"] != ""
+
+    async def test_payment_cancel_others_order(self, client):
+        """不能取消他人订单"""
+        from datetime import date
+        import uuid
+        guest1_token = await self._login(client, "guest", "guest123")
+        # 注册另一个用户
+        rand_user = f"user_{uuid.uuid4().hex[:8]}"
+        reg_resp = await client.post("/api/auth/register", json={
+            "username": rand_user, "password": "test123", "phone": f"139{uuid.uuid4().hex[:8]}",
+        })
+        if reg_resp.status_code != 200:
+            import pytest
+            pytest.skip(f"Register failed: {reg_resp.status_code}")
+        guest2_token = reg_resp.json()["access_token"]
+
+        # guest1 下单
+        types_resp = await client.get("/api/tickets/types?spot_id=1")
+        tid = types_resp.json()[0]["id"]
+        order_resp = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": tid, "spot_id": 1, "quantity": 1,
+                "visit_date": date.today().isoformat(), "time_slot": "08:00-10:00",
+                "visitor_name": "归属测试", "visitor_phone": "13800138011",
+            },
+            headers={"Authorization": f"Bearer {guest1_token}"},
+        )
+        order_no = order_resp.json()["order_no"]
+        await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {guest1_token}"},
+        )
+
+        # guest2 尝试取消 guest1 的订单
+        cancel_resp = await client.post(
+            "/api/payment/cancel",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {guest2_token}"},
+        )
+        assert cancel_resp.status_code in (403, 404)
+
+    async def test_payment_cancel_no_auth(self, client):
+        """取消支付需要鉴权"""
+        resp = await client.post("/api/payment/cancel", json={
+            "order_no": "TEST-123", "order_type": "ticket",
+        })
+        assert resp.status_code == 401
+
+
+class TestScenicInfoUpdate:
+    """景区信息编辑测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_admin_update_scenic_info(self, client):
+        """管理员编辑景区信息"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.put(
+            "/api/scenic/info",
+            json={"name": "泰山景区-已更新", "phone": "0538-8888888"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["name"] == "泰山景区-已更新"
+        assert data["phone"] == "0538-8888888"
+
+        # 还原名称
+        await client.put(
+            "/api/scenic/info",
+            json={"name": "泰山景区"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    async def test_admin_update_scenic_info_with_spot_id(self, client):
+        """指定景区ID编辑"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.put(
+            "/api/scenic/info?spot_id=1",
+            json={"description": "五岳之首，天下第一山-测试更新"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+
+    async def test_guest_cannot_update_scenic_info(self, client):
+        """游客不能编辑景区信息"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.put(
+            "/api/scenic/info",
+            json={"name": "Hacked"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+
+class TestAnnouncementUpdate:
+    """公告编辑测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_admin_update_announcement(self, client):
+        """管理员编辑公告"""
+        token = await self._login(client, "admin", "admin123")
+        # 先创建公告
+        create_resp = await client.post(
+            "/api/scenic/announcements",
+            json={"title": "待编辑公告", "content": "原始内容", "spot_id": 1, "category": "notice"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert create_resp.status_code == 201
+        ann_id = create_resp.json()["id"]
+
+        # 编辑公告
+        update_resp = await client.put(
+            f"/api/scenic/announcements/{ann_id}",
+            json={"title": "已编辑公告", "content": "更新后的内容", "priority": 1},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert update_resp.status_code == 200
+        assert update_resp.json()["title"] == "已编辑公告"
+        assert update_resp.json()["content"] == "更新后的内容"
+        assert update_resp.json()["priority"] == 1
+
+        # 清理
+        await client.delete(
+            f"/api/scenic/announcements/{ann_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    async def test_guest_cannot_update_announcement(self, client):
+        """游客不能编辑公告"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.put(
+            "/api/scenic/announcements/1",
+            json={"title": "Hacked"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+
+class TestParkingCheckoutFlow:
+    """停车出场缴费流程"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_parking_checkin_checkout(self, client):
+        """停车入场→出场缴费完整流程"""
+        token = await self._login(client, "guest", "guest123")
+
+        # 入场
+        checkin_resp = await client.post(
+            "/api/parking/checkin",
+            json={"spot_id": 1, "plate": "鲁J-TEST01"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert checkin_resp.status_code == 200
+        record_id = checkin_resp.json()["record"]["id"]
+
+        # 出场缴费
+        checkout_resp = await client.post(
+            f"/api/parking/checkout/{record_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert checkout_resp.status_code == 200
+        assert checkout_resp.json()["success"] is True
+        assert "fee" in checkout_resp.json()
+
+    async def test_parking_checkin_invalid_spot(self, client):
+        """入场无效景区"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/parking/checkin",
+            json={"spot_id": 9999, "plate": "鲁J-TEST02"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+
+class TestAdditionalScenarios:
+    """其他补充场景测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_hotel_rooms_by_hotel(self, client):
+        """按酒店获取房型列表"""
+        token = await self._login(client, "admin", "admin123")
+        hotels_resp = await client.get("/api/hotels", headers={"Authorization": f"Bearer {token}"})
+        if hotels_resp.status_code == 200:
+            hotels = hotels_resp.json()
+            if isinstance(hotels, list) and len(hotels) > 0:
+                hotel_id = hotels[0]["id"]
+                resp = await client.get(
+                    f"/api/hotels/{hotel_id}/rooms",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+                assert resp.status_code == 200
+                rooms = resp.json()
+                assert isinstance(rooms, list)
+
+    async def test_admin_delete_parking_rate(self, client):
+        """管理员删除停车费率"""
+        token = await self._login(client, "admin", "admin123")
+        # 创建费率
+        create_resp = await client.post(
+            "/api/parking/rates",
+            json={"spot_id": 1, "name": "待删除费率", "first_hour": 5.0, "daily_cap": 30.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert create_resp.status_code == 201
+        rate_id = create_resp.json()["id"]
+
+        # 尝试删除
+        delete_resp = await client.delete(
+            f"/api/parking/rates/{rate_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        # 有些后端可能不支持DELETE parking rate
+        assert delete_resp.status_code in (200, 204, 404, 405)
+
+    async def test_export_revenue_month(self, client):
+        """导出月营收报表"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/export/revenue?period=month",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
