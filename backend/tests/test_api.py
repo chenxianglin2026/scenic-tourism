@@ -2662,6 +2662,382 @@ class TestOtaAPIs:
         )
         assert resp.status_code == 403
 
+    # ── OTA订单状态同步 ──
+    async def test_admin_query_ota_order_status_by_ota_id(self, client):
+        """按OTA订单号查询状态"""
+        # 先推送一个订单
+        await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": "CT_STATUS_QUERY_001",
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-10-01",
+                "guest_name": "状态查询测试", "guest_phone": "13900001111",
+                "total_price": 100.0,
+            },
+        })
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/ota/orders/status?ota_order_id=CT_STATUS_QUERY_001",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["found"] is True
+        assert data["ota_order_id"] == "CT_STATUS_QUERY_001"
+        assert data["platform"] == "ctrip"
+        assert data["status"] == "synced"
+
+    async def test_admin_query_ota_order_status_by_local_no(self, client):
+        """按本地订单号查询OTA状态"""
+        # 先推送一个酒店订单
+        push_resp = await client.post("/api/ota/orders/push", json={
+            "platform": "meituan",
+            "channel_order_no": "MT_LOCAL_QUERY_001",
+            "action": "create",
+            "product_type": "hotel",
+            "payload": {
+                "hotel_id": 1, "room_id": 1, "room_count": 1,
+                "checkin_date": "2026-08-01", "checkout_date": "2026-08-03",
+                "guest_name": "本地查询测试", "guest_phone": "13822223333",
+                "total_price": 600.0,
+            },
+        })
+        assert push_resp.json()["code"] == 0
+
+        token = await self._login(client, "admin", "admin123")
+        # 先获取OTA订单列表找到local_order_no
+        list_resp = await client.get(
+            "/api/ota/orders",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        items = list_resp.json()["items"]
+        local_order_no = None
+        for item in items:
+            if item.get("ota_order_id") == "MT_LOCAL_QUERY_001":
+                local_order_no = item.get("local_order_no")
+                break
+        assert local_order_no is not None
+
+        resp = await client.get(
+            f"/api/ota/orders/status?local_order_no={local_order_no}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["found"] is True
+        assert data["local_order_no"] == local_order_no
+
+    async def test_admin_query_ota_order_status_not_found(self, client):
+        """查询不存在的OTA订单"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/ota/orders/status?ota_order_id=NONEXIST_OTA_ORDER",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_admin_query_ota_order_status_no_params(self, client):
+        """查询OTA状态缺少参数"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.get(
+            "/api/ota/orders/status",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400
+
+    async def test_admin_sync_ota_order_status(self, client):
+        """手动同步OTA订单状态"""
+        # 推送订单
+        push_resp = await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": "CT_SYNC_STATUS_001",
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-11-15",
+                "guest_name": "状态同步测试", "guest_phone": "13955556666",
+                "total_price": 120.0,
+            },
+        })
+        assert push_resp.json()["code"] == 0
+
+        token = await self._login(client, "admin", "admin123")
+        # 获取本地订单号
+        list_resp = await client.get(
+            "/api/ota/orders",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        items = list_resp.json()["items"]
+        local_order_no = None
+        for item in items:
+            if item.get("ota_order_id") == "CT_SYNC_STATUS_001":
+                local_order_no = item.get("local_order_no")
+                break
+        assert local_order_no is not None
+
+        # 手动同步状态
+        resp = await client.post(
+            "/api/ota/orders/sync-status",
+            json={"local_order_no": local_order_no},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["local_order_no"] == local_order_no
+
+    async def test_admin_sync_ota_order_status_not_ota(self, client):
+        """同步非OTA来源的订单"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/ota/orders/sync-status",
+            json={"local_order_no": "NON_OTA_ORDER_99999"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404  # 本地订单不存在
+
+    async def test_admin_sync_ota_order_status_force(self, client):
+        """强制设置OTA订单状态"""
+        # 推送订单
+        await client.post("/api/ota/orders/push", json={
+            "platform": "fliggy",
+            "channel_order_no": "FG_FORCE_SYNC_001",
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-12-01",
+                "guest_name": "强制同步测试", "guest_phone": "13966667777",
+                "total_price": 90.0,
+            },
+        })
+        token = await self._login(client, "admin", "admin123")
+        # 获取本地订单号
+        list_resp = await client.get(
+            "/api/ota/orders",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        items = list_resp.json()["items"]
+        local_order_no = None
+        for item in items:
+            if item.get("ota_order_id") == "FG_FORCE_SYNC_001":
+                local_order_no = item.get("local_order_no")
+                break
+        assert local_order_no is not None
+
+        resp = await client.post(
+            "/api/ota/orders/sync-status",
+            json={"local_order_no": local_order_no, "new_status": "cancelled"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["synced_status"] == "cancelled"
+
+    async def test_admin_callback_to_ota_confirm(self, client):
+        """向OTA回传订单确认"""
+        # 推送订单
+        await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": "CT_CALLBACK_001",
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 2,
+                "visit_date": "2026-10-20",
+                "guest_name": "回调测试", "guest_phone": "13877778888",
+                "total_price": 200.0,
+            },
+        })
+        token = await self._login(client, "admin", "admin123")
+        # 获取本地订单号
+        list_resp = await client.get(
+            "/api/ota/orders",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        items = list_resp.json()["items"]
+        local_order_no = None
+        for item in items:
+            if item.get("ota_order_id") == "CT_CALLBACK_001":
+                local_order_no = item.get("local_order_no")
+                break
+        assert local_order_no is not None
+
+        resp = await client.post(
+            "/api/ota/orders/callback",
+            json={
+                "local_order_no": local_order_no,
+                "action": "confirm",
+                "reason": "订单已确认",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["action"] == "confirm"
+        assert "callback_sign" in data
+
+    async def test_admin_callback_to_ota_cancel(self, client):
+        """向OTA回传订单取消"""
+        # 推送订单
+        await client.post("/api/ota/orders/push", json={
+            "platform": "meituan",
+            "channel_order_no": "MT_CALLBACK_CANCEL_001",
+            "action": "create",
+            "product_type": "hotel",
+            "payload": {
+                "hotel_id": 1, "room_id": 1, "room_count": 1,
+                "checkin_date": "2026-09-01", "checkout_date": "2026-09-02",
+                "guest_name": "取消回调测试", "guest_phone": "13688889999",
+                "total_price": 300.0,
+            },
+        })
+        token = await self._login(client, "admin", "admin123")
+        list_resp = await client.get(
+            "/api/ota/orders",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        items = list_resp.json()["items"]
+        local_order_no = None
+        for item in items:
+            if item.get("ota_order_id") == "MT_CALLBACK_CANCEL_001":
+                local_order_no = item.get("local_order_no")
+                break
+        assert local_order_no is not None
+
+        resp = await client.post(
+            "/api/ota/orders/callback",
+            json={
+                "local_order_no": local_order_no,
+                "action": "cancel",
+                "reason": "用户申请退款",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["action"] == "cancel"
+
+    async def test_admin_callback_to_ota_not_found(self, client):
+        """回传不存在的OTA订单"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/ota/orders/callback",
+            json={
+                "local_order_no": "NONEXIST_CALLBACK_ORDER",
+                "action": "confirm",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_guest_cannot_query_ota_status(self, client):
+        """游客不能查询OTA订单状态"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.get(
+            "/api/ota/orders/status?ota_order_id=ANY",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_guest_cannot_sync_ota_status(self, client):
+        """游客不能同步OTA订单状态"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/ota/orders/sync-status",
+            json={"local_order_no": "ANY"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_guest_cannot_callback_ota(self, client):
+        """游客不能向OTA回传状态"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/ota/orders/callback",
+            json={"local_order_no": "ANY", "action": "confirm"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_ota_push_order_then_status_sync_flow(self, client):
+        """OTA订单推送→查询→同步→回调完整流程"""
+        # 1. 飞猪推送票务订单
+        push_resp = await client.post("/api/ota/orders/push", json={
+            "platform": "fliggy",
+            "channel_order_no": "FG_FULL_FLOW_001",
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-12-31",
+                "guest_name": "完整流程测试", "guest_phone": "13011112222",
+                "total_price": 150.0,
+            },
+        })
+        assert push_resp.json()["code"] == 0
+
+        token = await self._login(client, "admin", "admin123")
+
+        # 2. 查询OTA侧订单状态
+        status_resp = await client.get(
+            "/api/ota/orders/status?ota_order_id=FG_FULL_FLOW_001",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert status_resp.status_code == 200
+        assert status_resp.json()["found"] is True
+        assert status_resp.json()["status"] == "synced"
+
+        # 3. 通过列表找到本地订单号
+        list_resp = await client.get(
+            "/api/ota/orders",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        items = list_resp.json()["items"]
+        local_order_no = None
+        for item in items:
+            if item.get("ota_order_id") == "FG_FULL_FLOW_001":
+                local_order_no = item.get("local_order_no")
+                break
+        assert local_order_no is not None
+
+        # 4. 同步状态
+        sync_resp = await client.post(
+            "/api/ota/orders/sync-status",
+            json={"local_order_no": local_order_no},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert sync_resp.status_code == 200
+        assert sync_resp.json()["success"] is True
+
+        # 5. 回传确认状态到OTA
+        callback_resp = await client.post(
+            "/api/ota/orders/callback",
+            json={
+                "local_order_no": local_order_no,
+                "action": "confirm",
+                "reason": "票已确认，等待入园",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert callback_resp.status_code == 200
+        assert callback_resp.json()["success"] is True
+
+        # 6. 再次查询确认状态已更新
+        final_status = await client.get(
+            "/api/ota/orders/status?ota_order_id=FG_FULL_FLOW_001",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert final_status.status_code == 200
+        assert final_status.json()["status"] == "confirmed"
+
 
 class TestTicketVerificationEdgeCases:
     """票务核销边界场景测试"""
