@@ -71,7 +71,7 @@ async def dashboard_stats(
         result = await db.execute(select(ScenicSpot).where(ScenicSpot.id == spot_id, ScenicSpot.is_active == True))
         spot = result.scalar_one_or_none()
         if not spot:
-            raise HTTPException(404, "景区不存在")
+            raise HTTPException(status_code=404, detail="景区不存在")
         spot_ids = [spot.id]
         stats.spot_id = spot_id
         stats.spot_name = spot.name
@@ -399,7 +399,7 @@ async def dashboard_overview(
         result = await db.execute(select(ScenicSpot).where(ScenicSpot.id == spot_id, ScenicSpot.is_active == True))
         spot = result.scalar_one_or_none()
         if not spot:
-            raise HTTPException(404, "景区不存在")
+            raise HTTPException(status_code=404, detail="景区不存在")
         spot_ids = [spot.id]
     else:
         result = await db.execute(select(ScenicSpot).where(ScenicSpot.is_active == True))
