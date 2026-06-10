@@ -53,6 +53,9 @@
 
   <!-- Tab: 房型管理 -->
   <div class="tab-content active" id="tab-rooms">
+    <div style="margin-bottom:16px;">
+      <button class="btn btn-primary" onclick="showHotelModal()">＋ 新增酒店</button>
+    </div>
     <div class="stat-cards" id="roomStatCards"><div class="loading">加载中...</div></div>
     <div class="hotel-cards" id="hotelCards"><div class="loading">加载中...</div></div>
   </div>
@@ -104,6 +107,53 @@
 
 <!-- Toast -->
 <div class="toast-msg" id="toast"></div>
+
+<!-- ===== 新增酒店 Modal ===== -->
+<div class="modal-mask" id="hotelModalMask" style="display:none;" onclick="if(event.target===this) hideHotelModal()">
+  <div class="modal">
+    <div class="modal-title">新增酒店</div>
+    <div class="form-group"><label>景区ID</label><input type="number" id="hotelSpotId" value="1" placeholder="景区ID"></div>
+    <div class="form-group"><label>酒店名称 *</label><input type="text" id="hotelName" placeholder="如：西湖大酒店"></div>
+    <div class="form-group"><label>地址 *</label><input type="text" id="hotelAddr" placeholder="详细地址"></div>
+    <div class="form-group"><label>城市</label><input type="text" id="hotelCity" placeholder="如：杭州"></div>
+    <div class="form-group"><label>区域</label><input type="text" id="hotelDistrict" placeholder="如：西湖区"></div>
+    <div class="form-group"><label>电话</label><input type="text" id="hotelPhone" placeholder="联系电话"></div>
+    <div class="form-group"><label>简介</label><textarea id="hotelDesc" placeholder="酒店简介" rows="3"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="hideHotelModal()">取消</button>
+      <button class="btn btn-primary" onclick="submitHotel()">确认创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 添加房型 Modal ===== -->
+<div class="modal-mask" id="roomModalMask" style="display:none;" onclick="if(event.target===this) hideRoomModal()">
+  <div class="modal">
+    <div class="modal-title">添加房型</div>
+    <input type="hidden" id="roomHotelId">
+    <div class="form-group"><label>房型名称 *</label><input type="text" id="roomName" placeholder="如：豪华大床房"></div>
+    <div class="form-group"><label>房型类别</label>
+      <select id="roomType"><option value="大床房">大床房</option><option value="双床房">双床房</option><option value="标准间">标准间</option><option value="套房">套房</option><option value="家庭房">家庭房</option><option value="单人间">单人间</option></select>
+    </div>
+    <div class="form-group"><label>价格(元/晚) *</label><input type="number" id="roomPrice" placeholder="如：388" step="0.01"></div>
+    <div class="form-group"><label>总房间数</label><input type="number" id="roomTotalCount" value="10" min="1"></div>
+    <div class="form-group"><label>面积(m²)</label><input type="number" id="roomArea" placeholder="如：30" step="0.1"></div>
+    <div class="form-group"><label>床型</label>
+      <select id="roomBedType"><option value="大床">大床</option><option value="双床">双床</option><option value="单床">单床</option><option value="双床+儿童床">双床+儿童床</option></select>
+    </div>
+    <div class="form-group"><label>最大入住人数</label><input type="number" id="roomMaxGuests" value="2" min="1"></div>
+    <div style="display:flex;gap:16px;margin-bottom:14px;">
+      <label style="font-size:13px;"><input type="checkbox" id="roomHasWindow" checked> 有窗</label>
+      <label style="font-size:13px;"><input type="checkbox" id="roomHasWifi" checked> WiFi</label>
+      <label style="font-size:13px;"><input type="checkbox" id="roomHasBathtub"> 浴缸</label>
+    </div>
+    <div class="form-group"><label>描述</label><textarea id="roomDesc" placeholder="房型描述" rows="2"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="hideRoomModal()">取消</button>
+      <button class="btn btn-primary" onclick="submitRoom()">确认添加</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (function() {
@@ -206,8 +256,11 @@
       }).join('');
 
       return '<div class="hotel-card">' +
-        '<div class="hc-name">' + (h.name||'未命名') + '</div>' +
-        '<div class="hc-addr">📍 ' + (h.address||'地址未填写') + (h.city ? ' · ' + h.city : '') + '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
+        '<div><div class="hc-name">' + (h.name||'未命名') + '</div>' +
+        '<div class="hc-addr">📍 ' + (h.address||'地址未填写') + (h.city ? ' · ' + h.city : '') + '</div></div>' +
+        '<button class="btn btn-sm btn-outline" onclick="event.stopPropagation();showRoomModal(' + h.id + ')" style="flex-shrink:0;">＋添加房型</button>' +
+        '</div>' +
         '<div class="hc-meta">📞 ' + (h.phone||'--') + ' | ⭐ ' + (h.rating||'5.0') + ' | 🛏️ ' + hRooms.length + '种房型' +
         (h.district ? ' | ' + h.district : '') + '</div>' +
         '<div class="hc-stats">' +
@@ -267,6 +320,74 @@
     }
     document.getElementById('hotelOrderPager').innerHTML = pages > 1 ? pager : '';
   }
+
+  // ── Hotel Modal ──
+  window.showHotelModal = function() {
+    document.getElementById('hotelModalMask').style.display = 'flex';
+  };
+  window.hideHotelModal = function() {
+    document.getElementById('hotelModalMask').style.display = 'none';
+  };
+  window.submitHotel = async function() {
+    var spotId = parseInt(document.getElementById('hotelSpotId').value) || 1;
+    var name = document.getElementById('hotelName').value.trim();
+    var address = document.getElementById('hotelAddr').value.trim();
+    var city = document.getElementById('hotelCity').value.trim() || '杭州';
+    var district = document.getElementById('hotelDistrict').value.trim();
+    var phone = document.getElementById('hotelPhone').value.trim();
+    var description = document.getElementById('hotelDesc').value.trim();
+    if (!name || !address) { toast('请填写酒店名称和地址', 'error'); return; }
+    try {
+      var res = await fetch('/api/hotels', { method: 'POST', headers: headers,
+        body: JSON.stringify({ spot_id: spotId, name: name, address: address, city: city, district: district || null, phone: phone || null, description: description || null })
+      });
+      if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '创建失败'); }
+      toast('酒店创建成功', 'success');
+      hideHotelModal();
+      document.getElementById('hotelName').value = '';
+      document.getElementById('hotelAddr').value = '';
+      document.getElementById('hotelCity').value = '';
+      document.getElementById('hotelDistrict').value = '';
+      document.getElementById('hotelPhone').value = '';
+      document.getElementById('hotelDesc').value = '';
+      loadHotels();
+    } catch(e) { toast('创建失败: ' + e.message, 'error'); }
+  };
+
+  // ── Room Modal ──
+  window.showRoomModal = function(hotelId) {
+    document.getElementById('roomHotelId').value = hotelId;
+    document.getElementById('roomModalMask').style.display = 'flex';
+  };
+  window.hideRoomModal = function() {
+    document.getElementById('roomModalMask').style.display = 'none';
+  };
+  window.submitRoom = async function() {
+    var hotelId = parseInt(document.getElementById('roomHotelId').value);
+    var name = document.getElementById('roomName').value.trim();
+    var roomType = document.getElementById('roomType').value;
+    var price = parseFloat(document.getElementById('roomPrice').value);
+    var totalCount = parseInt(document.getElementById('roomTotalCount').value) || 10;
+    var area = parseFloat(document.getElementById('roomArea').value) || null;
+    var bedType = document.getElementById('roomBedType').value;
+    var maxGuests = parseInt(document.getElementById('roomMaxGuests').value) || 2;
+    var hasWindow = document.getElementById('roomHasWindow').checked;
+    var hasWifi = document.getElementById('roomHasWifi').checked;
+    var hasBathtub = document.getElementById('roomHasBathtub').checked;
+    var description = document.getElementById('roomDesc').value.trim();
+    if (!name || !price || isNaN(price)) { toast('请填写房型名称和价格', 'error'); return; }
+    try {
+      var res = await fetch('/api/hotels/' + hotelId + '/rooms', { method: 'POST', headers: headers,
+        body: JSON.stringify({ hotel_id: hotelId, name: name, room_type: roomType, price: price, total_count: totalCount, area: area, bed_type: bedType, max_guests: maxGuests, has_window: hasWindow, has_wifi: hasWifi, has_bathtub: hasBathtub, description: description || null })
+      });
+      if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '创建失败'); }
+      toast('房型添加成功', 'success');
+      hideRoomModal();
+      document.getElementById('roomName').value = '';
+      document.getElementById('roomPrice').value = '';
+      loadHotels();
+    } catch(e) { toast('创建失败: ' + e.message, 'error'); }
+  };
 
   // init
   loadHotels();

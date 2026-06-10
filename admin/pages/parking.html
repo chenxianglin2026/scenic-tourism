@@ -104,6 +104,34 @@
 <!-- Toast -->
 <div class="toast-msg" id="toast"></div>
 
+<!-- ===== 编辑费率 Modal ===== -->
+<div class="modal-mask" id="rateEditMask" style="display:none;" onclick="if(event.target===this) hideRateEditModal()">
+  <div class="modal">
+    <div class="modal-title">编辑停车费率</div>
+    <input type="hidden" id="editRateId">
+    <div class="form-group"><label>停车场名称</label><input type="text" id="editRateName" placeholder="停车场名称"></div>
+    <div class="form-group"><label>车型</label>
+      <select id="editRateVehicle"><option value="car">小汽车</option><option value="bus">大巴</option><option value="truck">货车</option><option value="motorcycle">摩托车</option></select></div>
+    <div class="form-group"><label>首小时价格(元)</label><input type="number" id="editRateFirst" step="0.01" placeholder="如：5.00"></div>
+    <div class="form-group"><label>后续每小时(元)</label><input type="number" id="editRateAdd" step="0.01" placeholder="如：3.00"></div>
+    <div class="form-group"><label>每日封顶(元)</label><input type="number" id="editRateCap" step="0.01" placeholder="如：30.00"></div>
+    <div class="form-group"><label>免费分钟</label><input type="number" id="editRateFree" min="0" placeholder="如：15"></div>
+    <div class="form-group"><label>总车位数</label><input type="number" id="editRateSpots" min="0" placeholder="如：200"></div>
+    <div class="form-group"><label>可用车位数</label><input type="number" id="editRateAvail" min="0" placeholder="如：200"></div>
+    <div style="display:flex;gap:16px;margin-bottom:14px;">
+      <div class="form-group" style="flex:1;"><label>开放时间</label><input type="text" id="editRateOpen" placeholder="08:00"></div>
+      <div class="form-group" style="flex:1;"><label>关闭时间</label><input type="text" id="editRateClose" placeholder="20:00"></div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;"><input type="checkbox" id="editRateActive" checked> 运营中</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="hideRateEditModal()">取消</button>
+      <button class="btn btn-primary" onclick="submitRateEdit()">保存修改</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function() {
   var token = localStorage.getItem('scenic_token');
@@ -112,6 +140,7 @@
 
   var recordPage = 1, recordPageSize = 20;
   var allRecordsCache = null;
+  var ratesCache = [];
 
   // ── Toast ──
   function toast(msg, cls) {
@@ -156,6 +185,7 @@
       if (res.status === 401 || res.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var rates = await res.json();
+      ratesCache = rates;
       renderRates(rates);
     } catch(e) {
       document.getElementById('rateCards').innerHTML = '<div class="loading" style="color:var(--error);">加载失败: ' + e.message + '</div>';
@@ -173,9 +203,10 @@
       var barColor = pct > 80 ? 'var(--error)' : pct > 50 ? 'var(--warning)' : 'var(--gold)';
 
       return '<div class="rate-card">' +
-        '<div class="rate-card-header">' +
-          '<div class="rc-name">🅿️ ' + (r.name||'停车场') + '</div>' +
-          '<div class="rc-type">' + vehicleLabel(r.vehicle_type) + ' · ' + (r.open_time||'--') + '~' + (r.close_time||'--') + '</div>' +
+        '<div class="rate-card-header" style="display:flex;justify-content:space-between;align-items:flex-start;">' +
+          '<div><div class="rc-name">🅿️ ' + (r.name||'停车场') + '</div>' +
+          '<div class="rc-type">' + vehicleLabel(r.vehicle_type) + ' · ' + (r.open_time||'--') + '~' + (r.close_time||'--') + '</div></div>' +
+          '<button class="btn btn-sm" style="background:rgba(255,255,255,.25);color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:12px;" onclick="event.stopPropagation();showRateEditModal(' + r.id + ')">✏️ 编辑</button>' +
         '</div>' +
         '<div class="rate-card-body">' +
           '<div class="rc-row"><span>首小时价格</span><b style="color:var(--gold-dark);">' + fmtMoney(r.first_hour_price) + '</b></div>' +
@@ -309,6 +340,53 @@
       }).join('');
     }
   }
+
+  // ── Rate Edit Modal ──
+  window.showRateEditModal = function(rateId) {
+    var rate = ratesCache.find(function(r) { return r.id === rateId; });
+    if (!rate) { toast('费率数据未找到', 'error'); return; }
+    document.getElementById('editRateId').value = rate.id;
+    document.getElementById('editRateName').value = rate.name || '';
+    document.getElementById('editRateVehicle').value = rate.vehicle_type || 'car';
+    document.getElementById('editRateFirst').value = rate.first_hour_price || 0;
+    document.getElementById('editRateAdd').value = rate.additional_hour_price || 0;
+    document.getElementById('editRateCap').value = rate.daily_cap || 0;
+    document.getElementById('editRateFree').value = rate.free_minutes || 0;
+    document.getElementById('editRateSpots').value = rate.total_spots || 0;
+    document.getElementById('editRateAvail').value = rate.available_spots || 0;
+    document.getElementById('editRateOpen').value = rate.open_time || '08:00';
+    document.getElementById('editRateClose').value = rate.close_time || '20:00';
+    document.getElementById('editRateActive').checked = rate.is_active !== false;
+    document.getElementById('rateEditMask').style.display = 'flex';
+  };
+  window.hideRateEditModal = function() {
+    document.getElementById('rateEditMask').style.display = 'none';
+  };
+  window.submitRateEdit = async function() {
+    var rateId = parseInt(document.getElementById('editRateId').value);
+    var body = {
+      name: document.getElementById('editRateName').value.trim(),
+      vehicle_type: document.getElementById('editRateVehicle').value,
+      first_hour_price: parseFloat(document.getElementById('editRateFirst').value),
+      additional_hour_price: parseFloat(document.getElementById('editRateAdd').value),
+      daily_cap: parseFloat(document.getElementById('editRateCap').value),
+      free_minutes: parseInt(document.getElementById('editRateFree').value),
+      total_spots: parseInt(document.getElementById('editRateSpots').value),
+      available_spots: parseInt(document.getElementById('editRateAvail').value),
+      open_time: document.getElementById('editRateOpen').value.trim(),
+      close_time: document.getElementById('editRateClose').value.trim(),
+      is_active: document.getElementById('editRateActive').checked
+    };
+    try {
+      var res = await fetch('/api/parking/rates/' + rateId, { method: 'PUT', headers: headers,
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '修改失败'); }
+      toast('费率修改成功', 'success');
+      hideRateEditModal();
+      loadRates();
+    } catch(e) { toast('修改失败: ' + e.message, 'error'); }
+  };
 
   // init
   loadRates();
