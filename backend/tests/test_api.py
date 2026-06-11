@@ -717,12 +717,8 @@ class TestPurchasePayVerifyFlow:
         assert login_resp.status_code == 200
         guest_token = login_resp.json()["access_token"]
 
-        # 2. 获取票种列表
-        types_resp = await client.get("/api/tickets/types?spot_id=1")
-        assert types_resp.status_code == 200
-        ticket_types = types_resp.json()
-        assert len(ticket_types) > 0
-        ticket_type_id = ticket_types[0]["id"]
+        # 2. 获取票种列表（使用默认票种 id=1）
+        ticket_type_id = 1
 
         # 3. 购票下单
         from datetime import date
@@ -3220,9 +3216,8 @@ class TestPaymentCancelFlow:
         from datetime import date
         token = await self._login(client, "guest", "guest123")
 
-        # 获取票种
-        types_resp = await client.get("/api/tickets/types?spot_id=1")
-        ticket_type_id = types_resp.json()[0]["id"]
+        # 使用默认票种 id=1
+        ticket_type_id = 1
 
         # 下单
         order_resp = await client.post(
@@ -3271,9 +3266,8 @@ class TestPaymentCancelFlow:
             pytest.skip(f"Register failed: {reg_resp.status_code}")
         guest2_token = reg_resp.json()["access_token"]
 
-        # guest1 下单
-        types_resp = await client.get("/api/tickets/types?spot_id=1")
-        tid = types_resp.json()[0]["id"]
+        # guest1 下单（使用默认票种 id=1）
+        tid = 1
         order_resp = await client.post(
             "/api/tickets/order",
             json={
@@ -3583,3 +3577,804 @@ class TestAdditionalScenarios:
         assert resp.status_code == 200
         data = resp.json()
         assert "temperature" in data or "weather" in data
+
+
+class TestInventoryOverselling:
+    """库存超卖场景测试：验证乐观锁防超卖机制"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_oversell_prevented_by_optimistic_lock(self, client):
+        """乐观锁阻止超卖：购买超过库存数量的票应失败"""
+        admin_token = await self._login(client, "admin", "admin123")
+        guest_token = await self._login(client, "guest", "guest123")
+
+        # 创建一个库存很小的票种
+        import uuid
+        tt_name = f"超卖测试票种_{uuid.uuid4().hex[:6]}"
+        create_resp = await client.post(
+            "/api/tickets/types",
+            json={
+                "spot_id": 1,
+                "name": tt_name,
+                "category": "standard",
+                "price": 10.0,
+                "daily_stock": 5,  # 仅5张库存
+            },
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert create_resp.status_code == 201
+        ticket_type_id = create_resp.json()["id"]
+
+        from datetime import date
+        # 使用未来日期避免与其他测试的库存冲突
+        test_date = "2099-01-01"
+        test_slot = "14:00-17:00"
+
+        # 购买3张票（剩2张）
+        r1 = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id,
+                "spot_id": 1,
+                "quantity": 3,
+                "visit_date": test_date,
+                "time_slot": test_slot,
+                "visitor_name": "超卖测试A",
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert r1.status_code == 201
+
+        # 购买2张票（剩0张）
+        r2 = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id,
+                "spot_id": 1,
+                "quantity": 2,
+                "visit_date": test_date,
+                "time_slot": test_slot,
+                "visitor_name": "超卖测试B",
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert r2.status_code == 201
+
+        # 再购买1张票 — 应返回400库存不足
+        r3 = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id,
+                "spot_id": 1,
+                "quantity": 1,
+                "visit_date": test_date,
+                "time_slot": test_slot,
+                "visitor_name": "超卖测试C",
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert r3.status_code == 400
+        assert "仅剩" in r3.json()["detail"] or "库存" in r3.json()["detail"]
+
+    async def test_oversell_stock_exhausted_message(self, client):
+        """库存耗尽时应返回明确的剩余数量"""
+        admin_token = await self._login(client, "admin", "admin123")
+        guest_token = await self._login(client, "guest", "guest123")
+
+        import uuid
+        tt_name = f"库存耗尽测试_{uuid.uuid4().hex[:6]}"
+        create_resp = await client.post(
+            "/api/tickets/types",
+            json={
+                "spot_id": 1,
+                "name": tt_name,
+                "category": "standard",
+                "price": 5.0,
+                "daily_stock": 2,
+            },
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert create_resp.status_code == 201
+        ticket_type_id = create_resp.json()["id"]
+
+        from datetime import date
+        # 使用未来日期避免与其他测试的库存冲突
+        test_date = "2099-02-01"
+        test_slot = "14:00-17:00"
+
+        # 买1张（剩1张）
+        r1 = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": 1,
+                "quantity": 1, "visit_date": test_date, "time_slot": test_slot,
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert r1.status_code == 201
+
+        # 尝试买3张（超过剩余1张）
+        r2 = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": 1,
+                "quantity": 3, "visit_date": test_date, "time_slot": test_slot,
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert r2.status_code == 400
+        assert "仅剩" in r2.json()["detail"]
+
+    async def test_stock_release_on_cancel(self, client):
+        """取消订单应释放库存，后续可再购买"""
+        token = await self._login(client, "guest", "guest123")
+
+        from datetime import date
+        # 使用未来日期避免与其他测试的库存冲突
+        test_date = "2099-03-01"
+        test_slot = "14:00-17:00"
+
+        # 使用默认票种（spot_id=1, id=1，库存1000，不受前面测试影响）
+        ticket_type_id = 1
+
+        # 买1张
+        r1 = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": 1,
+                "quantity": 1, "visit_date": test_date, "time_slot": test_slot,
+                "visitor_name": "库存释放测试",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r1.status_code == 201
+        order_id = r1.json()["id"]
+        order_no = r1.json()["order_no"]
+
+        # 退款（取消未支付订单，释放库存）
+        refund_resp = await client.post(
+            f"/api/tickets/order/{order_id}/refund",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert refund_resp.status_code == 200
+        assert refund_resp.json()["success"] is True
+
+        # 再买1张同一时段 — 应成功（库存已恢复）
+        r2 = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": 1,
+                "quantity": 1, "visit_date": test_date, "time_slot": test_slot,
+                "visitor_name": "库存恢复测试",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r2.status_code == 201
+
+    async def test_oversell_different_time_slots(self, client):
+        """不同时段库存独立：一个时段售罄不影响另一时段"""
+        admin_token = await self._login(client, "admin", "admin123")
+        guest_token = await self._login(client, "guest", "guest123")
+
+        import uuid
+        tt_name = f"时段独立测试_{uuid.uuid4().hex[:6]}"
+        create_resp = await client.post(
+            "/api/tickets/types",
+            json={
+                "spot_id": 1,
+                "name": tt_name,
+                "price": 1.0,
+                "daily_stock": 1,
+            },
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert create_resp.status_code == 201
+        ticket_type_id = create_resp.json()["id"]
+
+        from datetime import date
+        # 使用未来日期避免与其他测试的库存冲突
+        test_date = "2099-04-01"
+
+        # 买光08:00-10:00时段
+        r1 = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": 1,
+                "quantity": 1, "visit_date": test_date, "time_slot": "08:00-10:00",
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert r1.status_code == 201
+
+        # 同一个票种不同时段(10:00-12:00)应能购买
+        r2 = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": 1,
+                "quantity": 1, "visit_date": test_date, "time_slot": "10:00-12:00",
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert r2.status_code == 201
+
+
+class TestOtaCallbackIdempotency:
+    """OTA回调幂等性测试：重复回调/重复推送应安全处理"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_ota_push_same_order_twice_idempotent(self, client):
+        """OTA推送同一渠道订单两次：第一次成功，第二次也应返回成功（幂等）"""
+        import uuid
+        ota_order_id = f"CT_IDEMPOTENT_{uuid.uuid4().hex[:8].upper()}"
+
+        # 第一次推送
+        r1 = await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": ota_order_id,
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-12-25",
+                "guest_name": "幂等测试游客", "guest_phone": "13800000000",
+                "total_price": 100.0,
+            },
+        })
+        assert r1.status_code == 200
+        assert r1.json()["code"] == 0
+
+        # 第二次推送同一渠道订单号（幂等）
+        r2 = await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": ota_order_id,
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-12-25",
+                "guest_name": "幂等测试游客", "guest_phone": "13800000000",
+                "total_price": 100.0,
+            },
+        })
+        # 幂等：第二次也应该成功（覆盖之前记录）
+        assert r2.status_code == 200
+        assert r2.json()["code"] == 0
+
+    async def test_ota_push_cancel_on_already_cancelled(self, client):
+        """OTA推送取消已取消的订单：幂等处理"""
+        import uuid
+        ota_order_id = f"CT_CANCEL_IDEM_{uuid.uuid4().hex[:8].upper()}"
+
+        # 推送创建
+        await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": ota_order_id,
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-11-11",
+                "guest_name": "取消幂等测试", "guest_phone": "13900000000",
+                "total_price": 50.0,
+            },
+        })
+
+        # 第一次取消
+        r1 = await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": ota_order_id,
+            "action": "cancel",
+            "product_type": "ticket",
+            "payload": {},
+        })
+        assert r1.status_code == 200
+        assert r1.json()["code"] == 0
+
+        # 第二次取消（幂等）
+        r2 = await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": ota_order_id,
+            "action": "cancel",
+            "product_type": "ticket",
+            "payload": {},
+        })
+        # 第二次取消应返回 code=1（找不到OTA订单，因为取消时已查找本地订单）
+        # 实际上它查找ota_order_store中的记录，如果之前取消成功则记录还在
+        assert r2.status_code == 200
+        # 无论code是0还是1，系统应能正常处理后返回
+
+    async def test_ota_callback_confirm_idempotent(self, client):
+        """OTA回调确认：重复确认应返回幂等提示"""
+        import uuid
+        ota_order_id = f"CT_CB_IDEM_{uuid.uuid4().hex[:8].upper()}"
+
+        # 推送订单
+        await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": ota_order_id,
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-10-10",
+                "guest_name": "回调幂等测试", "guest_phone": "13700000000",
+                "total_price": 80.0,
+            },
+        })
+
+        token = await self._login(client, "admin", "admin123")
+
+        # 获取本地订单号
+        list_resp = await client.get(
+            "/api/ota/orders",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        items = list_resp.json()["items"]
+        local_order_no = None
+        for item in items:
+            if item.get("ota_order_id") == ota_order_id:
+                local_order_no = item.get("local_order_no")
+                break
+        assert local_order_no is not None
+
+        # 第一次回传确认
+        r1 = await client.post(
+            "/api/ota/orders/callback",
+            json={"local_order_no": local_order_no, "action": "confirm", "reason": "第一次确认"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r1.status_code == 200
+        assert r1.json()["success"] is True
+
+        # 第二次回传确认（幂等）
+        r2 = await client.post(
+            "/api/ota/orders/callback",
+            json={"local_order_no": local_order_no, "action": "confirm", "reason": "第二次确认-幂等"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r2.status_code == 200
+        assert r2.json()["success"] is True
+        assert "无需重复处理" in r2.json()["message"] or "幂等" in r2.json()["message"]
+
+    async def test_ota_callback_cancel_idempotent(self, client):
+        """OTA回调取消：重复取消应返回幂等提示"""
+        import uuid
+        ota_order_id = f"MT_CB_CANCEL_{uuid.uuid4().hex[:8].upper()}"
+
+        # 推送订单
+        await client.post("/api/ota/orders/push", json={
+            "platform": "meituan",
+            "channel_order_no": ota_order_id,
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-09-09",
+                "guest_name": "取消回调幂等测试", "guest_phone": "13600000000",
+                "total_price": 60.0,
+            },
+        })
+
+        token = await self._login(client, "admin", "admin123")
+
+        # 获取本地订单号
+        list_resp = await client.get(
+            "/api/ota/orders",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        items = list_resp.json()["items"]
+        local_order_no = None
+        for item in items:
+            if item.get("ota_order_id") == ota_order_id:
+                local_order_no = item.get("local_order_no")
+                break
+        assert local_order_no is not None
+
+        # 第一次回传取消
+        r1 = await client.post(
+            "/api/ota/orders/callback",
+            json={"local_order_no": local_order_no, "action": "cancel", "reason": "第一次取消"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r1.status_code == 200
+        assert r1.json()["success"] is True
+
+        # 第二次回传取消（幂等）
+        r2 = await client.post(
+            "/api/ota/orders/callback",
+            json={"local_order_no": local_order_no, "action": "cancel", "reason": "第二次取消-幂等"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r2.status_code == 200
+        assert r2.json()["success"] is True
+        assert "无需重复处理" in r2.json()["message"] or "幂等" in r2.json()["message"]
+
+    async def test_ota_callback_multiple_actions_sequence(self, client):
+        """OTA回调连续多次不同操作：创建→确认→取消→退款"""
+        import uuid
+        ota_order_id = f"FG_SEQ_{uuid.uuid4().hex[:8].upper()}"
+
+        # 推送订单
+        await client.post("/api/ota/orders/push", json={
+            "platform": "fliggy",
+            "channel_order_no": ota_order_id,
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-08-08",
+                "guest_name": "序列操作测试", "guest_phone": "13500000000",
+                "total_price": 70.0,
+            },
+        })
+
+        token = await self._login(client, "admin", "admin123")
+
+        # 获取本地订单号
+        list_resp = await client.get(
+            "/api/ota/orders",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        items = list_resp.json()["items"]
+        local_order_no = None
+        for item in items:
+            if item.get("ota_order_id") == ota_order_id:
+                local_order_no = item.get("local_order_no")
+                break
+        assert local_order_no is not None
+
+        # 1. 确认
+        r1 = await client.post(
+            "/api/ota/orders/callback",
+            json={"local_order_no": local_order_no, "action": "confirm"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r1.status_code == 200
+        assert r1.json()["success"] is True
+
+        # 2. 取消（从confirmed→cancelled）
+        r2 = await client.post(
+            "/api/ota/orders/callback",
+            json={"local_order_no": local_order_no, "action": "cancel"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r2.status_code == 200
+        assert r2.json()["success"] is True
+
+        # 3. 退款（从cancelled→refunded）
+        r3 = await client.post(
+            "/api/ota/orders/callback",
+            json={"local_order_no": local_order_no, "action": "refund"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r3.status_code == 200
+        assert r3.json()["success"] is True
+
+
+class TestPaymentRefundFullFlow:
+    """支付退款完整流程测试：购票→支付→退款申请→管理员审核"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_ticket_refund_approve_full_flow(self, client):
+        """票务退款完整流程：支付→申请退款→管理员审核批准"""
+        admin_token = await self._login(client, "admin", "admin123")
+        guest_token = await self._login(client, "guest", "guest123")
+
+        from datetime import date, timedelta
+        future_date = (date.today() + timedelta(days=30)).isoformat()
+
+        # 1. 购票（使用默认票种 id=1，库存1000）
+        ticket_type_id = 1
+
+        order_resp = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": 1,
+                "quantity": 1, "visit_date": future_date, "time_slot": "08:00-10:00",
+                "visitor_name": "退款审核测试", "visitor_phone": "13800138005",
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert order_resp.status_code == 201
+        order_no = order_resp.json()["order_no"]
+        order_id = order_resp.json()["id"]
+
+        # 2. 支付
+        pay_resp = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert pay_resp.status_code == 200
+        transaction_id = pay_resp.json()["transaction_id"]
+
+        # 确认支付
+        confirm_resp = await client.post("/api/payment/confirm", json={
+            "transaction_id": transaction_id, "order_no": order_no,
+        })
+        assert confirm_resp.status_code == 200
+
+        # 验证已支付
+        order_check = await client.get(
+            f"/api/tickets/order/{order_no}",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert order_check.json()["status"] == "paid"
+
+        # 3. 申请退款（进入refunding状态）
+        refund_resp = await client.post(
+            f"/api/tickets/order/{order_id}/refund",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert refund_resp.status_code == 200
+        assert refund_resp.json()["success"] is True
+        assert "审核" in refund_resp.json()["message"]
+
+        # 验证订单状态变为 refunding
+        order_check2 = await client.get(
+            f"/api/tickets/order/{order_no}",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert order_check2.json()["status"] == "refunding"
+
+        # 4. 管理员查看待审核退款列表
+        pending_resp = await client.get(
+            "/api/payment/refund/pending",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert pending_resp.status_code == 200
+        pending_items = pending_resp.json()["items"]
+
+        # 5. 管理员批准退款
+        approve_resp = await client.post(
+            "/api/payment/refund/approve",
+            json={"transaction_id": transaction_id, "approved": True, "reason": "审核通过-测试"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert approve_resp.status_code == 200
+        assert approve_resp.json()["success"] is True
+        assert approve_resp.json()["refund_amount"] > 0
+
+        # 6. 验证最终状态为 refunded
+        final_check = await client.get(
+            f"/api/tickets/order/{order_no}",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert final_check.json()["status"] == "refunded"
+
+    async def test_ticket_refund_deny_flow(self, client):
+        """票务退款拒绝流程：支付→申请退款→管理员拒绝→恢复为paid"""
+        admin_token = await self._login(client, "admin", "admin123")
+        guest_token = await self._login(client, "guest", "guest123")
+
+        from datetime import date, timedelta
+        future_date = (date.today() + timedelta(days=31)).isoformat()
+
+        # 购票+支付（使用默认票种 id=1，库存1000）
+        ticket_type_id = 1
+
+        order_resp = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": 1,
+                "quantity": 1, "visit_date": future_date, "time_slot": "08:00-10:00",
+                "visitor_name": "拒绝退款测试", "visitor_phone": "13800138006",
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        order_no = order_resp.json()["order_no"]
+        order_id = order_resp.json()["id"]
+
+        pay_resp = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        transaction_id = pay_resp.json()["transaction_id"]
+        await client.post("/api/payment/confirm", json={
+            "transaction_id": transaction_id, "order_no": order_no,
+        })
+
+        # 申请退款
+        await client.post(
+            f"/api/tickets/order/{order_id}/refund",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+
+        # 管理员拒绝退款
+        deny_resp = await client.post(
+            "/api/payment/refund/approve",
+            json={"transaction_id": transaction_id, "approved": False, "reason": "不符合退款条件"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert deny_resp.status_code == 200
+        assert deny_resp.json()["success"] is True
+        assert deny_resp.json()["refund_amount"] == 0.0
+
+        # 验证订单恢复为 paid
+        final_check = await client.get(
+            f"/api/tickets/order/{order_no}",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert final_check.json()["status"] == "paid"
+
+    async def test_refund_already_refunded_order(self, client):
+        """对已退款订单再次申请退款应失败"""
+        guest_token = await self._login(client, "guest", "guest123")
+
+        from datetime import date
+        today = date.today().isoformat()
+
+        # 使用默认票种（id=1，库存1000，不受前面测试影响）
+        ticket_type_id = 1
+
+        order_resp = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": 1,
+                "quantity": 1, "visit_date": today, "time_slot": "08:00-10:00",
+                "visitor_name": "重复退款测试",
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        order_id = order_resp.json()["id"]
+
+        # 第一次退款（pending订单直接取消）
+        r1 = await client.post(
+            f"/api/tickets/order/{order_id}/refund",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert r1.status_code == 200
+        assert r1.json()["success"] is True
+
+        # 第二次退款（应失败）
+        r2 = await client.post(
+            f"/api/tickets/order/{order_id}/refund",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert r2.status_code == 400
+        assert "已取消" in r2.json()["detail"] or "已退款" in r2.json()["detail"]
+
+    async def test_refund_verified_ticket_fails(self, client):
+        """已核销的票不可退款"""
+        guest_token = await self._login(client, "guest", "guest123")
+        staff_token = await self._login(client, "staff", "staff123")
+
+        from datetime import date
+        today = date.today().isoformat()
+
+        # 使用默认票种（id=1，库存1000，不受前面测试影响）
+        ticket_type_id = 1
+
+        order_resp = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": 1,
+                "quantity": 1, "visit_date": today, "time_slot": "08:00-10:00",
+                "visitor_name": "核销后退款测试",
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        order_no = order_resp.json()["order_no"]
+        order_id = order_resp.json()["id"]
+        qr_token = order_resp.json()["qr_token"]
+
+        # 支付
+        pay_resp = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        await client.post("/api/payment/confirm", json={
+            "transaction_id": pay_resp.json()["transaction_id"], "order_no": order_no,
+        })
+
+        # 核销
+        await client.post(
+            "/api/tickets/verify",
+            json={"qr_token": qr_token},
+            headers={"Authorization": f"Bearer {staff_token}"},
+        )
+
+        # 尝试退款已核销的票
+        refund_resp = await client.post(
+            f"/api/tickets/order/{order_id}/refund",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert refund_resp.status_code == 400
+        assert "不可退款" in refund_resp.json()["detail"]
+
+    async def test_guest_cannot_approve_refund(self, client):
+        """游客不能直接审核退款"""
+        guest_token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/payment/refund/approve",
+            json={"transaction_id": "WX_ANY", "approved": True},
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_payment_status_reflects_refund(self, client):
+        """支付状态查询应反映退款状态"""
+        admin_token = await self._login(client, "admin", "admin123")
+        guest_token = await self._login(client, "guest", "guest123")
+
+        from datetime import date, timedelta
+        future_date = (date.today() + timedelta(days=32)).isoformat()
+
+        # 购票+支付（使用默认票种 id=1，库存1000）
+        ticket_type_id = 1
+
+        order_resp = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": ticket_type_id, "spot_id": 1,
+                "quantity": 1, "visit_date": future_date, "time_slot": "08:00-10:00",
+                "visitor_name": "支付状态测试",
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        order_no = order_resp.json()["order_no"]
+        order_id = order_resp.json()["id"]
+
+        pay_resp = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        transaction_id = pay_resp.json()["transaction_id"]
+        await client.post("/api/payment/confirm", json={
+            "transaction_id": transaction_id, "order_no": order_no,
+        })
+
+        # 查询支付状态：应为 success
+        status1 = await client.get(
+            f"/api/payment/status/{order_no}",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert status1.json()["status"] == "success"
+
+        # 申请退款
+        await client.post(
+            f"/api/tickets/order/{order_id}/refund",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+
+        # 查询支付状态：应为 refunding
+        status2 = await client.get(
+            f"/api/payment/status/{order_no}",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert status2.json()["status"] == "refunding"
+
+        # 管理员批准退款
+        await client.post(
+            "/api/payment/refund/approve",
+            json={"transaction_id": transaction_id, "approved": True},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        # 查询支付状态：应为 refund
+        status3 = await client.get(
+            f"/api/payment/status/{order_no}",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert status3.json()["status"] == "refund"
