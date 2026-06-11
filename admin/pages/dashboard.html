@@ -15,6 +15,12 @@
   .chart-bar-label { font-size:10px; color:var(--text-muted); margin-top:4px; }
   .chart-bar-val { font-size:10px; color:var(--gold-dark); margin-bottom:2px; font-weight:600; }
   .loading, .empty { text-align:center; padding:24px; color:var(--text-muted); font-size:13px; }
+  .loading-wrap { display:flex; align-items:center; justify-content:center; padding:24px; color:var(--text-muted); font-size:13px; gap:8px; }
+  .spinner { display:inline-block; width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--gold); border-radius:50%; animation:spin .6s linear infinite; vertical-align:middle; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .skeleton { background:linear-gradient(90deg, #f0ede4 25%, #e8e4d8 50%, #f0ede4 75%); background-size:200% 100%; animation:shimmer 1.5s ease-in-out infinite; border-radius:4px; }
+  @keyframes shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+  .sk-card { height:88px; border-radius:var(--radius); }
   .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .info-item { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border); }
   .info-item:last-child { border-bottom:none; }
@@ -64,18 +70,22 @@
 
   <!-- Stat Cards -->
   <div class="stat-cards" id="statCards">
-    <div class="loading">加载中...</div>
+    <div class="skeleton sk-card"></div>
+    <div class="skeleton sk-card"></div>
+    <div class="skeleton sk-card"></div>
+    <div class="skeleton sk-card"></div>
+    <div class="skeleton sk-card"></div>
   </div>
 
   <!-- Charts Row -->
   <div class="chart-section">
     <div class="card">
       <div class="card-header"><div class="card-title">近7天票务营收趋势（元）</div></div>
-      <div class="chart-bars" id="revenueChart"><div class="loading">加载中...</div></div>
+      <div class="chart-bars" id="revenueChart"><div class="loading-wrap"><span class="spinner"></span>加载中...</div></div>
     </div>
     <div class="card">
       <div class="card-header"><div class="card-title">近7天售票趋势（张）</div></div>
-      <div class="chart-bars" id="soldChart"><div class="loading">加载中...</div></div>
+      <div class="chart-bars" id="soldChart"><div class="loading-wrap"><span class="spinner"></span>加载中...</div></div>
     </div>
   </div>
 
@@ -83,11 +93,11 @@
   <div class="chart-section">
     <div class="card">
       <div class="card-header"><div class="card-title">🏞️ 景区概况</div></div>
-      <div id="scenicInfo"><div class="loading">加载中...</div></div>
+      <div id="scenicInfo"><div class="loading-wrap"><span class="spinner"></span>加载中...</div></div>
     </div>
     <div class="card">
       <div class="card-header"><div class="card-title">🅿️ 停车概览</div></div>
-      <div id="parkingOverview"><div class="loading">加载中...</div></div>
+      <div id="parkingOverview"><div class="loading-wrap"><span class="spinner"></span>加载中...</div></div>
     </div>
   </div>
 
@@ -101,9 +111,9 @@
         <button class="period-btn" data-period="month">按月</button>
       </div>
     </div>
-    <div class="revenue-summary" id="revenueSummary"><div class="loading">加载中...</div></div>
+    <div class="revenue-summary" id="revenueSummary"><div class="loading-wrap"><span class="spinner"></span>加载中...</div></div>
     <div style="overflow-x:auto;">
-      <table class="revenue-table" id="revenueTable"><thead><tr><th>日期</th><th>票务营收</th><th>酒店营收</th><th>停车营收</th><th>合计</th></tr></thead><tbody><tr><td colspan="5" class="loading">加载中...</td></tr></tbody></table>
+      <table class="revenue-table" id="revenueTable"><thead><tr><th>日期</th><th>票务营收</th><th>酒店营收</th><th>停车营收</th><th>合计</th></tr></thead><tbody><tr><td colspan="5"><div class="loading-wrap"><span class="spinner"></span>加载中...</div></td></tr></tbody></table>
     </div>
   </div>
 
@@ -111,11 +121,11 @@
   <div class="chart-section">
     <div class="card">
       <div class="card-header"><div class="card-title">⭐ 评价统计</div></div>
-      <div id="reviewStatsCard"><div class="loading">加载中...</div></div>
+      <div id="reviewStatsCard"><div class="loading-wrap"><span class="spinner"></span>加载中...</div></div>
     </div>
     <div class="card">
       <div class="card-header"><div class="card-title">📊 评分分布</div></div>
-      <div id="reviewDistCard"><div class="loading">加载中...</div></div>
+      <div id="reviewDistCard"><div class="loading-wrap"><span class="spinner"></span>加载中...</div></div>
     </div>
   </div>
 

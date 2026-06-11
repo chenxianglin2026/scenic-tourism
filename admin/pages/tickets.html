@@ -23,6 +23,13 @@
   .tab-item.active { color:var(--gold-dark); border-bottom-color:var(--gold); font-weight:600; }
   .tab-content { display:none; }
   .tab-content.active { display:block; }
+  @media (max-width:768px) {
+    .tab-bar { overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch; }
+    .tab-item { padding:8px 14px; font-size:13px; flex-shrink:0; }
+    .filter-bar { flex-direction:column; align-items:stretch; }
+    .filter-bar .form-input, .filter-bar .form-select { width:100%; }
+  }
+  .btn-exporting { opacity:.7; pointer-events:none; }
 </style>
 </head>
 <body>
@@ -385,6 +392,11 @@
 
   // ── Export Orders CSV ──
   window.exportOrdersCSV = function() {
+    var btn = event.target;
+    var origText = btn.textContent;
+    btn.textContent = '⏳ 导出中...';
+    btn.classList.add('btn-exporting');
+
     var status = document.getElementById('orderStatusFilter').value;
     var params = [];
     if (status) params.push('status=' + encodeURIComponent(status));
@@ -404,7 +416,11 @@
         URL.revokeObjectURL(a.href);
         toast('导出成功', 'success');
       })
-      .catch(function(e) { toast('导出失败: ' + e.message, 'error'); });
+      .catch(function(e) { toast('导出失败: ' + e.message, 'error'); })
+      .finally(function() {
+        btn.textContent = origText;
+        btn.classList.remove('btn-exporting');
+      });
   };
 
   // Close modal on mask click

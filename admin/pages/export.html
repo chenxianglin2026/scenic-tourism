@@ -21,6 +21,13 @@
   .filter-row input, .filter-row select { padding:6px 10px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; background:#fff; }
   .filter-row button { padding:6px 20px; }
   .preview-box { max-height:400px; overflow:auto; background:#faf8f5; border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-top:12px; font-family:monospace; font-size:12px; white-space:pre-wrap; display:none; }
+  @media (max-width:768px) {
+    .tab-bar { overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch; }
+    .tab-item { padding:8px 14px; font-size:13px; flex-shrink:0; }
+    .filter-row { flex-direction:column; }
+    .filter-row > div { width:100%; }
+    .filter-row input, .filter-row select { width:100%; }
+  }
 </style>
 </head>
 <body>

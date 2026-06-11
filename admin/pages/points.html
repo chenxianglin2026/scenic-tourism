@@ -10,6 +10,11 @@
   .toast-msg.success { background:#52c41a; }
   .toast-msg.error { background:#f5222d; }
   .toast-msg.info { background:#1890ff; }
+  @media (max-width:768px) {
+    .filter-bar { flex-direction:column; align-items:stretch; }
+    .filter-bar .form-input, .filter-bar .form-select { width:100%; }
+    .btn-sm { width:100%; }
+  }
 </style>
 </head>
 <body>

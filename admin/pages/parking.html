@@ -26,7 +26,13 @@
   .rc-capacity { margin-top:10px; }
   .rc-capacity-bar { height:8px; border-radius:4px; background:#f0f0f0; margin-top:4px; overflow:hidden; }
   .rc-capacity-fill { height:100%; border-radius:4px; transition:width .4s; }
-  @media (max-width:768px) { .rate-cards { grid-template-columns:1fr; } }
+  @media (max-width:768px) {
+    .rate-cards { grid-template-columns:1fr; }
+    .tab-bar { overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch; }
+    .tab-item { padding:8px 14px; font-size:13px; flex-shrink:0; }
+    .filter-bar { flex-direction:column; align-items:stretch; }
+    .filter-bar .form-input, .filter-bar .form-select { width:100%; }
+  }
 </style>
 </head>
 <body>

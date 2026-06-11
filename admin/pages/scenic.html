@@ -20,7 +20,13 @@
   .info-readonly .ir-label { font-size:11px; color:var(--text-muted); font-weight:500; }
   .info-readonly .ir-value { font-size:14px; color:var(--text-primary); font-weight:600; }
   .description-box { background:#faf8f3; border-radius:8px; padding:14px; margin-top:16px; border:1px solid var(--border); font-size:13px; color:var(--text-secondary); line-height:1.8; }
-  @media (max-width:768px) { .info-readonly { grid-template-columns:1fr; } }
+  @media (max-width:768px) {
+    .info-readonly { grid-template-columns:1fr; }
+    .tab-bar { overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch; }
+    .tab-item { padding:8px 14px; font-size:13px; flex-shrink:0; }
+    .filter-bar { flex-direction:column; align-items:stretch; }
+    .filter-bar .form-input, .filter-bar .form-select, .filter-bar .btn { width:100%; }
+  }
 </style>
 </head>
 <body>
