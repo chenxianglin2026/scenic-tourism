@@ -3495,8 +3495,84 @@ class TestAdditionalScenarios:
             f"/api/parking/rates/{rate_id}",
             headers={"Authorization": f"Bearer {token}"},
         )
-        # 有些后端可能不支持DELETE parking rate
-        assert delete_resp.status_code in (200, 204, 404, 405)
+        assert delete_resp.status_code == 200
+        assert delete_resp.json()["success"] is True
+
+        # 验证已删除
+        get_resp = await client.get("/api/parking/rates")
+        assert get_resp.status_code == 200
+        rates = get_resp.json()
+        assert not any(r["id"] == rate_id for r in rates)
+
+    async def test_admin_delete_parking_rate_not_found(self, client):
+        """删除不存在的停车费率"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.delete(
+            "/api/parking/rates/99999",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_guest_cannot_delete_parking_rate(self, client):
+        """非管理员不能删除停车费率"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.delete(
+            "/api/parking/rates/1",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_admin_force_checkout_parking(self, client):
+        """管理员强制车辆出场"""
+        token = await self._login(client, "guest", "guest123")
+        # 车辆入场
+        checkin_resp = await client.post(
+            "/api/parking/checkin",
+            json={"rate_id": 1, "plate_number": "京B67890"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert checkin_resp.status_code == 200
+        record_id = checkin_resp.json()["record_id"]
+
+        # 管理员强制出场
+        admin_token = await self._login(client, "admin", "admin123")
+        checkout_resp = await client.post(
+            f"/api/parking/checkout/{record_id}/admin",
+            json={"pay_method": "cash"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert checkout_resp.status_code == 200
+        assert checkout_resp.json()["success"] is True
+        assert checkout_resp.json()["total_fee"] >= 0
+
+    async def test_admin_force_checkout_not_parking(self, client):
+        """强制出场非parking状态记录应失败"""
+        admin_token = await self._login(client, "admin", "admin123")
+        # 获取已完成的记录
+        resp = await client.get(
+            "/api/parking/records/all?status=completed&page_size=1",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 200
+        items = resp.json().get("items", [])
+        if items:
+            record_id = items[0]["id"]
+            checkout_resp = await client.post(
+                f"/api/parking/checkout/{record_id}/admin",
+                json={"pay_method": "cash"},
+                headers={"Authorization": f"Bearer {admin_token}"},
+            )
+            assert checkout_resp.status_code == 400
+
+    async def test_guest_cannot_force_checkout(self, client):
+        """普通用户不能强制出场"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/parking/checkout/1/admin",
+            json={"pay_method": "cash"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
 
     async def test_export_revenue_month(self, client):
         """导出月营收报表"""

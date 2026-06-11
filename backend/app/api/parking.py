@@ -212,6 +212,35 @@ async def update_parking_rate(
     return rate
 
 
+@router.delete("/rates/{rate_id}", summary="删除停车费率（管理员）")
+async def delete_parking_rate(
+    rate_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """管理员删除停车费率配置"""
+    result = await db.execute(select(ParkingRate).where(ParkingRate.id == rate_id))
+    rate = result.scalar_one_or_none()
+    if not rate:
+        raise HTTPException(status_code=404, detail="停车场费率不存在")
+    # 检查是否有进行中的停车记录
+    active_result = await db.execute(
+        select(func.count(ParkingRecord.id)).where(
+            ParkingRecord.rate_id == rate_id,
+            ParkingRecord.status == "parking",
+        )
+    )
+    active_count = active_result.scalar() or 0
+    if active_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"该停车场有 {active_count} 辆车在场，无法删除。请等待所有车辆出场后再操作。",
+        )
+    await db.delete(rate)
+    await db.flush()
+    return {"success": True, "message": f"停车场费率 {rate.name} 已删除"}
+
+
 # ── 停车入场 ─────────────────────────────────────────
 @router.post("/checkin", response_model=ParkingCheckinResponse, summary="停车入场")
 async def parking_checkin(
@@ -458,3 +487,69 @@ async def list_all_parking_records(
         ))
 
     return ParkingRecordListResponse(total=total, items=items)
+
+
+# ── 管理员强制出场 ────────────────────────────────────
+@router.post("/checkout/{record_id}/admin", response_model=ParkingCheckoutResponse, summary="管理员强制出场")
+async def admin_force_checkout(
+    record_id: int,
+    req: ParkingCheckoutRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """管理员强制车辆出场，计算费用，恢复车位（无需是记录所有人）"""
+    record_result = await db.execute(
+        select(ParkingRecord).where(ParkingRecord.id == record_id)
+    )
+    record = record_result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=404, detail="停车记录不存在")
+
+    if record.status != "parking":
+        raise HTTPException(status_code=400, detail=f"该记录状态为 {record.status}，无法出场")
+
+    rate_result = await db.execute(select(ParkingRate).where(ParkingRate.id == record.rate_id))
+    rate = rate_result.scalar_one_or_none()
+
+    checkout_time = datetime.utcnow()
+    duration_seconds = (checkout_time - record.checkin_time).total_seconds()
+    duration_minutes = max(1, int(duration_seconds / 60))
+    total_fee = _calc_parking_fee(duration_minutes, rate) if rate else 0.0
+
+    record.checkout_time = checkout_time
+    record.duration_minutes = duration_minutes
+    record.total_fee = total_fee
+    record.status = "completed"
+    record.pay_status = "paid"
+    record.pay_method = req.pay_method or "cash"
+    record.paid_at = checkout_time
+
+    if rate:
+        rate.available_spots = min(rate.total_spots, rate.available_spots + 1)
+
+    await db.flush()
+    await db.refresh(record)
+
+    return ParkingCheckoutResponse(
+        success=True,
+        message=f"管理员强制出场，停车 {duration_minutes} 分钟，费用 ¥{total_fee}",
+        record=ParkingRecordOut(
+            id=record.id,
+            rate_id=record.rate_id,
+            parking_name=rate.name if rate else None,
+            user_id=record.user_id,
+            plate_number=record.plate_number,
+            vehicle_type=record.vehicle_type,
+            checkin_time=record.checkin_time,
+            checkout_time=record.checkout_time,
+            duration_minutes=record.duration_minutes,
+            total_fee=record.total_fee,
+            status=record.status,
+            pay_status=record.pay_status,
+            pay_method=record.pay_method,
+            paid_at=record.paid_at,
+            created_at=record.created_at,
+        ),
+        duration_minutes=duration_minutes,
+        total_fee=total_fee,
+    )
