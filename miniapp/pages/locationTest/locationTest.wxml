@@ -1,0 +1,4 @@
+<!-- 定位触发按钮 -->
+<button bindtap="getNowLocation">获取当前园区位置</button>
+<button bindtap="openMapSelect">地图选择景点位置</button>
+<button bindtap="selectScenicPoi">选择景区POI点位</button>

@@ -1,5 +1,6 @@
 {
   "pages": [
+    "pages/locationTest/locationTest",
     "pages/index/index",
     "pages/tickets/tickets",
     "pages/hotels/hotels",
