@@ -4454,3 +4454,222 @@ class TestPaymentRefundFullFlow:
             headers={"Authorization": f"Bearer {guest_token}"},
         )
         assert status3.json()["status"] == "refund"
+
+
+class TestScenicList:
+    """景区列表接口测试 — GET /api/scenic/list"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_scenic_list_returns_200(self, client):
+        """景区列表：公开接口，返回所有景区"""
+        resp = await client.get("/api/scenic/list")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "total" in data
+        assert "items" in data
+        assert data["total"] >= 3  # 有至少3个景区(泰山/黄山/峨眉山)
+        assert len(data["items"]) > 0
+        # 验证返回字段
+        item = data["items"][0]
+        assert "id" in item
+        assert "name" in item
+        assert "city" in item
+        assert "rating" in item
+
+    async def test_scenic_list_pagination(self, client):
+        """景区列表：分页参数生效"""
+        # 第1页取1条
+        resp = await client.get("/api/scenic/list?page=1&page_size=1")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] >= 3
+        assert len(data["items"]) == 1
+
+        # 第2页取1条
+        resp2 = await client.get("/api/scenic/list?page=2&page_size=1")
+        assert resp2.status_code == 200
+        data2 = resp2.json()
+        assert len(data2["items"]) == 1
+        # 第2页的条目应该不同于第1页
+        assert data["items"][0]["id"] != data2["items"][0]["id"]
+
+    async def test_scenic_list_no_auth_required(self, client):
+        """景区列表：无需鉴权"""
+        resp = await client.get("/api/scenic/list")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] > 0
+
+    async def test_scenic_list_large_page_size(self, client):
+        """景区列表：最大page_size=500"""
+        resp = await client.get("/api/scenic/list?page_size=500")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["items"]) <= 500
+        assert len(data["items"]) == data["total"]  # 实际数据量应小于500
+
+
+class TestTicketsBatchExpire:
+    """批量过期处理测试 — POST /api/tickets/batch-expire（管理员）"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_batch_expire_no_auth(self, client):
+        """批量过期：无鉴权返回401"""
+        resp = await client.post("/api/tickets/batch-expire")
+        assert resp.status_code == 401
+
+    async def test_batch_expire_as_guest(self, client):
+        """批量过期：guest无权访问"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/tickets/batch-expire",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_batch_expire_as_admin(self, client):
+        """批量过期：admin可以调用，返回success"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/tickets/batch-expire",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert "expired_count" in data
+        assert isinstance(data["expired_count"], int)
+
+    async def test_batch_expire_idempotent(self, client):
+        """批量过期：重复调用幂等，返回success"""
+        token = await self._login(client, "admin", "admin123")
+        resp1 = await client.post(
+            "/api/tickets/batch-expire",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp1.status_code == 200
+        assert resp1.json()["success"] is True
+
+        # 二次调用同样成功
+        resp2 = await client.post(
+            "/api/tickets/batch-expire",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp2.status_code == 200
+        assert resp2.json()["success"] is True
+
+
+class TestHotelOrderDetail:
+    """酒店订单详情测试 — GET /api/hotels/orders/detail/{order_no}"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def _create_hotel_order(self, client, admin_token, guest_token):
+        """辅助函数：创建酒店订单并返回order_no"""
+        # 创建酒店
+        hotel_resp = await client.post(
+            "/api/hotels",
+            json={
+                "spot_id": 1, "name": "订单详情测试酒店",
+                "address": "详情测试地址", "city": "泰安",
+            },
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        hotel_id = hotel_resp.json()["id"]
+
+        # 创建房型
+        room_resp = await client.post(
+            f"/api/hotels/{hotel_id}/rooms",
+            json={
+                "hotel_id": hotel_id, "name": "详情测试房型",
+                "price": 200.0, "total_count": 5,
+            },
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        room_id = room_resp.json()["id"]
+
+        # 下单
+        from datetime import date, timedelta
+        checkin = date.today() + timedelta(days=5)
+        checkout = date.today() + timedelta(days=7)
+        order_resp = await client.post(
+            "/api/hotels/orders",
+            json={
+                "hotel_id": hotel_id, "room_id": room_id, "room_count": 1,
+                "checkin_date": checkin.isoformat(),
+                "checkout_date": checkout.isoformat(),
+                "guest_name": "订单详情客人", "guest_phone": "13800138008",
+            },
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        return order_resp.json()["order_no"]
+
+    async def test_hotel_order_detail_no_auth(self, client):
+        """酒店订单详情：无鉴权返回401"""
+        resp = await client.get("/api/hotels/orders/detail/TEST-ORDER-NO")
+        assert resp.status_code == 401
+
+    async def test_hotel_order_detail_returns_200(self, client):
+        """酒店订单详情：按订单号查询返回200"""
+        admin_token = await self._login(client, "admin", "admin123")
+        guest_token = await self._login(client, "guest", "guest123")
+
+        order_no = await self._create_hotel_order(client, admin_token, guest_token)
+
+        resp = await client.get(
+            f"/api/hotels/orders/detail/{order_no}",
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["order_no"] == order_no
+        assert "hotel_id" in data
+        assert "room_id" in data
+        assert "guest_name" in data
+        assert "guest_phone" in data
+        assert "checkin_date" in data
+        assert "checkout_date" in data
+        assert "status" in data
+        assert data["status"] == "pending"
+
+    async def test_hotel_order_detail_not_found(self, client):
+        """酒店订单详情：不存在的订单号返回404"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.get(
+            "/api/hotels/orders/detail/NONEXIST-HOTEL-ORDER-99999",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_hotel_order_detail_others_order(self, client):
+        """酒店订单详情：任意认证用户可查询订单（供支付回调使用，无用户隔离）"""
+        admin_token = await self._login(client, "admin", "admin123")
+        guest_token = await self._login(client, "guest", "guest123")
+        staff_token = await self._login(client, "staff", "staff123")
+
+        order_no = await self._create_hotel_order(client, admin_token, guest_token)
+
+        # staff用户可以查询guest创建的订单
+        resp = await client.get(
+            f"/api/hotels/orders/detail/{order_no}",
+            headers={"Authorization": f"Bearer {staff_token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["order_no"] == order_no

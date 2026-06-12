@@ -582,7 +582,9 @@ async def get_hotel_order_by_no(
 ):
     """根据订单号查询订单详情"""
     result = await db.execute(
-        select(HotelOrder).where(HotelOrder.order_no == order_no)
+        select(HotelOrder).where(HotelOrder.order_no == order_no).options(
+            selectinload(HotelOrder.hotel), selectinload(HotelOrder.room)
+        )
     )
     order = result.scalar_one_or_none()
     if not order:
