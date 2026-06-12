@@ -1,9 +1,10 @@
-# 景区智慧管理系统 - 部署文档 v1.0
+# 景区智慧管理系统 - 部署运维文档 v1.1
 
-> 最后更新: 2026-06-11
+> 最后更新: 2026-06-12
 > VPS: 43.163.5.90 (TencentOS, Docker)
 > 后端端口: 8002 → 443 /scenic/ (HTTPS)
-> 状态: v0.2.0 运行中
+> 版本: v1.0.6 | API端点: 77 | 测试: 243 (全绿)
+> 状态: 生产运行中
 
 ---
 
@@ -54,7 +55,7 @@ scenic/code/
 │   │       ├── parking.py  # 停车 (入场/出场/费率)
 │   │       ├── export.py   # 数据导出 (CSV)
 │   │       └── ota.py      # OTA对接 (携程/美团/飞猪)
-│   ├── tests/              # API 测试 (238 tests)
+│   ├── tests/              # API 测试 (243 tests, 96.1% 覆盖率)
 │   ├── data/               # SQLite 数据库文件
 │   ├── seed.py             # 种子数据脚本
 │   ├── init_admin.py       # 管理员初始化
@@ -73,13 +74,36 @@ scenic/code/
 
 ---
 
-## 三、环境变量
+## 三、API 端点覆盖
+
+| 模块 | 前缀 | 路由数 | 测试覆盖 | 覆盖率 |
+|------|------|--------|---------|--------|
+| 认证 | /api/auth | 3 | 3 | 100% |
+| 景区信息 | /api/scenic | 16 | 15 | 93.8% |
+| 票务 | /api/tickets | 8 | 7 | 87.5% |
+| 酒店 | /api/hotels | 10 | 9 | 90.0% |
+| 支付 | /api/payment | 8 | 8 | 100% |
+| 仪表盘 | /api/dashboard | 3 | 3 | 100% |
+| 停车 | /api/parking | 10 | 10 | 100% |
+| 导出 | /api/export | 3 | 3 | 100% |
+| OTA | /api/ota | 14 | 14 | 100% |
+| 系统 | / | 2 | 2 | 100% |
+| **总计** | | **77** | **74** | **96.1%** |
+
+未覆盖端点（低优先级公开/管理接口）：
+- `GET /api/scenic/list` — 景区列表分页（公开）
+- `POST /api/tickets/batch-expire` — 批量过期处理（admin）
+- `GET /api/hotels/orders/detail/{order_no}` — 按订单号查询客房订单（需登录）
+
+---
+
+## 四、环境变量
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | DEV_MODE | true | 开发模式 (SQLite) / 生产模式 (PostgreSQL) |
 | APP_NAME | 景区智慧管理系统 | 应用名称 |
-| APP_VERSION | 0.2.0 | 版本号 |
+| APP_VERSION | 1.0.6 | 版本号 |
 | DEBUG | false | 调试模式 |
 | DATABASE_URL | (空) | PostgreSQL 连接串 (DEV_MODE=false 时必填) |
 | POSTGRES_DB | scenic | PG 数据库名 |
@@ -95,7 +119,7 @@ scenic/code/
 
 ---
 
-## 四、本地开发
+## 五、本地开发
 
 ### 前置条件
 - Python 3.11+
@@ -129,12 +153,12 @@ python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```bash
 cd backend
 python3 -m pytest tests/ -v
-# 238 tests, ~2s
+# 243 tests, ~2s
 ```
 
 ---
 
-## 五、Docker 部署
+## 六、Docker 部署
 
 ### 构建 + 启动
 ```bash
@@ -158,7 +182,7 @@ services:
     environment:
       - DEV_MODE=true
       - APP_NAME=景区智慧管理系统
-      - APP_VERSION=0.2.0
+      - APP_VERSION=1.0.6
       - DEBUG=false
     volumes:
       - scenic_data:/app/data
@@ -198,14 +222,14 @@ docker exec -it scenic-backend python init_admin.py
 
 ---
 
-## 六、VPS 生产部署
+## 七、VPS 生产部署
 
-### 6.1 部署架构
+### 7.1 部署架构
 ```
 Internet → :443 (Nginx) → /scenic/ → :8002 (Docker backend)
 ```
 
-### 6.2 Nginx 配置
+### 7.2 Nginx 配置
 文件: `/root/scenic-nginx.conf` (已部署于 VPS 宿主机)
 ```
 server {
@@ -224,7 +248,7 @@ server {
 }
 ```
 
-### 6.3 VPS 部署步骤
+### 7.3 VPS 部署步骤
 
 ```bash
 # 1. SSH 到 VPS
@@ -250,7 +274,7 @@ nginx -t && nginx -s reload
 curl -k https://43.163.5.90/scenic/health
 ```
 
-### 6.4 数据库备份
+### 7.4 数据库备份
 ```bash
 # 备份 SQLite
 docker exec scenic-backend cp /app/data/scenic.db /app/data/scenic.db.$(date +%Y%m%d)
@@ -259,9 +283,65 @@ docker exec scenic-backend cp /app/data/scenic.db /app/data/scenic.db.$(date +%Y
 cp /var/lib/docker/volumes/scenic_scenic_data/_data/scenic.db ~/backups/
 ```
 
+### 7.5 回滚步骤
+
+回滚到上一个稳定版本：
+```bash
+# 1. SSH 到 VPS
+ssh root@43.163.5.90
+
+# 2. 查看 Git 历史找到稳定版本
+cd ~/scenic/code
+git log --oneline -20
+
+# 3. 回滚到指定提交
+git reset --hard <稳定提交hash>
+
+# 4. 重建容器
+docker compose up -d --build
+
+# 5. 验证
+curl -k https://43.163.5.90/scenic/health
+```
+
+注意事项：
+- 数据库迁移不可逆 — 回滚前务必手动备份 DB
+- 管理后台静态文件随代码部署，回滚后自动恢复
+- 如需回滚到较远版本，建议先 dump DB 再重建
+
+### 7.6 监控与健康检查
+
+```bash
+# API 健康检查（建议 crontab 每5分钟检测）
+curl -sf https://43.163.5.90/scenic/health || echo "HEALTH CHECK FAILED"
+
+# 容器资源监控
+docker stats scenic-backend --no-stream
+
+# 日志实时监控
+docker logs -f scenic-backend --tail 100
+
+# 磁盘使用
+df -h /var/lib/docker
+
+# 数据库大小
+du -sh /var/lib/docker/volumes/scenic_scenic_data/_data/scenic.db
+```
+
+建议的 crontab 监控脚本 (`/root/scenic-monitor.sh`):
+```bash
+#!/bin/bash
+# 景区后端健康监控
+RESP=$(curl -sf -o /dev/null -w "%{http_code}" https://43.163.5.90/scenic/health)
+if [ "$RESP" != "200" ]; then
+    echo "[$(date)] 景区后端异常 HTTP:$RESP" >> /var/log/scenic-monitor.log
+    # 可选: 发送告警短信/邮件/企业微信通知
+fi
+```
+
 ---
 
-## 七、生产环境安全检查清单
+## 八、生产环境安全检查清单
 
 - [ ] SECRET_KEY 已更换为高强度随机字符串
 - [ ] DEV_MODE=false (PostgreSQL 替代 SQLite)
@@ -275,7 +355,7 @@ cp /var/lib/docker/volumes/scenic_scenic_data/_data/scenic.db ~/backups/
 
 ---
 
-## 八、OTA 对接配置
+## 九、OTA 对接配置
 
 ### 携程 (Ctrip)
 ```
@@ -296,7 +376,7 @@ Body: {
 
 ---
 
-## 九、故障排查
+## 十、故障排查
 
 ### 容器无法启动
 ```bash
