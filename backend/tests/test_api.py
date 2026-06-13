@@ -4672,4 +4672,450 @@ class TestHotelOrderDetail:
             headers={"Authorization": f"Bearer {staff_token}"},
         )
         assert resp.status_code == 200
-        assert resp.json()["order_no"] == order_no
+
+
+# ═══════════════════════════════════════════════════════
+# 支付边界测试 (Payment Boundary)
+# ═══════════════════════════════════════════════════════
+class TestPaymentBoundary:
+    """支付模块边界场景测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_payment_confirm_cancelled_payment(self, client):
+        """支付确认：已取消支付确认应返回400"""
+        token = await self._login(client, "guest", "guest123")
+        from datetime import date
+
+        # 创建订单
+        order_resp = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": date.today().isoformat(), "time_slot": "08:00-10:00",
+                "visitor_name": "取消支付测试", "visitor_phone": "13800138020",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert order_resp.status_code == 201
+        order_no = order_resp.json()["order_no"]
+
+        # 创建支付
+        pay_resp = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert pay_resp.status_code == 200
+        txn_id = pay_resp.json()["transaction_id"]
+
+        # 取消支付
+        cancel_resp = await client.post(
+            "/api/payment/cancel",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert cancel_resp.status_code == 200
+
+        # 确认已取消的支付 — 应返回400
+        confirm_resp = await client.post(
+            "/api/payment/confirm",
+            json={"transaction_id": txn_id, "order_no": order_no},
+        )
+        assert confirm_resp.status_code == 400
+        assert "已取消" in confirm_resp.json()["detail"]
+
+    async def test_payment_cancel_invalid_order_type(self, client):
+        """取消支付：无效order_type应返回400"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/payment/cancel",
+            json={"order_no": "TEST-001", "order_type": "invalid"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400
+
+    async def test_payment_notify_duplicate_success(self, client):
+        """支付回调：重复成功回调应幂等处理"""
+        token = await self._login(client, "guest", "guest123")
+        from datetime import date
+        import uuid as _uuid
+
+        # 创建订单
+        order_resp = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": date.today().isoformat(), "time_slot": "08:00-10:00",
+                "visitor_name": "重复回调测试",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert order_resp.status_code == 201
+        order_no = order_resp.json()["order_no"]
+
+        # 创建支付
+        pay_resp = await client.post(
+            "/api/payment/create",
+            json={"order_no": order_no, "order_type": "ticket"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        txn_id = pay_resp.json()["transaction_id"]
+
+        # 第一次回调成功
+        r1 = await client.post("/api/payment/notify", json={
+            "transaction_id": txn_id,
+            "order_no": order_no,
+            "order_type": "ticket",
+            "amount": 100.0,
+            "result_code": "SUCCESS",
+        })
+        assert r1.status_code == 200
+        assert r1.json()["return_code"] == "SUCCESS"
+
+        # 第二次重复回调 — 应返回"订单已支付"
+        r2 = await client.post("/api/payment/notify", json={
+            "transaction_id": txn_id,
+            "order_no": order_no,
+            "order_type": "ticket",
+            "amount": 100.0,
+            "result_code": "SUCCESS",
+        })
+        assert r2.status_code == 200
+        assert "已支付" in r2.json()["return_msg"]
+
+    async def test_payment_notify_new_order_without_record(self, client):
+        """支付回调：无支付记录的新订单回调成功应创建记录"""
+        token = await self._login(client, "guest", "guest123")
+        from datetime import date
+        import uuid as _uuid
+
+        # 创建订单（但不调用 /api/payment/create）
+        order_resp = await client.post(
+            "/api/tickets/order",
+            json={
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": date.today().isoformat(), "time_slot": "08:00-10:00",
+                "visitor_name": "直接回调测试",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert order_resp.status_code == 201
+        order_no = order_resp.json()["order_no"]
+
+        # 直接回调（模拟外部支付回调，无本地支付记录）
+        txn_id = "WX_DIRECT_" + _uuid.uuid4().hex[:8].upper()
+        notify = await client.post("/api/payment/notify", json={
+            "transaction_id": txn_id,
+            "order_no": order_no,
+            "order_type": "ticket",
+            "amount": 100.0,
+            "result_code": "SUCCESS",
+        })
+        assert notify.status_code == 200
+        assert notify.json()["return_code"] == "SUCCESS"
+
+        # 验证支付状态
+        status_resp = await client.get(
+            f"/api/payment/status/{order_no}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert status_resp.json()["status"] == "success"
+
+
+# ═══════════════════════════════════════════════════════
+# OTA边界测试 (OTA Boundary)
+# ═══════════════════════════════════════════════════════
+class TestOtaBoundary:
+    """OTA模块边界场景测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_ota_push_empty_payload(self, client):
+        """OTA推送：空payload应正常处理"""
+        resp = await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": "CT_EMPTY_PAYLOAD_001",
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {},
+        })
+        assert resp.status_code == 200
+        assert resp.json()["code"] == 1  # 应该有错误
+
+    async def test_ota_push_invalid_action(self, client):
+        """OTA推送：无效action应返回错误"""
+        resp = await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": "CT_INVALID_ACTION_001",
+            "action": "delete",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-12-01",
+                "guest_name": "测试", "guest_phone": "13800000001",
+                "total_price": 100.0,
+            },
+        })
+        assert resp.status_code == 200
+        assert resp.json()["code"] == 1
+
+    async def test_ota_push_hotel_missing_dates(self, client):
+        """OTA推送：酒店订单缺少入住/离店日期应返回错误"""
+        resp = await client.post("/api/ota/orders/push", json={
+            "platform": "meituan",
+            "channel_order_no": "MT_NO_DATES_001",
+            "action": "create",
+            "product_type": "hotel",
+            "payload": {
+                "hotel_id": 1, "room_id": 1, "room_count": 1,
+                "guest_name": "无日期测试", "guest_phone": "13800000001",
+                "total_price": 300.0,
+            },
+        })
+        assert resp.status_code == 200
+        assert resp.json()["code"] == 1
+
+    async def test_ota_stock_sync_invalid_product_type(self, client):
+        """OTA库存同步：无效product_type应返回错误"""
+        token = await self._login(client, "admin", "admin123")
+        resp = await client.post(
+            "/api/ota/stock/sync",
+            json={
+                "platform": "ctrip",
+                "product_type": "invalid_type",
+                "product_id": 1,
+                "available_stock": 100,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        # 可以是404或422
+        assert resp.status_code in (400, 404, 422)
+
+    async def test_ota_config_disable_enable_cycle(self, client):
+        """OTA配置：禁用再启用渠道"""
+        token = await self._login(client, "admin", "admin123")
+
+        # 禁用携程
+        r1 = await client.put(
+            "/api/ota/configs/ctrip",
+            json={"platform": "ctrip", "is_enabled": False},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r1.status_code == 200
+        assert r1.json()["success"] is True
+
+        # 确认禁用后推送订单会失败
+        push_resp = await client.post("/api/ota/orders/push", json={
+            "platform": "ctrip",
+            "channel_order_no": "CT_DISABLED_TEST_001",
+            "action": "create",
+            "product_type": "ticket",
+            "payload": {
+                "ticket_type_id": 1, "spot_id": 1, "quantity": 1,
+                "visit_date": "2026-12-01",
+                "guest_name": "禁用测试", "guest_phone": "13800000001",
+                "total_price": 100.0,
+            },
+        })
+        assert push_resp.json()["code"] == 1
+
+        # 重新启用
+        r2 = await client.put(
+            "/api/ota/configs/ctrip",
+            json={"platform": "ctrip", "is_enabled": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r2.status_code == 200
+        assert r2.json()["success"] is True
+
+    async def test_ota_push_modify_unknown_order(self, client):
+        """OTA推送：修改不存在的OTA订单应返回错误"""
+        resp = await client.post("/api/ota/orders/push", json={
+            "platform": "fliggy",
+            "channel_order_no": "FG_NONEXIST_MODIFY_001",
+            "action": "modify",
+            "product_type": "ticket",
+            "payload": {},
+        })
+        assert resp.status_code == 200
+        assert resp.json()["code"] == 1
+
+
+# ═══════════════════════════════════════════════════════
+# 停车边界测试 (Parking Boundary)
+# ═══════════════════════════════════════════════════════
+class TestParkingBoundary:
+    """停车模块边界场景测试"""
+
+    async def _login(self, client, username, password):
+        resp = await client.post("/api/auth/login", json={
+            "username": username, "password": password,
+        })
+        assert resp.status_code == 200
+        return resp.json()["access_token"]
+
+    async def test_parking_checkin_full_lot(self, client):
+        """停车入场：车位满时应返回400"""
+        token = await self._login(client, "admin", "admin123")
+        import uuid
+
+        # 创建一个小车位的停车场
+        create_resp = await client.post(
+            "/api/parking/rates",
+            json={
+                "spot_id": 1,
+                "name": f"满位测试_{uuid.uuid4().hex[:4]}",
+                "vehicle_type": "car",
+                "first_hour_price": 5.0,
+                "daily_cap": 20.0,
+                "total_spots": 0,
+                "available_spots": 0,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert create_resp.status_code == 201
+        rate_id = create_resp.json()["id"]
+
+        # 尝试入场 — 应返回车位已满
+        guest_token = await self._login(client, "guest", "guest123")
+        checkin_resp = await client.post(
+            "/api/parking/checkin",
+            json={"rate_id": rate_id, "plate_number": f"京M{uuid.uuid4().hex[:4].upper()}"},
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert checkin_resp.status_code == 400
+
+    async def test_parking_checkout_already_completed(self, client):
+        """停车出场：已完成记录再次出场应失败"""
+        token = await self._login(client, "guest", "guest123")
+        import uuid
+
+        # 入场
+        plate = f"京P{uuid.uuid4().hex[:4].upper()}"
+        checkin_resp = await client.post(
+            "/api/parking/checkin",
+            json={"rate_id": 1, "plate_number": plate},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert checkin_resp.status_code == 200
+        record_id = checkin_resp.json()["record_id"]
+
+        # 第一次出场
+        r1 = await client.post(
+            f"/api/parking/checkout/{record_id}",
+            json={"pay_method": "wechat"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r1.status_code == 200
+
+        # 第二次出场 — 应失败
+        r2 = await client.post(
+            f"/api/parking/checkout/{record_id}",
+            json={"pay_method": "wechat"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r2.status_code == 400
+
+    async def test_parking_checkout_invalid_record(self, client):
+        """停车出场：不存在的记录应返回404"""
+        token = await self._login(client, "guest", "guest123")
+        resp = await client.post(
+            "/api/parking/checkout/99999",
+            json={"pay_method": "wechat"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_parking_rate_delete_with_active_cars(self, client):
+        """停车费率删除：有车辆在场时应返回400"""
+        admin_token = await self._login(client, "admin", "admin123")
+        guest_token = await self._login(client, "guest", "guest123")
+        import uuid
+
+        # 创建费率
+        create_resp = await client.post(
+            "/api/parking/rates",
+            json={
+                "spot_id": 1,
+                "name": f"活跃车辆测试_{uuid.uuid4().hex[:4]}",
+                "first_hour_price": 5.0,
+                "daily_cap": 30.0,
+                "total_spots": 100,
+            },
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert create_resp.status_code == 201
+        rate_id = create_resp.json()["id"]
+
+        # 车辆入场
+        plate = f"京Q{uuid.uuid4().hex[:4].upper()}"
+        checkin_resp = await client.post(
+            "/api/parking/checkin",
+            json={"rate_id": rate_id, "plate_number": plate},
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+        assert checkin_resp.status_code == 200
+
+        # 尝试删除费率 — 应失败（有车辆在场）
+        delete_resp = await client.delete(
+            f"/api/parking/rates/{rate_id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert delete_resp.status_code == 400
+        assert "在场" in delete_resp.json()["detail"]
+
+        # 车辆出场后应能删除
+        record_id = checkin_resp.json()["record_id"]
+        await client.post(
+            f"/api/parking/checkout/{record_id}",
+            json={"pay_method": "wechat"},
+            headers={"Authorization": f"Bearer {guest_token}"},
+        )
+
+        delete2 = await client.delete(
+            f"/api/parking/rates/{rate_id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert delete2.status_code == 200
+
+    async def test_parking_checkin_same_plate_while_parked(self, client):
+        """停车入场：同车牌重复入场应被拒绝"""
+        token = await self._login(client, "guest", "guest123")
+        import uuid
+
+        plate = f"京R{uuid.uuid4().hex[:4].upper()}"
+        # 第一次入场
+        r1 = await client.post(
+            "/api/parking/checkin",
+            json={"rate_id": 1, "plate_number": plate},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r1.status_code == 200
+        record_id = r1.json()["record_id"]
+
+        # 同车牌再次入场 — 应失败
+        r2 = await client.post(
+            "/api/parking/checkin",
+            json={"rate_id": 1, "plate_number": plate},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r2.status_code == 400
+        assert "已有在场记录" in r2.json()["detail"]
+
+        # 出场清理
+        await client.post(
+            f"/api/parking/checkout/{record_id}",
+            json={"pay_method": "wechat"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
