@@ -1,0 +1,163 @@
+<!--
+  游客评价: 评分概览 + 评价列表 + 发表评价
+  金色主题
+-->
+<view class="page-container">
+
+  <!-- 评分概览 -->
+  <view class="card rating-overview">
+    <view class="flex-row">
+      <!-- 平均分 -->
+      <view class="avg-section">
+        <view class="avg-score">{{avgRating || '--'}}</view>
+        <view class="avg-text">综合评分</view>
+        <view class="avg-stars">
+          <text wx:for="{{[1,2,3,4,5]}}" wx:key="*this" class="{{item <= Math.round(avgRating) ? 'star-active' : 'star-inactive'}}">★</text>
+        </view>
+      </view>
+      <!-- 分布 -->
+      <view class="flex-1 ml-10 distribution-section">
+        <view wx:for="{{[5,4,3,2,1]}}" wx:key="*this" class="dist-row">
+          <text class="dist-label">{{item}}分</text>
+          <view class="dist-bar-bg">
+            <view class="dist-bar-fill" style="width: {{ (ratingDistribution[item] || 0) / total * 100 || 0}}%;"></view>
+          </view>
+          <text class="dist-count">{{ratingDistribution[item] || 0}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 筛选 -->
+  <view class="filter-row">
+    <view
+      wx:for="{{[0,5,4,3,2,1]}}"
+      wx:key="*this"
+      class="filter-tag {{ratingFilter === item ? 'active' : ''}}"
+      bindtap="onFilterRating"
+      data-rating="{{item}}"
+    >
+      {{item === 0 ? '全部' : (item + '分')}}
+    </view>
+  </view>
+
+  <!-- 写评价按钮 -->
+  <view class="write-btn-wrap">
+    <view class="btn-primary write-btn" bindtap="onWriteReview">
+      ✍️ 写评价
+    </view>
+  </view>
+
+  <!-- 评价列表 -->
+  <view wx:if="{{loading && reviews.length === 0}}" class="loading-state">
+    <view class="text">加载中...</view>
+  </view>
+
+  <view wx:elif="{{reviews.length === 0}}" class="empty-state">
+    <view class="icon">💬</view>
+    <view class="text">暂无评价，来写第一条吧</view>
+  </view>
+
+  <view wx:else>
+    <view
+      wx:for="{{reviews}}"
+      wx:key="id"
+      class="card review-card"
+    >
+      <!-- 用户信息行 -->
+      <view class="flex-row">
+        <view class="avatar-img img-placeholder" style="width:72rpx;height:72rpx;border-radius:50%;font-size:36rpx;">
+          {{item.avatar_url ? '' : '👤'}}
+        </view>
+        <view class="flex-1 ml-10">
+          <view class="flex-between">
+            <view>
+              <text class="text-bold text-dark">{{item.nickname || item.username || '游客'}}</text>
+              <text class="review-stars ml-10">{{item.starDisplay}}</text>
+            </view>
+            <text class="text-sm text-lighter">{{item.dateStr}}</text>
+          </view>
+          <view wx:if="{{item.visit_date}}" class="text-sm text-light mt-10">
+            🗓️ 游玩日期: {{item.visit_date}}
+          </view>
+        </view>
+      </view>
+
+      <!-- 评价内容 -->
+      <view class="review-content mt-20">{{item.content}}</view>
+
+      <!-- 图片 -->
+      <view wx:if="{{item.images}}" class="review-images mt-10" catchtap="onPreviewImages" data-id="{{item.id}}">
+        <!-- 图片占位提示 -->
+        <view class="text-sm text-primary">📷 查看图片</view>
+      </view>
+
+      <!-- 底部: 点赞 -->
+      <view class="flex-row mt-10" style="justify-content:flex-end;">
+        <view class="like-btn {{item.liked ? 'liked' : ''}}" catchtap="onLike" data-id="{{item.id}}">
+          👍 {{item.like_count || 0}}
+        </view>
+      </view>
+    </view>
+
+    <!-- 加载更多 -->
+    <view wx:if="{{loading && reviews.length > 0}}" class="loading-more">
+      <text class="text-sm text-light">加载更多...</text>
+    </view>
+    <view wx:elif="{{!hasMore && reviews.length > 0}}" class="loading-more">
+      <text class="text-sm text-lighter">— 已加载全部 —</text>
+    </view>
+
+    <view class="safe-bottom" style="height: 40rpx;"></view>
+  </view>
+
+</view>
+
+<!-- 发表评价弹窗 -->
+<view wx:if="{{showCommentModal}}" class="modal-mask" bindtap="onCloseCommentModal">
+  <view class="modal-card" catchtap="">
+    <view class="modal-title text-bold text-dark">发表评价</view>
+
+    <!-- 评分 -->
+    <view class="flex-row mt-20" style="justify-content:center;">
+      <text
+        wx:for="{{[1,2,3,4,5]}}"
+        wx:key="*this"
+        class="star-picker {{item <= commentRating ? 'active' : ''}}"
+        bindtap="onRatingTap"
+        data-rating="{{item}}"
+      >★</text>
+    </view>
+
+    <!-- 内容 -->
+    <view class="mt-20">
+      <textarea
+        class="comment-input"
+        placeholder="分享您的游玩体验（至少5个字）..."
+        maxlength="2000"
+        value="{{commentContent}}"
+        bindinput="onContentInput"
+        auto-height
+      />
+      <view class="text-sm text-lighter" style="text-align:right;">{{commentContent.length}}/2000</view>
+    </view>
+
+    <!-- 游玩日期 -->
+    <view class="mt-20">
+      <view class="text-sm text-light mb-10">游玩日期（选填）</view>
+      <picker mode="date" value="{{commentVisitDate}}" bindchange="onVisitDateChange">
+        <view class="date-picker">
+          {{commentVisitDate || '请选择日期'}}
+        </view>
+      </picker>
+    </view>
+
+    <!-- 按钮 -->
+    <view class="flex-row mt-30" style="gap: 20rpx;">
+      <view class="btn-outline flex-1" bindtap="onCloseCommentModal">取消</view>
+      <view class="btn-primary flex-1" bindtap="onSubmitReview" style="{{submitting ? 'opacity:0.6;' : ''}}">
+        {{submitting ? '提交中...' : '发表评价'}}
+      </view>
+    </view>
+  </view>
+</view>

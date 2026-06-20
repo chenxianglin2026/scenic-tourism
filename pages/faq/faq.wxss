@@ -1,0 +1,79 @@
+/* 常见问题样式 */
+.page-container {
+  padding: 30rpx;
+  min-height: 100vh;
+  background: #FAF7F2;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #3D3226;
+  margin-bottom: 30rpx;
+}
+
+.faq-list {
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.faq-item {
+  border-bottom: 1rpx solid #E8E0D5;
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+}
+
+.faq-question {
+  padding: 28rpx 24rpx;
+  font-size: 28rpx;
+}
+
+.faq-arrow {
+  font-size: 20rpx;
+  color: #B0A492;
+  transition: transform 0.3s;
+  flex-shrink: 0;
+  margin-left: 20rpx;
+}
+
+.faq-arrow.open {
+  transform: rotate(180deg);
+}
+
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease, padding 0.35s ease;
+  padding: 0 24rpx;
+  background: #FAF7F2;
+}
+
+.faq-answer.show {
+  max-height: 300rpx;
+  padding: 20rpx 24rpx;
+}
+
+.text-primary {
+  color: #c8a052;
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 120rpx 0;
+}
+
+.loading-state .text {
+  font-size: 28rpx;
+  color: #B0A492;
+}

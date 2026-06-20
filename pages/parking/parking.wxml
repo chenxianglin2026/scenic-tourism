@@ -1,0 +1,134 @@
+<!--
+  停车缴费页
+  停车场选择 + 登记进场 + 计时离场 + 停车记录
+-->
+<view class="page-container">
+
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-state">
+    <view class="text">加载中...</view>
+  </view>
+
+  <!-- ===== 首页模式：停车场列表 + 登记 ===== -->
+  <block wx:if="{{!loading && viewMode === 'home'}}">
+
+    <!-- 停车场选择 -->
+    <view class="card">
+      <view class="text-lg text-bold text-dark mb-20">🅿️ 选择停车场</view>
+
+      <view wx:if="{{parkingLots.length === 0}}" class="empty-state" style="padding:40rpx 0;">
+        <view class="text">暂无可用停车场</view>
+      </view>
+
+      <view wx:for="{{parkingLots}}" wx:key="id" class="lot-item {{selectedLot && selectedLot.id === item.id ? 'selected' : ''}}" bindtap="onSelectLot" data-id="{{item.id}}">
+        <view class="flex-row">
+          <view class="lot-icon">{{item.vehicleType === 'bus' ? '🚌' : '🚗'}}</view>
+          <view class="flex-1 ml-10">
+            <view class="text-bold text-dark">{{item.name}}</view>
+            <view class="text-sm text-light mt-10">
+              首小时¥{{item.firstHourPrice}} | 续费¥{{item.additionalHourPrice}}/时 | 日封顶¥{{item.dailyCap}}
+            </view>
+            <view class="text-sm text-light mt-10">
+              {{item.freeMinutes}}分钟内免费 | 空位: {{item.availableSpots}}/{{item.totalSpots}}
+            </view>
+            <view class="text-sm text-light">
+              营业: {{item.openTime}}-{{item.closeTime}}
+            </view>
+          </view>
+          <view wx:if="{{selectedLot && selectedLot.id === item.id}}" class="lot-check">✓</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 车牌输入 -->
+    <view class="card">
+      <view class="text-bold text-dark mb-20">车牌号码</view>
+      <view class="plate-input-row">
+        <input
+          class="plate-input"
+          placeholder="请输入车牌号（如: 京A12345）"
+          value="{{plateNumber}}"
+          bindinput="onPlateInput"
+          maxlength="8"
+        />
+      </view>
+
+      <!-- 快捷字母 -->
+      <view class="plate-quick mt-20">
+        <text class="text-sm text-light mb-10">快捷选择省份:</text>
+        <view class="province-grid">
+          <text wx:for="{{['京','津','沪','渝','冀','豫','云','辽','黑','湘','皖','鲁','苏','浙','赣','鄂','桂','甘','晋','蒙','陕','吉','闽','贵','粤','川','青','藏','琼','宁']}}" wx:key="*this" class="province-item" bindtap="onProvinceTap" data-province="{{item}}">{{item}}</text>
+        </view>
+      </view>
+
+      <view class="btn-primary mt-30" bindtap="onCheckin" style="width:100%;{{submitting ? 'opacity:0.6;pointer-events:none;' : ''}}">
+        {{submitting ? '登记中...' : '登记进场'}}
+      </view>
+    </view>
+
+    <!-- 最近记录 -->
+    <view class="card" wx:if="{{records.length > 0}}">
+      <view class="text-lg text-bold text-dark mb-20">📋 最近停车记录</view>
+      <view wx:for="{{records}}" wx:key="id" class="record-item" bindtap="onRecordTap" data-id="{{item.id}}">
+        <view class="flex-between">
+          <view>
+            <text class="text-bold text-dark">{{item.plateNumber}}</text>
+            <text class="tag {{item.status === 'active' ? 'tag-green' : 'tag-warm'}} ml-10">{{item.status === 'active' ? '进行中' : '已完成'}}</text>
+          </view>
+          <text class="price">¥{{item.feeStr}}</text>
+        </view>
+        <view class="text-sm text-light mt-10">{{item.lotName}}</view>
+        <view class="text-sm text-light">{{item.timeStr}}</view>
+      </view>
+    </view>
+
+  </block>
+
+  <!-- ===== 停车中模式 ===== -->
+  <block wx:if="{{viewMode === 'active' && currentRecord}}">
+    <view class="card">
+      <view class="flex-center mb-30">
+        <view class="active-icon">🅿️</view>
+      </view>
+      <view class="text-xl text-bold text-dark" style="text-align:center;">停车中</view>
+
+      <!-- 计时显示 -->
+      <view class="timer-display mt-20">
+        <view class="elapsed-text">{{elapsed}}</view>
+        <view class="text-sm text-light mt-10">已停车时长</view>
+      </view>
+
+      <view class="divider"></view>
+
+      <view class="record-detail">
+        <view class="flex-between mb-20">
+          <text class="text-light">车牌号</text>
+          <text class="text-xl text-bold text-dark">{{currentRecord.plateNumber}}</text>
+        </view>
+        <view class="flex-between mb-20">
+          <text class="text-light">停车场</text>
+          <text class="text-dark">{{currentRecord.lotName}}</text>
+        </view>
+        <view class="flex-between mb-20">
+          <text class="text-light">进场时间</text>
+          <text class="text-dark">{{currentRecord.timeStr}}</text>
+        </view>
+        <view class="flex-between mb-20">
+          <text class="text-light">预估费用</text>
+          <text class="price text-xl">¥{{currentRecord.estimatedFee || '--'}}</text>
+        </view>
+      </view>
+
+      <view class="btn-primary mt-30" bindtap="onCheckout" style="width:100%;">
+        离场缴费
+      </view>
+
+      <view class="btn-outline mt-20" bindtap="onBackHome" style="width:100%;">
+        返回首页
+      </view>
+    </view>
+  </block>
+
+  <view class="safe-bottom" style="height: 40rpx;"></view>
+
+</view>
