@@ -65,8 +65,6 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "scenic-jwt-secret-change-in-production"  # default only for DEV_MODE
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 小时
-    # 注册开关 (生产环境应设为 False)
-    REGISTRATION_ENABLED: bool = True
 
     # CORS
     CORS_ORIGINS: list[str] = [

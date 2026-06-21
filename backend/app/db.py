@@ -427,6 +427,29 @@ class TicketInventory(Base):
     )
 
 
+# ── 套餐组合模型 ────────────────────────────────────
+class ComboPackage(Base):
+    """套餐组合: 门票+酒店+停车组合"""
+    __tablename__ = "combo_packages"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    spot_id: Mapped[int] = mapped_column(ForeignKey("scenic_spots.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, comment="套餐名称")
+    description: Mapped[Optional[str]] = mapped_column(Text, comment="套餐说明")
+    cover_image: Mapped[Optional[str]] = mapped_column(Text, comment="封面图")
+    original_price: Mapped[float] = mapped_column(Float, nullable=False, comment="原价总和")
+    price: Mapped[float] = mapped_column(Float, nullable=False, comment="套餐售价")
+    items_json: Mapped[Optional[str]] = mapped_column(Text, comment="套餐内容JSON: [{type,id,name,qty,price}]")
+    tags: Mapped[Optional[str]] = mapped_column(String(200), comment="标签: 热门/推荐/限时")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # 关系
+    spot: Mapped["ScenicSpot"] = relationship()
+
+
 # ── 天气缓存模型 ────────────────────────────────────
 class WeatherCache(Base):
     """景区天气缓存表"""

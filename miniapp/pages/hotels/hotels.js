@@ -4,6 +4,7 @@
  */
 const api = require('../../utils/api')
 const { ROOM_STATUS, PAGE_SIZE } = require('../../utils/const')
+const { requestPayment } = require('../../utils/payment')
 
 Page({
   data: {
@@ -250,38 +251,36 @@ Page({
     }
   },
 
-  // 支付 → POST /api/payment/create
+  // 支付 → 微信支付真实流程
   async onPayOrder() {
     if (this.data.submitting) return
     const { currentOrder } = this.data
     if (!currentOrder) return
 
-    wx.showLoading({ title: '支付中...' })
     this.setData({ submitting: true })
 
     try {
-      const payResult = await api.post('/api/payment/create', {
-        order_no: currentOrder.order_no,
-        order_type: 'hotel'
+      // 调用微信支付: 后端创建预付单 → wx.requestPayment 拉起支付
+      await requestPayment({
+        orderNo: currentOrder.order_no,
+        orderType: 'hotel',
+        totalFee: Math.round((currentOrder.total_price || 0) * 100), // 元→分
+        desc: currentOrder.room_name || '酒店预订'
       })
-      wx.hideLoading()
-      if (payResult.success) {
-        // DEV_MODE 下直接支付成功
-        this.setData({
-          currentOrder: { ...currentOrder, status: 'paid' },
-          submitting: false
-        })
-        wx.showToast({ title: '预订成功！', icon: 'success' })
-      } else {
-        wx.showToast({ title: payResult.message || '支付失败', icon: 'none' })
-      }
-    } catch (err) {
-      wx.hideLoading()
+
+      // 支付成功 → 更新状态
       this.setData({
         currentOrder: { ...currentOrder, status: 'paid' },
         submitting: false
       })
-      wx.showToast({ title: '预订成功(模拟)', icon: 'success' })
+      wx.showToast({ title: '预订成功！', icon: 'success' })
+    } catch (err) {
+      this.setData({ submitting: false })
+      // 用户取消支付不弹错误提示
+      if (err && err.errMsg && err.errMsg.indexOf('cancel') !== -1) {
+        wx.showToast({ title: '已取消支付', icon: 'none' })
+      }
+      // 其他错误已在 payment.js 中处理
     }
   },
 

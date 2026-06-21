@@ -5,7 +5,7 @@
  */
 
 const { DEV_MODE } = require('./const')
-const BASE_URL = 'https://43.163.5.90/scenic'  // 生产环境; 本地开发改为 http://127.0.0.1:8000
+const BASE_URL = 'https://7yijia888.com/scenic'  // 生产环境
 
 let isRefreshing = false
 let refreshQueue = []

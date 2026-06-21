@@ -8,10 +8,10 @@ const config = {
   // ═══════════════════════════════════════════
 
   /** API 基础地址 */
-  API_BASE: 'https://43.163.5.90/scenic',
+  API_BASE: 'https://7yijia888.com/scenic',
 
   /** 开发模式 */
-  DEV_MODE: true,
+  DEV_MODE: false,
 
   // ═══════════════════════════════════════════
   // 业务常量
