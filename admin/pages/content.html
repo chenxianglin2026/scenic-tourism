@@ -1,0 +1,107 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>内容管理</title>
+<style>body{font:14px -apple-system,sans-serif;margin:0;background:#f0f2f5}.page{padding:16px;max-width:1200px;margin:0 auto}.title{font-size:20px;font-weight:700;margin-bottom:16px}.back{color:#1a73e8;text-decoration:none;font-size:13px}
+.tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid #e8e8e8}.tab{padding:10px 18px;cursor:pointer;border:none;background:none;font-size:13px;color:#666}.tab.on{color:#1a73e8;border-bottom:2px solid #1a73e8;margin-bottom:-2px}
+.card{background:#fff;border-radius:8px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+input,textarea,select{padding:8px 12px;border:1px solid #ddd;border-radius:6px;width:100%;box-sizing:border-box;font-size:13px;margin-bottom:8px}textarea{min-height:80px;resize:vertical}
+label{font-size:12px;color:#666;display:block;margin-bottom:4px;font-weight:600}
+.btn{padding:8px 18px;border-radius:6px;border:none;font-size:13px;cursor:pointer;font-weight:600}.btn-primary{background:#1a73e8;color:#fff}.btn-danger{background:#cf1322;color:#fff}.btn-sm{padding:4px 10px;font-size:11px}
+.row{display:flex;gap:12px}.row>*{flex:1}
+.tag{padding:2px 8px;border-radius:10px;font-size:11px;background:#f0f0f0;margin:2px;display:inline-block}
+</style></head><body><div class="page"><a href="index.html" class="back">← 返回</a>
+<div class="title">📱 内容管理</div>
+
+<div class="tabs" id="tabs">
+<button class="tab on" onclick="S(0)">🏨 酒店介绍</button>
+<button class="tab" onclick="S(1)">📷 房型实景</button>
+<button class="tab" onclick="S(2)">📍 周边推荐</button>
+<button class="tab" onclick="S(3)">⭐ 精选评价</button>
+</div>
+
+<div id="panel">加载中...</div></div>
+
+<script>
+var T='';function G(u){return fetch(u,{headers:{'Authorization':'Bearer '+T}}).then(r=>r.json()).catch(()=>[])}
+async function I(){
+  var r=await fetch('/scenic/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123'})})
+  var j=await r.json();T=j.access_token;L()
+}
+async function P(u,data){var r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+T},body:JSON.stringify(data)});return await r.json()}
+async function D(u){await fetch(u,{method:'DELETE',headers:{'Authorization':'Bearer '+T}})}
+
+var hotels=[],galleries=[],surrounds=[],reviews=[],tab=0;
+function S(n){tab=n;L();document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i==n))}
+
+async function L(){
+  hotels=await G('/scenic/api/content/hotels')||[]
+  galleries=await G('/scenic/api/content/gallery')||[]
+  surrounds=await G('/scenic/api/content/surrounding')||[]
+  reviews=await G('/scenic/api/content/reviews-show')||[]
+  
+  var p=document.getElementById('panel')
+  if(tab==0){
+    var h='<button class="btn btn-primary" onclick="addHotel()">+ 添加酒店介绍</button><br><br>'
+    hotels.forEach(x=>h+='<div class="card"><b>'+x.name+'</b><br><small>'+x.desc.substring(0,100)+'</small><br>🏷 特色: '+(x.features||[]).join(', ')+'<br>⏰ '+x.checkin_time+'-'+x.checkout_time+'<br><button class="btn btn-sm btn-danger" onclick="delHotel('+x.hotel_id+')">删除</button></div>')
+    if(!hotels.length) h+='<div class="card" style="text-align:center;color:#999">暂无，请添加</div>'
+    p.innerHTML=h
+  }
+  else if(tab==1){
+    var h='<button class="btn btn-primary" onclick="addGallery()">+ 添加房型实景</button><br><br>'
+    galleries.forEach(x=>h+='<div class="card"><b>'+x.room_name+'</b><br>📷 '+x.images.length+' 张图 | 🎬 '+ (x.video?'有': '无')+'视频 | 🏠 '+(x.vr_url?'有':'无')+'VR<br><button class="btn btn-sm btn-danger" onclick="delGallery('+x.room_id+')">删除</button></div>')
+    if(!galleries.length) h+='<div class="card" style="text-align:center;color:#999">暂无</div>'
+    p.innerHTML=h
+  }
+  else if(tab==2){
+    var types=['餐饮','购物','交通','景点','娱乐','医疗']
+    var h='<div class="row">'
+    types.forEach(t=>{
+      var c=surrounds.filter(x=>x.type==t).length
+      h+='<div class="card"><b>'+t+'</b><br><span style="font-size:24px;color:#1a73e8">'+c+'</span>家</div>'
+    })
+    h+='</div><button class="btn btn-primary" onclick="addSurround()">+ 添加周边</button><br><br>'
+    surrounds.forEach(x=>h+='<div class="card"><b>'+x.name+'</b> <span class="tag">'+x.type+'</span><br>📍 '+x.distance+' | ⭐ '+x.rating+'<br><small>'+x.desc.substring(0,60)+'</small><br><button class="btn btn-sm btn-danger" onclick="delSurround(\''+x.name+'\')">删除</button></div>')
+    if(!surrounds.length) h+='<div class="card" style="text-align:center;color:#999">暂无</div>'
+    p.innerHTML=h
+  }
+  else if(tab==3){
+    var h='<button class="btn btn-primary" onclick="addReview()">+ 添加精选评价</button><br><br>'
+    reviews.forEach((x,i)=>h+='<div class="card"><b>'+x.user_name+'</b> ⭐'+x.rating+'<br>'+x.content.substring(0,100)+'<br><button class="btn btn-sm btn-danger" onclick="delReview('+i+')">删除</button></div>')
+    if(!reviews.length) h+='<div class="card" style="text-align:center;color:#999">暂无</div>'
+    p.innerHTML=h
+  }
+}
+
+// CRUD handlers
+function addHotel(){
+  var n=prompt('酒店名称?','伊家智慧酒店')
+  var d=prompt('介绍?','舒适便捷的智慧酒店，位于景区核心位置')
+  var f=prompt('特色(逗号分隔)?','免费WiFi,停车场,健身房')
+  if(n) P('/scenic/api/content/hotels',{hotel_id:1,name:n,desc:d,features:f?f.split(','):[],cover:'',checkin_time:'14:00',checkout_time:'12:00'}).then(()=>L())
+}
+function delHotel(id){if(confirm('确认删除?')) D('/scenic/api/content/hotels?hotel_id='+id).then(()=>L())}
+
+function addGallery(){
+  var r=prompt('房号?','101')
+  var n=prompt('房型名?','豪华大床房')
+  if(r) P('/scenic/api/content/gallery',{room_id:parseInt(r),room_name:n,images:[],video:'',vr_url:'',desc:''}).then(()=>L())
+}
+function delGallery(id){if(confirm('确认删除?')) D('/scenic/api/content/gallery?room_id='+id).then(()=>L())}
+
+function addSurround(){
+  var n=prompt('名称?','老字号餐厅')
+  var t=prompt('类型(餐饮/购物/交通/景点/娱乐)?','餐饮')
+  var d=prompt('距离?','步行5分钟')
+  var r=prompt('评分(1-5)?','5')
+  if(n) P('/scenic/api/content/surrounding',{name:n,type:t,address:'',distance:d,rating:parseFloat(r),desc:'',phone:''}).then(()=>L())
+}
+function delSurround(name){if(confirm('确认删除?')) D('/scenic/api/content/surrounding?name='+name).then(()=>L())}
+
+function addReview(){
+  var u=prompt('用户名?','张先生')
+  var r=prompt('评分(1-5)?','5')
+  var c=prompt('评价内容?','非常棒的体验！服务周到，环境优雅。')
+  if(u) P('/scenic/api/content/reviews-show',{user_name:u,rating:parseInt(r),content:c,images:[],date:new Date().toISOString().slice(0,10)}).then(()=>L())
+}
+function delReview(i){if(confirm('确认删除?')) D('/scenic/api/content/reviews-show?index='+i).then(()=>L())}
+
+I()
+</script></body></html>
