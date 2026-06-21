@@ -3,8 +3,8 @@
     {
       "hotel_id": 1,
       "name": "景区智慧度假酒店",
-      "desc": "座落于国家5A级风景名胜区核心位置，依山傍水，四季分明。酒店采用新中式设计风格，融合自然山水与现代智能科技，让您在享受绝美风景的同时体验便捷的智慧服务。每间客房均拥有独立观景阳台，推窗即景。",
-      "cover": "https://picsum.photos/seed/scenic-hotel-cover/1200/600",
+      "desc": "座落于国家5A级风景名胜区核心位置，依山傍水，四季分明。酒店采用维也纳新中式设计风格，融合自然山水与现代智能科技，暖金色调营造山居雅韵。每间客房均拥有独立观景阳台，推窗即景。",
+      "cover": "warm-gold",
       "features": [
         "景区核心位置",
         "独立观景阳台",
@@ -13,18 +13,11 @@
         "地方特色餐饮",
         "户外无边泳池"
       ],
-      "facilities": [
-        "免费高速WiFi",
-        "户外无边泳池",
-        "景区穿梭巴士",
-        "行李寄存",
-        "中餐厅+西餐厅",
-        "茶室/棋牌室",
-        "儿童游乐区",
-        "观景露台",
-        "免费停车场",
-        "商务中心"
-      ],
+      "facilities": {
+        "core": ["免费高速WiFi", "中央空调", "24小时热水", "品牌电视", "独立观景阳台"],
+        "upgrade": ["户外无边泳池", "茶室/棋牌室", "儿童游乐区", "观景露台", "商务中心"],
+        "service": ["景区穿梭巴士", "行李寄存", "中餐厅+西餐厅", "免费停车场", "景区票务"]
+      },
       "checkin_time": "14:00",
       "checkout_time": "12:00"
     }
@@ -32,184 +25,144 @@
   "galleries": [
     {
       "room_id": 1,
-      "room_name": "山景大床房",
-      "images": [
-        "https://picsum.photos/seed/scenic-r1-1/800/600",
-        "https://picsum.photos/seed/scenic-r1-2/800/600",
-        "https://picsum.photos/seed/scenic-r1-3/800/600",
-        "https://picsum.photos/seed/scenic-r1-4/800/600",
-        "https://picsum.photos/seed/scenic-r1-5/800/600",
-        "https://picsum.photos/seed/scenic-r1-6/800/600",
-        "https://picsum.photos/seed/scenic-r1-7/800/600"
-      ],
+      "room_name": "山景高级大床房",
+      "name_en": "Mountain View Superior King",
+      "level": "高级",
+      "bed_type": "大床房",
+      "view": "山景",
+      "bed_size": "1.8m×2.0m",
+      "area_m2": 28,
+      "occupancy": 2,
+      "floor": "2-5层",
+      "window": "山景阳台",
+      "smoking": "无烟",
+      "images": ["https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80", "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80", "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&q=80"],
       "video": "",
       "vr_url": "",
-      "desc": "面朝苍翠山峦，清晨在鸟鸣中醒来。1.8米大床配高支棉床品，独立观景阳台让您足不出户尽享山色空蒙。",
-      "amenities": [
-        "免费WiFi",
-        "中央空调",
-        "55寸智能电视",
-        "电子保险箱",
-        "智能门锁",
-        "电热水壶",
-        "迷你冰箱",
-        "吹风机",
-        "观景阳台",
-        "雨伞",
-        "防蚊设备"
-      ],
-      "perks": [
-        "欢迎果盘",
-        "景区地图",
-        "两瓶矿泉水",
-        "精品茶叶"
-      ]
+      "desc": "面朝苍翠山峦，清晨在鸟鸣中醒来。1.8米大床配高支棉床品，独立山景阳台让您足不出户尽享山色空蒙。暖金木饰+竹编元素打造自然山居体验。",
+      "amenities": {
+        "core": ["免费WiFi", "空调", "24h热水", "电视", "山景阳台", "吹风机"],
+        "upgrade": ["电热水壶", "迷你冰箱", "防蚊设备", "雨伞"],
+        "service": ["景区地图", "穿梭巴士"]
+      },
+      "perks": ["欢迎果盘", "两瓶矿泉水", "精品茶叶"],
+      "price": 388,
+      "original_price": 488,
+      "discount": "8.0折",
+      "tags": ["含早+¥40", "免费取消", "送景区门票×1"]
     },
     {
       "room_id": 2,
-      "room_name": "湖景双床房",
-      "images": [
-        "https://picsum.photos/seed/scenic-r2-1/800/600",
-        "https://picsum.photos/seed/scenic-r2-2/800/600",
-        "https://picsum.photos/seed/scenic-r2-3/800/600",
-        "https://picsum.photos/seed/scenic-r2-4/800/600",
-        "https://picsum.photos/seed/scenic-r2-5/800/600",
-        "https://picsum.photos/seed/scenic-r2-6/800/600",
-        "https://picsum.photos/seed/scenic-r2-7/800/600"
-      ],
+      "room_name": "湖景豪华双床房",
+      "name_en": "Lake View Deluxe Twin",
+      "level": "豪华",
+      "bed_type": "双床房",
+      "view": "湖景",
+      "bed_size": "1.5m×2.0m×2",
+      "area_m2": 35,
+      "occupancy": 2,
+      "floor": "3-6层",
+      "window": "湖景落地窗",
+      "smoking": "无烟",
+      "images": ["https://images.unsplash.com/photo-1540541338287-41700207dee6?w=800&q=80", "https://images.unsplash.com/photo-1507652313519-d4e9174996dd?w=800&q=80", "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80"],
       "video": "",
       "vr_url": "",
-      "desc": "窗含碧波万顷，两张1.5米大床面朝湖面。黄昏时分，落日余晖洒入房间，是最受欢迎的房型之一。",
-      "amenities": [
-        "免费WiFi",
-        "中央空调",
-        "55寸智能电视",
-        "电子保险箱",
-        "智能门锁",
-        "电热水壶",
-        "迷你冰箱",
-        "吹风机",
-        "湖景阳台",
-        "观景躺椅",
-        "望远镜"
-      ],
-      "perks": [
-        "欢迎果盘",
-        "两张景区门票（当日有效）",
-        "四瓶矿泉水"
-      ]
+      "desc": "窗含碧波万顷，两张1.5米大床面朝湖面。黄昏时分落日余晖洒入房间，观景躺椅+望远镜让您细细品味湖光山色。最受欢迎的房型之一。",
+      "amenities": {
+        "core": ["免费WiFi", "空调", "24h热水", "55寸电视", "湖景落地窗", "吹风机"],
+        "upgrade": ["电热水壶", "迷你冰箱", "观景躺椅", "望远镜", "智能马桶"],
+        "service": ["景区门票×2", "穿梭巴士", "免费停车"]
+      },
+      "perks": ["欢迎果盘", "两张景区门票（当日有效）", "四瓶矿泉水"],
+      "price": 528,
+      "original_price": 688,
+      "discount": "7.7折",
+      "tags": ["含双早+¥80", "免费取消", "送景区门票×2"]
     },
     {
       "room_id": 3,
-      "room_name": "星空套房",
-      "images": [
-        "https://picsum.photos/seed/scenic-r3-1/800/600",
-        "https://picsum.photos/seed/scenic-r3-2/800/600",
-        "https://picsum.photos/seed/scenic-r3-3/800/600",
-        "https://picsum.photos/seed/scenic-r3-4/800/600",
-        "https://picsum.photos/seed/scenic-r3-5/800/600",
-        "https://picsum.photos/seed/scenic-r3-6/800/600",
-        "https://picsum.photos/seed/scenic-r3-7/800/600",
-        "https://picsum.photos/seed/scenic-r3-8/800/600"
-      ],
+      "room_name": "星空行政套房",
+      "name_en": "Starry Executive Suite",
+      "level": "行政",
+      "bed_type": "套房",
+      "view": "山湖双景",
+      "bed_size": "1.8m×2.0m",
+      "area_m2": 55,
+      "occupancy": 2,
+      "floor": "顶层6层",
+      "window": "全景天窗+露台",
+      "smoking": "无烟",
+      "images": ["https://images.unsplash.com/photo-1563911302283-d2bc129e7570?w=800&q=80", "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80", "https://images.unsplash.com/photo-1615874959474-d609969a20ed?w=800&q=80"],
       "video": "",
       "vr_url": "",
-      "desc": "顶层全景套房，超大天窗设计——白天沐浴阳光，夜晚仰望星空。独立客厅+卧室+露台，私享180度山湖双景。",
-      "amenities": [
-        "免费WiFi",
-        "独立空调",
-        "75寸智能电视",
-        "电子保险箱",
-        "智能门锁",
-        "Nespresso咖啡机",
-        "迷你吧",
-        "Bose蓝牙音响",
-        "全景天窗",
-        "私人露台",
-        "独立浴缸",
-        "双人洗漱台",
-        "浴袍+拖鞋",
-        "香薰加湿器"
-      ],
-      "perks": [
-        "欢迎香槟+果盘",
-        "双人景区VIP通票",
-        "接站服务",
-        "延迟退房至14:00",
-        "每日夜床服务+晚安甜汤"
-      ]
+      "desc": "顶层全景套房，超大天窗设计——白天沐浴阳光，夜晚仰望星空。独立客厅+卧室+露台，私享180度山湖双景。Nespresso咖啡机+Bose音响+独立浴缸，顶级配置。",
+      "amenities": {
+        "core": ["千兆WiFi", "独立空调", "24h热水", "75寸电视", "全景天窗", "吹风机"],
+        "upgrade": ["私人露台", "独立浴缸", "智能马桶", "迷你吧", "Bose音响", "Nespresso咖啡机", "香薰加湿器", "双人洗漱台"],
+        "service": ["双人景区VIP通票", "接站服务", "管家服务", "延迟退房至14:00"]
+      },
+      "perks": ["欢迎香槟+果盘", "双人景区VIP通票", "接站服务", "延迟退房至14:00", "每日夜床服务+晚安甜汤"],
+      "price": 1288,
+      "original_price": 1988,
+      "discount": "6.5折",
+      "tags": ["含双早", "积分×5", "免费取消", "VIP通票"]
     },
     {
       "room_id": 4,
-      "room_name": "禅意大床房",
-      "images": [
-        "https://picsum.photos/seed/scenic-r4-1/800/600",
-        "https://picsum.photos/seed/scenic-r4-2/800/600",
-        "https://picsum.photos/seed/scenic-r4-3/800/600",
-        "https://picsum.photos/seed/scenic-r4-4/800/600",
-        "https://picsum.photos/seed/scenic-r4-5/800/600",
-        "https://picsum.photos/seed/scenic-r4-6/800/600",
-        "https://picsum.photos/seed/scenic-r4-7/800/600"
-      ],
+      "room_name": "禅意零压大床房",
+      "name_en": "Zen Zero-Pressure King",
+      "level": "高级",
+      "bed_type": "大床房",
+      "feature": "零压",
+      "view": "竹林",
+      "bed_size": "1.8m×2.0m",
+      "area_m2": 30,
+      "occupancy": 2,
+      "floor": "1-2层",
+      "window": "竹林窗景",
+      "smoking": "无烟",
+      "images": ["https://images.unsplash.com/photo-1545389336-cf090694435e?w=800&q=80", "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800&q=80", "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&q=80"],
       "video": "",
       "vr_url": "",
-      "desc": "日式简约风格，榻榻米茶席+蒲团，窗外竹林掩映。配备白噪音助眠仪和草本香薰，让您在山水间安然入梦。",
-      "amenities": [
-        "免费WiFi",
-        "中央空调",
-        "50寸智能电视",
-        "电子保险箱",
-        "智能门锁",
-        "电热水壶",
-        "迷你冰箱",
-        "白噪音助眠仪",
-        "榻榻米茶席",
-        "草本香薰机",
-        "日式浴衣",
-        "竹制茶具"
-      ],
-      "perks": [
-        "禅意茶礼盒",
-        "香薰精油一套",
-        "冥想引导音频",
-        "两瓶矿泉水"
-      ]
+      "desc": "日式简约禅意空间，榻榻米茶席+蒲团，窗外竹林掩映。零压记忆棉床垫+白噪音助眠仪+草本香薰，让您在山水间安然入梦。",
+      "amenities": {
+        "core": ["免费WiFi", "空调", "24h热水", "50寸电视", "竹林窗景", "吹风机"],
+        "upgrade": ["零压床垫", "白噪音助眠仪", "榻榻米茶席", "草本香薰机", "日式浴衣", "竹制茶具"],
+        "service": ["禅意茶礼盒", "冥想引导音频"]
+      },
+      "perks": ["禅意茶礼盒", "香薰精油一套", "冥想引导音频", "两瓶矿泉水"],
+      "price": 458,
+      "original_price": 598,
+      "discount": "7.7折",
+      "tags": ["零压睡眠", "含早+¥40", "免费取消"]
     },
     {
       "room_id": 5,
-      "room_name": "亲子家庭套房",
-      "images": [
-        "https://picsum.photos/seed/scenic-r5-1/800/600",
-        "https://picsum.photos/seed/scenic-r5-2/800/600",
-        "https://picsum.photos/seed/scenic-r5-3/800/600",
-        "https://picsum.photos/seed/scenic-r5-4/800/600",
-        "https://picsum.photos/seed/scenic-r5-5/800/600",
-        "https://picsum.photos/seed/scenic-r5-6/800/600",
-        "https://picsum.photos/seed/scenic-r5-7/800/600"
-      ],
+      "room_name": "豪华亲子家庭套房",
+      "name_en": "Deluxe Family Suite",
+      "level": "豪华",
+      "bed_type": "家庭套房",
+      "feature": "亲子",
+      "bed_size": "1.8m+上下铺",
+      "area_m2": 60,
+      "occupancy": 4,
+      "floor": "2-4层",
+      "window": "双阳台",
+      "smoking": "无烟",
+      "images": ["https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80", "https://images.unsplash.com/photo-1616486029423-aaa4789e8c9a?w=800&q=80", "https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800&q=80"],
       "video": "",
       "vr_url": "",
-      "desc": "两室一厅家庭套房，主卧1.8米大床+儿童房上下铺+客厅。配备儿童安全护栏、婴儿浴盆等，是家庭出游的完美选择。",
-      "amenities": [
-        "免费WiFi",
-        "中央空调",
-        "55寸智能电视×2",
-        "电子保险箱",
-        "智能门锁",
-        "电热水壶",
-        "迷你冰箱",
-        "儿童洗漱套装",
-        "婴儿浴盆",
-        "儿童安全护栏",
-        "绘本玩具箱",
-        "儿童马桶座"
-      ],
-      "perks": [
-        "欢迎果盘+儿童零食礼包",
-        "三张景区门票",
-        "儿童手工体验课一次",
-        "六瓶矿泉水"
-      ]
+      "desc": "两室一厅家庭套房，主卧1.8米大床+儿童房上下铺+客厅。配备儿童安全护栏、婴儿浴盆、绘本玩具箱，是家庭出游的完美选择。",
+      "amenities": {
+        "core": ["免费WiFi", "空调", "24h热水", "55寸电视×2", "双阳台", "吹风机"],
+        "upgrade": ["儿童洗漱套装", "婴儿浴盆", "儿童安全护栏", "绘本玩具箱", "儿童马桶座", "迷你冰箱"],
+        "service": ["三张景区门票", "儿童手工课一次", "穿梭巴士", "免费停车"]
+      },
+      "perks": ["欢迎果盘+儿童零食礼包", "三张景区门票", "儿童手工体验课一次", "六瓶矿泉水"],
+      "price": 688,
+      "original_price": 888,
+      "discount": "7.7折",
+      "tags": ["含早×3+¥120", "免费取消", "儿童礼包"]
     }
   ],
   "surroundings": [
@@ -219,7 +172,7 @@
       "address": "景区北门入口处",
       "distance": "约100m",
       "rating": 4.7,
-      "image": "https://picsum.photos/seed/scenic-surround-1/400/300",
+      "image": "warm-gold",
       "desc": "主打本地山货和农家土菜，柴火鸡和石磨豆腐是必点",
       "lat": 30.345,
       "lng": 118.167,
@@ -231,7 +184,7 @@
       "address": "山顶观景台旁",
       "distance": "约800m",
       "rating": 4.8,
-      "image": "https://picsum.photos/seed/scenic-surround-2/400/300",
+      "image": "warm-gold",
       "desc": "山顶咖啡店，边喝咖啡边俯瞰云海，网红打卡地",
       "lat": 30.348,
       "lng": 118.165,
@@ -243,7 +196,7 @@
       "address": "景区出口商业街",
       "distance": "约200m",
       "rating": 4.3,
-      "image": "https://picsum.photos/seed/scenic-surround-3/400/300",
+      "image": "warm-gold",
       "desc": "本地特产一条街，茶叶、山货、手工艺品应有尽有",
       "lat": 30.346,
       "lng": 118.17,
@@ -255,7 +208,7 @@
       "address": "景区入口",
       "distance": "约50m",
       "rating": 4.5,
-      "image": "https://picsum.photos/seed/scenic-surround-4/400/300",
+      "image": "warm-gold",
       "desc": "提供导游服务、行李寄存、景区班车等",
       "lat": 30.344,
       "lng": 118.168,
@@ -267,7 +220,7 @@
       "address": "景区核心区",
       "distance": "约500m",
       "rating": 4.9,
-      "image": "https://picsum.photos/seed/scenic-surround-5/400/300",
+      "image": "warm-gold",
       "desc": "落差近百米的大瀑布，四季水量充沛，蔚为壮观",
       "lat": 30.347,
       "lng": 118.166,
@@ -279,7 +232,7 @@
       "address": "景区南入口",
       "distance": "约1.2km",
       "rating": 4.6,
-      "image": "https://picsum.photos/seed/scenic-surround-6/400/300",
+      "image": "warm-gold",
       "desc": "全程约3公里的竹筏漂流，沿途风景如画",
       "lat": 30.342,
       "lng": 118.172,
@@ -291,7 +244,7 @@
       "address": "游客中心旁",
       "distance": "约100m",
       "rating": 4.0,
-      "image": "https://picsum.photos/seed/scenic-surround-7/400/300",
+      "image": "warm-gold",
       "desc": "24小时值班，处理常见急症和轻微外伤",
       "lat": 30.344,
       "lng": 118.169,
@@ -302,21 +255,21 @@
     {
       "user_name": "旅行达人小王",
       "rating": 5,
-      "content": "星空套房真的太浪漫了！晚上躺在床上就能看星星，浴缸也超大。酒店位置绝佳，出门就是景区，省了很多时间。",
+      "content": "星空套房真的太浪漫了！晚上躺在床上就能看星星，维也纳风格的装修很有质感。酒店位置绝佳，出门就是景区，省了很多时间。",
       "images": [],
       "date": "2025-06-12"
     },
     {
       "user_name": "一家三口游",
       "rating": 5,
-      "content": "亲子套房太贴心了，孩子特别喜欢上下铺和手工课。景区门票直接在前台就能买，不用排队，体验超赞。",
+      "content": "亲子套房太贴心了，孩子特别喜欢上下铺和手工课。景区门票直接在前台就能买，不用排队。暖金色调的房间住着特别温馨。",
       "images": [],
       "date": "2025-06-05"
     },
     {
       "user_name": "摄影爱好者",
       "rating": 4,
-      "content": "湖景房视野无敌，日出日落的最佳拍摄机位就在阳台。唯一的遗憾是阴天没看到星空，下次选个好天气再来！",
+      "content": "湖景房视野无敌，日出日落的最佳拍摄机位就在阳台。禅意房的香薰和助眠仪很加分。唯一的遗憾是阴天没看到星空。",
       "images": [],
       "date": "2025-05-28"
     }
