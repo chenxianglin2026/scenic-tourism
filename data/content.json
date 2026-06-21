@@ -1,0 +1,324 @@
+{
+  "hotels": [
+    {
+      "hotel_id": 1,
+      "name": "景区智慧度假酒店",
+      "desc": "座落于国家5A级风景名胜区核心位置，依山傍水，四季分明。酒店采用新中式设计风格，融合自然山水与现代智能科技，让您在享受绝美风景的同时体验便捷的智慧服务。每间客房均拥有独立观景阳台，推窗即景。",
+      "cover": "https://picsum.photos/seed/scenic-hotel-cover/1200/600",
+      "features": [
+        "景区核心位置",
+        "独立观景阳台",
+        "智能客房系统",
+        "景区票务直通车",
+        "地方特色餐饮",
+        "户外无边泳池"
+      ],
+      "facilities": [
+        "免费高速WiFi",
+        "户外无边泳池",
+        "景区穿梭巴士",
+        "行李寄存",
+        "中餐厅+西餐厅",
+        "茶室/棋牌室",
+        "儿童游乐区",
+        "观景露台",
+        "免费停车场",
+        "商务中心"
+      ],
+      "checkin_time": "14:00",
+      "checkout_time": "12:00"
+    }
+  ],
+  "galleries": [
+    {
+      "room_id": 1,
+      "room_name": "山景大床房",
+      "images": [
+        "https://picsum.photos/seed/scenic-r1-1/800/600",
+        "https://picsum.photos/seed/scenic-r1-2/800/600",
+        "https://picsum.photos/seed/scenic-r1-3/800/600",
+        "https://picsum.photos/seed/scenic-r1-4/800/600",
+        "https://picsum.photos/seed/scenic-r1-5/800/600",
+        "https://picsum.photos/seed/scenic-r1-6/800/600",
+        "https://picsum.photos/seed/scenic-r1-7/800/600"
+      ],
+      "video": "",
+      "vr_url": "",
+      "desc": "面朝苍翠山峦，清晨在鸟鸣中醒来。1.8米大床配高支棉床品，独立观景阳台让您足不出户尽享山色空蒙。",
+      "amenities": [
+        "免费WiFi",
+        "中央空调",
+        "55寸智能电视",
+        "电子保险箱",
+        "智能门锁",
+        "电热水壶",
+        "迷你冰箱",
+        "吹风机",
+        "观景阳台",
+        "雨伞",
+        "防蚊设备"
+      ],
+      "perks": [
+        "欢迎果盘",
+        "景区地图",
+        "两瓶矿泉水",
+        "精品茶叶"
+      ]
+    },
+    {
+      "room_id": 2,
+      "room_name": "湖景双床房",
+      "images": [
+        "https://picsum.photos/seed/scenic-r2-1/800/600",
+        "https://picsum.photos/seed/scenic-r2-2/800/600",
+        "https://picsum.photos/seed/scenic-r2-3/800/600",
+        "https://picsum.photos/seed/scenic-r2-4/800/600",
+        "https://picsum.photos/seed/scenic-r2-5/800/600",
+        "https://picsum.photos/seed/scenic-r2-6/800/600",
+        "https://picsum.photos/seed/scenic-r2-7/800/600"
+      ],
+      "video": "",
+      "vr_url": "",
+      "desc": "窗含碧波万顷，两张1.5米大床面朝湖面。黄昏时分，落日余晖洒入房间，是最受欢迎的房型之一。",
+      "amenities": [
+        "免费WiFi",
+        "中央空调",
+        "55寸智能电视",
+        "电子保险箱",
+        "智能门锁",
+        "电热水壶",
+        "迷你冰箱",
+        "吹风机",
+        "湖景阳台",
+        "观景躺椅",
+        "望远镜"
+      ],
+      "perks": [
+        "欢迎果盘",
+        "两张景区门票（当日有效）",
+        "四瓶矿泉水"
+      ]
+    },
+    {
+      "room_id": 3,
+      "room_name": "星空套房",
+      "images": [
+        "https://picsum.photos/seed/scenic-r3-1/800/600",
+        "https://picsum.photos/seed/scenic-r3-2/800/600",
+        "https://picsum.photos/seed/scenic-r3-3/800/600",
+        "https://picsum.photos/seed/scenic-r3-4/800/600",
+        "https://picsum.photos/seed/scenic-r3-5/800/600",
+        "https://picsum.photos/seed/scenic-r3-6/800/600",
+        "https://picsum.photos/seed/scenic-r3-7/800/600",
+        "https://picsum.photos/seed/scenic-r3-8/800/600"
+      ],
+      "video": "",
+      "vr_url": "",
+      "desc": "顶层全景套房，超大天窗设计——白天沐浴阳光，夜晚仰望星空。独立客厅+卧室+露台，私享180度山湖双景。",
+      "amenities": [
+        "免费WiFi",
+        "独立空调",
+        "75寸智能电视",
+        "电子保险箱",
+        "智能门锁",
+        "Nespresso咖啡机",
+        "迷你吧",
+        "Bose蓝牙音响",
+        "全景天窗",
+        "私人露台",
+        "独立浴缸",
+        "双人洗漱台",
+        "浴袍+拖鞋",
+        "香薰加湿器"
+      ],
+      "perks": [
+        "欢迎香槟+果盘",
+        "双人景区VIP通票",
+        "接站服务",
+        "延迟退房至14:00",
+        "每日夜床服务+晚安甜汤"
+      ]
+    },
+    {
+      "room_id": 4,
+      "room_name": "禅意大床房",
+      "images": [
+        "https://picsum.photos/seed/scenic-r4-1/800/600",
+        "https://picsum.photos/seed/scenic-r4-2/800/600",
+        "https://picsum.photos/seed/scenic-r4-3/800/600",
+        "https://picsum.photos/seed/scenic-r4-4/800/600",
+        "https://picsum.photos/seed/scenic-r4-5/800/600",
+        "https://picsum.photos/seed/scenic-r4-6/800/600",
+        "https://picsum.photos/seed/scenic-r4-7/800/600"
+      ],
+      "video": "",
+      "vr_url": "",
+      "desc": "日式简约风格，榻榻米茶席+蒲团，窗外竹林掩映。配备白噪音助眠仪和草本香薰，让您在山水间安然入梦。",
+      "amenities": [
+        "免费WiFi",
+        "中央空调",
+        "50寸智能电视",
+        "电子保险箱",
+        "智能门锁",
+        "电热水壶",
+        "迷你冰箱",
+        "白噪音助眠仪",
+        "榻榻米茶席",
+        "草本香薰机",
+        "日式浴衣",
+        "竹制茶具"
+      ],
+      "perks": [
+        "禅意茶礼盒",
+        "香薰精油一套",
+        "冥想引导音频",
+        "两瓶矿泉水"
+      ]
+    },
+    {
+      "room_id": 5,
+      "room_name": "亲子家庭套房",
+      "images": [
+        "https://picsum.photos/seed/scenic-r5-1/800/600",
+        "https://picsum.photos/seed/scenic-r5-2/800/600",
+        "https://picsum.photos/seed/scenic-r5-3/800/600",
+        "https://picsum.photos/seed/scenic-r5-4/800/600",
+        "https://picsum.photos/seed/scenic-r5-5/800/600",
+        "https://picsum.photos/seed/scenic-r5-6/800/600",
+        "https://picsum.photos/seed/scenic-r5-7/800/600"
+      ],
+      "video": "",
+      "vr_url": "",
+      "desc": "两室一厅家庭套房，主卧1.8米大床+儿童房上下铺+客厅。配备儿童安全护栏、婴儿浴盆等，是家庭出游的完美选择。",
+      "amenities": [
+        "免费WiFi",
+        "中央空调",
+        "55寸智能电视×2",
+        "电子保险箱",
+        "智能门锁",
+        "电热水壶",
+        "迷你冰箱",
+        "儿童洗漱套装",
+        "婴儿浴盆",
+        "儿童安全护栏",
+        "绘本玩具箱",
+        "儿童马桶座"
+      ],
+      "perks": [
+        "欢迎果盘+儿童零食礼包",
+        "三张景区门票",
+        "儿童手工体验课一次",
+        "六瓶矿泉水"
+      ]
+    }
+  ],
+  "surroundings": [
+    {
+      "name": "山间农家菜馆",
+      "type": "餐饮",
+      "address": "景区北门入口处",
+      "distance": "约100m",
+      "rating": 4.7,
+      "image": "https://picsum.photos/seed/scenic-surround-1/400/300",
+      "desc": "主打本地山货和农家土菜，柴火鸡和石磨豆腐是必点",
+      "lat": 30.345,
+      "lng": 118.167,
+      "phone": ""
+    },
+    {
+      "name": "云顶咖啡书屋",
+      "type": "餐饮",
+      "address": "山顶观景台旁",
+      "distance": "约800m",
+      "rating": 4.8,
+      "image": "https://picsum.photos/seed/scenic-surround-2/400/300",
+      "desc": "山顶咖啡店，边喝咖啡边俯瞰云海，网红打卡地",
+      "lat": 30.348,
+      "lng": 118.165,
+      "phone": ""
+    },
+    {
+      "name": "特产购物街",
+      "type": "购物",
+      "address": "景区出口商业街",
+      "distance": "约200m",
+      "rating": 4.3,
+      "image": "https://picsum.photos/seed/scenic-surround-3/400/300",
+      "desc": "本地特产一条街，茶叶、山货、手工艺品应有尽有",
+      "lat": 30.346,
+      "lng": 118.17,
+      "phone": ""
+    },
+    {
+      "name": "景区游客中心",
+      "type": "交通",
+      "address": "景区入口",
+      "distance": "约50m",
+      "rating": 4.5,
+      "image": "https://picsum.photos/seed/scenic-surround-4/400/300",
+      "desc": "提供导游服务、行李寄存、景区班车等",
+      "lat": 30.344,
+      "lng": 118.168,
+      "phone": ""
+    },
+    {
+      "name": "飞瀑流泉",
+      "type": "景点",
+      "address": "景区核心区",
+      "distance": "约500m",
+      "rating": 4.9,
+      "image": "https://picsum.photos/seed/scenic-surround-5/400/300",
+      "desc": "落差近百米的大瀑布，四季水量充沛，蔚为壮观",
+      "lat": 30.347,
+      "lng": 118.166,
+      "phone": ""
+    },
+    {
+      "name": "竹筏漂流",
+      "type": "娱乐",
+      "address": "景区南入口",
+      "distance": "约1.2km",
+      "rating": 4.6,
+      "image": "https://picsum.photos/seed/scenic-surround-6/400/300",
+      "desc": "全程约3公里的竹筏漂流，沿途风景如画",
+      "lat": 30.342,
+      "lng": 118.172,
+      "phone": ""
+    },
+    {
+      "name": "景区医务室",
+      "type": "医疗",
+      "address": "游客中心旁",
+      "distance": "约100m",
+      "rating": 4.0,
+      "image": "https://picsum.photos/seed/scenic-surround-7/400/300",
+      "desc": "24小时值班，处理常见急症和轻微外伤",
+      "lat": 30.344,
+      "lng": 118.169,
+      "phone": ""
+    }
+  ],
+  "reviews_show": [
+    {
+      "user_name": "旅行达人小王",
+      "rating": 5,
+      "content": "星空套房真的太浪漫了！晚上躺在床上就能看星星，浴缸也超大。酒店位置绝佳，出门就是景区，省了很多时间。",
+      "images": [],
+      "date": "2025-06-12"
+    },
+    {
+      "user_name": "一家三口游",
+      "rating": 5,
+      "content": "亲子套房太贴心了，孩子特别喜欢上下铺和手工课。景区门票直接在前台就能买，不用排队，体验超赞。",
+      "images": [],
+      "date": "2025-06-05"
+    },
+    {
+      "user_name": "摄影爱好者",
+      "rating": 4,
+      "content": "湖景房视野无敌，日出日落的最佳拍摄机位就在阳台。唯一的遗憾是阴天没看到星空，下次选个好天气再来！",
+      "images": [],
+      "date": "2025-05-28"
+    }
+  ]
+}
