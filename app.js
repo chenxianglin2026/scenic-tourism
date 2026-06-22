@@ -136,7 +136,7 @@ App({
       method: 'POST',
       data: {
         username: guestUser,
-        password: 'guest123',
+        password: 'guest_' + Math.random().toString(36).slice(2, 10),
         nickname: '游客' + Date.now().toString(36)
       },
       success(res) {
