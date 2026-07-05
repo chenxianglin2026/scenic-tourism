@@ -173,7 +173,8 @@
 <div class="toast-msg" id="toast"></div>
 
 <script>
-var _token = '';
+var _token = localStorage.getItem('scenic_token') || '';
+if (!_token) { location.href = 'pages/login.html'; }
 var _editId = null;
 var _allTickets = [];
 var _allHotels = [];
@@ -188,7 +189,7 @@ function h(u,opts) {
   if (_token) headers['Authorization'] = 'Bearer ' + _token;
   return fetch(u, { method: opts.method || 'GET', headers: headers, body: opts.body || undefined })
     .then(function(r) {
-      if (r.status === 401) { alert('登录已过期，请重新登录'); location.reload(); return Promise.reject('unauth'); }
+      if (r.status === 401) { location.href = 'pages/login.html'; return Promise.reject('unauth'); }
       if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
       return r.json();
     });
@@ -199,17 +200,6 @@ function toast(msg, type) {
   el.textContent = msg;
   el.className = 'toast-msg ' + (type || 'info') + ' show';
   setTimeout(function() { el.className = 'toast-msg ' + (type || 'info'); }, 2000);
-}
-
-// Auth
-function login() {
-  return h('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ username: 'admin', password: 'admin123' })
-  }).then(function(j) {
-    _token = j.access_token;
-    return _token;
-  });
 }
 
 // Load reference data
@@ -510,7 +500,7 @@ function toggleTag(el) {
 }
 
 // Init
-login().then(loadRefData).then(loadPackages).catch(function(e) {
+loadRefData().then(loadPackages).catch(function(e) {
   document.getElementById('packageList').innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><div>初始化失败: ' + (e.message || '未知错误') + '</div></div>';
 });
 </script>
