@@ -1,0 +1,35 @@
+<!-- 常见问题页面 -->
+<view class="page-container">
+  <view class="page-title">常见问题</view>
+
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-state">
+    <view class="text">加载中...</view>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{faqList.length === 0}}" class="empty-state">
+    <view class="icon">❓</view>
+    <view class="text">暂无常见问题</view>
+  </view>
+
+  <!-- FAQ列表 -->
+  <view wx:else class="faq-list">
+    <view class="faq-item" wx:for="{{faqList}}" wx:key="id">
+      <view class="faq-question flex-between" bindtap="onToggle" data-id="{{item.id}}">
+        <view class="text-bold text-dark">{{item.q}}</view>
+        <view class="faq-arrow {{item.open ? 'open' : ''}}">▼</view>
+      </view>
+      <view class="faq-answer {{item.open ? 'show' : ''}}">
+        <view class="text-sm text-light">{{item.a}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card mt-20" style="text-align:center;padding:30rpx;">
+    <view class="text-sm text-light mb-10">没有找到您的问题？</view>
+    <view class="text-primary text-bold" bindtap="onContact">📞 联系客服: 0571-88886666</view>
+  </view>
+
+  <view class="safe-bottom" style="height: 40rpx;"></view>
+</view>

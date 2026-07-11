@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../css/admin.css">
+<style>
+  .tab-bar { display:flex; gap:0; margin-bottom:16px; border-bottom:2px solid var(--border); }
+  .tab-item { padding:8px 20px; cursor:pointer; font-size:14px; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:var(--transition); }
+  .tab-item.active { color:var(--gold-dark); border-bottom-color:var(--gold); font-weight:600; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+  .toast-msg { position:fixed; top:20px; left:50%; transform:translateX(-50%); padding:10px 24px; border-radius:6px; color:#fff; font-size:14px; z-index:9999; opacity:0; transition:opacity .3s; pointer-events:none; }
+  .toast-msg.show { opacity:1; }
+  .toast-msg.success { background:#52c41a; }
+  .toast-msg.error { background:#f5222d; }
+  .toast-msg.info { background:#1890ff; }
+  .info-readonly { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .info-readonly .ir-item { display:flex; flex-direction:column; gap:4px; }
+  .info-readonly .ir-label { font-size:11px; color:var(--text-muted); font-weight:500; }
+  .info-readonly .ir-value { font-size:14px; color:var(--text-primary); font-weight:600; }
+  .description-box { background:#faf8f3; border-radius:8px; padding:14px; margin-top:16px; border:1px solid var(--border); font-size:13px; color:var(--text-secondary); line-height:1.8; }
+  @media (max-width:768px) {
+    .info-readonly { grid-template-columns:1fr; }
+    .tab-bar { overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch; }
+    .tab-item { padding:8px 14px; font-size:13px; flex-shrink:0; }
+    .filter-bar { flex-direction:column; align-items:stretch; }
+    .filter-bar .form-input, .filter-bar .form-select, .filter-bar .btn { width:100%; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text-muted);">
+    <span style="color:var(--gold-dark);">🏠 首页</span>
+    <span>/</span>
+    <span style="color:var(--text-primary);font-weight:600;">景区管理</span>
+  </div>
+
+  <div class="page-title">景区管理</div>
+
+  <div class="tab-bar">
+    <div class="tab-item active" data-tab="info">景区信息</div>
+    <div class="tab-item" data-tab="announcements">公告管理</div>
+    <div class="tab-item" data-tab="pois">导览点位</div>
+  </div>
+
+  <!-- Tab: 景区信息 -->
+  <div class="tab-content active" id="tab-info">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">景区基本信息</div>
+        <span class="tag tag-gray" id="scenicStatus">--</span>
+      </div>
+      <div id="scenicInfoDetail"><div class="loading">加载中...</div></div>
+    </div>
+  </div>
+
+  <!-- Tab: 公告管理 -->
+  <div class="tab-content" id="tab-announcements">
+    <div class="filter-bar">
+      <select class="form-select" id="annCategoryFilter">
+        <option value="">全部分类</option>
+        <option value="notice">通知</option>
+        <option value="event">活动</option>
+        <option value="maintenance">维护</option>
+        <option value="emergency">紧急</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="loadAnnouncements()">查询</button>
+      <button class="btn btn-primary btn-sm" onclick="showCreateAnnModal()">+ 新建公告</button>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">公告列表</div>
+        <span style="font-size:12px;color:var(--text-muted);" id="annTotal">--</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>标题</th>
+              <th>分类</th>
+              <th>优先级</th>
+              <th>发布时间</th>
+              <th>过期时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="annList"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="annPager"></div>
+    </div>
+  </div>
+
+  <!-- Tab: 导览点位 -->
+  <div class="tab-content" id="tab-pois">
+    <div class="filter-bar">
+      <select class="form-select" id="poiCategoryFilter">
+        <option value="">全部分类</option>
+        <option value="scenic">景点</option>
+        <option value="toilet">卫生间</option>
+        <option value="restaurant">餐饮</option>
+        <option value="shop">商店</option>
+        <option value="parking">停车场</option>
+        <option value="entrance">出入口</option>
+        <option value="service">服务点</option>
+        <option value="other">其他</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="loadPois()">查询</button>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">点位列表</div>
+        <span style="font-size:12px;color:var(--text-muted);" id="poiTotal">--</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>分类</th>
+              <th>经纬度</th>
+              <th>描述</th>
+              <th>排序</th>
+              <th>状态</th>
+            </tr>
+          </thead>
+          <tbody id="poiList"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Create Announcement Modal -->
+<div class="modal-mask" id="annModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title">新建公告</div>
+    <div class="form-group">
+      <label>标题 <span style="color:var(--error)">*</span></label>
+      <input class="form-input" id="annTitle" placeholder="请输入公告标题" maxlength="200">
+    </div>
+    <div class="form-group">
+      <label>分类</label>
+      <select class="form-select" id="annCategory">
+        <option value="notice">通知</option>
+        <option value="event">活动</option>
+        <option value="maintenance">维护</option>
+        <option value="emergency">紧急</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>优先级</label>
+      <select class="form-select" id="annPriority">
+        <option value="0">低</option>
+        <option value="1" selected>中</option>
+        <option value="2">高</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>过期时间（可选）</label>
+      <input class="form-input" type="datetime-local" id="annExpires">
+    </div>
+    <div class="form-group">
+      <label>内容 <span style="color:var(--error)">*</span></label>
+      <textarea id="annContent" placeholder="请输入公告内容..." rows="5"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="hideAnnModal()">取消</button>
+      <button class="btn btn-primary btn-sm" onclick="createAnnouncement()">确认发布</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-msg" id="toast"></div>
+
+<script>
+(function() {
+  var token = localStorage.getItem('scenic_token');
+  if (!token) { window.top.location.href = 'pages/login.html'; return; }
+  var headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+  var annPage = 1, annPageSize = 20;
+  var spotId = null; // will be set from scenic info
+
+  // ── Toast ──
+  function toast(msg, cls) {
+    var el = document.getElementById('toast');
+    el.textContent = msg; el.className = 'toast-msg show ' + (cls||'info');
+    setTimeout(function() { el.classList.remove('show'); }, 2500);
+  }
+
+  // ── Tabs ──
+  document.querySelectorAll('.tab-item').forEach(function(t) {
+    t.addEventListener('click', function() {
+      document.querySelectorAll('.tab-item').forEach(function(x) { x.classList.remove('active'); });
+      document.querySelectorAll('.tab-content').forEach(function(x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+    });
+  });
+
+  function catLabel(c) {
+    var map = { notice:'通知', event:'活动', maintenance:'维护', emergency:'紧急' };
+    return map[c] || c || '--';
+  }
+
+  function catTag(c) {
+    var map = { notice:'tag-blue', event:'tag-gold', maintenance:'tag-warm', emergency:'tag-red' };
+    return '<span class="tag ' + (map[c]||'tag-gray') + '">' + catLabel(c) + '</span>';
+  }
+
+  function priorityTag(p) {
+    var map = { '0':['低','tag-gray'], '1':['中','tag-warm'], '2':['高','tag-red'] };
+    var m = map[String(p)] || ['--','tag-gray'];
+    return '<span class="tag ' + m[1] + '">' + m[0] + '</span>';
+  }
+
+  function fmtDate(d) { if (!d) return '--'; return String(d).slice(0,10); }
+
+  // ── Load Scenic Info ──
+  async function loadScenicInfo() {
+    try {
+      var res = await fetch('/api/scenic/info');
+      if (res.status === 401 || res.status === 403) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) { document.getElementById('scenicInfoDetail').innerHTML = '<div class="empty">加载失败</div>'; return; }
+      var info = await res.json();
+      spotId = info.id;
+      renderScenicInfo(info);
+    } catch(e) {
+      document.getElementById('scenicInfoDetail').innerHTML = '<div class="empty">加载失败: ' + e.message + '</div>';
+    }
+  }
+
+  function renderScenicInfo(info) {
+    document.getElementById('scenicStatus').textContent = info.is_active ? '运营中' : '已停用';
+    document.getElementById('scenicStatus').className = 'tag ' + (info.is_active ? 'tag-green' : 'tag-gray');
+
+    var stars = '';
+    for (var i = 1; i <= 5; i++) { stars += (i <= Math.round(info.rating || 0)) ? '★' : '☆'; }
+
+    var html = '<div class="info-readonly">' +
+      '<div class="ir-item"><span class="ir-label">景区名称</span><span class="ir-value">' + (info.name||'--') + '</span></div>' +
+      '<div class="ir-item"><span class="ir-label">评分</span><span class="ir-value" style="color:var(--gold);">' + stars + ' ' + (info.rating||'--') + '</span></div>' +
+      '<div class="ir-item"><span class="ir-label">所在城市</span><span class="ir-value">' + (info.city||'--') + ' ' + (info.district||'') + '</span></div>' +
+      '<div class="ir-item"><span class="ir-label">地址</span><span class="ir-value">' + (info.address||'--') + '</span></div>' +
+      '<div class="ir-item"><span class="ir-label">联系电话</span><span class="ir-value">' + (info.phone||'--') + '</span></div>' +
+      '<div class="ir-item"><span class="ir-label">开放时间</span><span class="ir-value">' + (info.open_time||'--') + ' ~ ' + (info.close_time||'--') + '</span></div>' +
+      '<div class="ir-item"><span class="ir-label">日限流量</span><span class="ir-value">' + (info.daily_limit ? info.daily_limit.toLocaleString() : '--') + ' 人/天</span></div>' +
+      '<div class="ir-item"><span class="ir-label">票种数量</span><span class="ir-value">' + ((info.ticket_types||[]).length) + ' 种</span></div>' +
+    '</div>';
+
+    if (info.description) {
+      html += '<div class="description-box">' + info.description + '</div>';
+    }
+
+    document.getElementById('scenicInfoDetail').innerHTML = html;
+  }
+
+  // ── Announcements ──
+  async function loadAnnouncements(page) {
+    if (page) annPage = page;
+    try {
+      var cat = document.getElementById('annCategoryFilter').value;
+      var params = new URLSearchParams({ page: annPage, page_size: annPageSize });
+      if (spotId) params.set('spot_id', spotId);
+      if (cat) params.set('category', cat);
+      var res = await fetch('/api/scenic/announcements?' + params);
+      if (res.status === 401 || res.status === 403) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) throw new Error('请求失败');
+      var json = await res.json();
+      renderAnnouncements(json);
+    } catch(e) {
+      document.getElementById('annList').innerHTML = '<tr><td colspan="6" class="empty">加载失败: ' + e.message + '</td></tr>';
+    }
+  }
+
+  function renderAnnouncements(json) {
+    var items = json.items || [];
+    document.getElementById('annTotal').textContent = '共 ' + (json.total||0) + ' 条';
+    document.getElementById('annList').innerHTML = items.length ? items.map(function(a) {
+      return '<tr>' +
+        '<td><b>' + (a.title||'--') + '</b></td>' +
+        '<td>' + catTag(a.category) + '</td>' +
+        '<td>' + priorityTag(a.priority) + '</td>' +
+        '<td style="font-size:12px;">' + (a.published_at ? new Date(a.published_at).toLocaleString('zh-CN') : '--') + '</td>' +
+        '<td style="font-size:12px;">' + (a.expires_at ? new Date(a.expires_at).toLocaleString('zh-CN') : '永久有效') + '</td>' +
+        '<td><button class="btn btn-danger btn-sm" onclick="deleteAnnouncement(' + a.id + ')">删除</button></td>' +
+      '</tr>';
+    }).join('') : '<tr><td colspan="6" class="empty">暂无公告</td></tr>';
+
+    var total = json.total || 0;
+    var pages = Math.ceil(total / annPageSize) || 1;
+    var pager = '';
+    for (var i = 1; i <= pages; i++) {
+      pager += '<button class="page-btn' + (i === annPage ? ' active' : '') + '" onclick="loadAnnouncements(' + i + ')">' + i + '</button>';
+    }
+    document.getElementById('annPager').innerHTML = pages > 1 ? pager : '';
+  }
+
+  window.deleteAnnouncement = async function(id) {
+    if (!confirm('确认删除该公告？此操作不可恢复。')) return;
+    try {
+      var res = await fetch('/api/scenic/announcements/' + id, { method: 'DELETE', headers: headers });
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '删除失败'); }
+      toast('公告已删除', 'success');
+      loadAnnouncements();
+    } catch(e) { toast('删除失败: ' + e.message, 'error'); }
+  };
+
+  window.showCreateAnnModal = function() {
+    if (!spotId) { toast('请先加载景区信息', 'error'); return; }
+    document.getElementById('annModal').style.display = 'flex';
+  };
+
+  window.hideAnnModal = function() {
+    document.getElementById('annModal').style.display = 'none';
+  };
+
+  window.createAnnouncement = async function() {
+    var title = document.getElementById('annTitle').value.trim();
+    var content = document.getElementById('annContent').value.trim();
+    if (!title || !content) { toast('标题和内容不能为空', 'error'); return; }
+
+    var body = {
+      spot_id: spotId,
+      title: title,
+      content: content,
+      category: document.getElementById('annCategory').value,
+      priority: parseInt(document.getElementById('annPriority').value),
+      expires_at: document.getElementById('annExpires').value || null
+    };
+
+    try {
+      var res = await fetch('/api/scenic/announcements', { method: 'POST', headers: headers, body: JSON.stringify(body) });
+      if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '创建失败'); }
+      toast('公告发布成功', 'success');
+      hideAnnModal();
+      // clear form
+      document.getElementById('annTitle').value = '';
+      document.getElementById('annContent').value = '';
+      document.getElementById('annExpires').value = '';
+      loadAnnouncements();
+    } catch(e) { toast('创建失败: ' + e.message, 'error'); }
+  };
+
+  // ── POIs ──
+  async function loadPois() {
+    try {
+      var cat = document.getElementById('poiCategoryFilter').value;
+      var params = new URLSearchParams();
+      if (spotId) params.set('spot_id', spotId);
+      if (cat) params.set('category', cat);
+      var url = '/api/scenic/pois' + (params.toString() ? '?' + params : '');
+      var res = await fetch(url);
+      if (res.status === 401 || res.status === 403) { window.top.location.href = 'pages/login.html'; return; }
+      if (!res.ok) throw new Error('请求失败');
+      var pois = await res.json();
+      renderPois(pois);
+    } catch(e) {
+      document.getElementById('poiList').innerHTML = '<tr><td colspan="6" class="empty">加载失败: ' + e.message + '</td></tr>';
+    }
+  }
+
+  function renderPois(pois) {
+    document.getElementById('poiTotal').textContent = '共 ' + (pois.length||0) + ' 个点位';
+    document.getElementById('poiList').innerHTML = (pois||[]).length ? pois.map(function(p) {
+      return '<tr>' +
+        '<td><b>' + (p.name||'--') + '</b></td>' +
+        '<td>' + catTag(p.category) + '</td>' +
+        '<td style="font-family:monospace;font-size:12px;">' + (p.lat||'--') + ', ' + (p.lng||'--') + '</td>' +
+        '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;font-size:12px;">' + (p.description||'--') + '</td>' +
+        '<td>' + (p.sort_order||0) + '</td>' +
+        '<td>' + (p.is_active ? '<span class="tag tag-green">启用</span>' : '<span class="tag tag-gray">禁用</span>') + '</td>' +
+      '</tr>';
+    }).join('') : '<tr><td colspan="6" class="empty">暂无导览点位</td></tr>';
+  }
+
+  // init
+  loadScenicInfo().then(function() { loadAnnouncements(); loadPois(); });
+})();
+</script>
+</body>
+</html>

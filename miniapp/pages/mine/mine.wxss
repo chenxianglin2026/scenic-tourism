@@ -1,0 +1,122 @@
+/* 个人中心样式 */
+.page-container {
+  padding-bottom: 60rpx;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 用户头部 */
+.user-header {
+  background: linear-gradient(135deg, #c8a052, #D4B896);
+  padding: 30rpx;
+}
+
+.user-header .text-dark,
+.user-header .text-light {
+  color: #FFFFFF !important;
+}
+
+.user-avatar {
+  /* placeholder */
+}
+
+/* 订单 Tab */
+.order-tabs {
+  border-bottom: 2rpx solid #E8E0D5;
+  margin-bottom: 20rpx;
+}
+
+.order-tab {
+  text-align: center;
+  padding: 20rpx 0;
+  font-size: 28rpx;
+  color: #8B7E6A;
+  border-bottom: 4rpx solid transparent;
+  transition: all 0.3s;
+}
+
+.order-tab.active {
+  color: #c8a052;
+  border-bottom-color: #c8a052;
+  font-weight: 600;
+}
+
+/* 订单项 */
+.order-item {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #E8E0D5;
+}
+
+.order-item:last-child {
+  border-bottom: none;
+}
+
+/* 菜单 */
+.menu-item {
+  padding: 20rpx 0;
+}
+
+/* 弹窗 */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-box {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 40rpx;
+  width: 600rpx;
+}
+
+.form-input {
+  width: 100%;
+  padding: 20rpx;
+  border: 2rpx solid #E8E0D5;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  background: #FAF7F2;
+}
+
+.loading-text {
+  text-align: center;
+  padding: 40rpx;
+  color: #B0A492;
+  font-size: 28rpx;
+}
+
+/* 票券二维码 */
+.qr-toggle-btn {
+  display: inline-block;
+  padding: 10rpx 24rpx;
+  background: rgba(200, 160, 82, 0.08);
+  color: #c8a052;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.qr-toggle-btn:active {
+  background: rgba(200, 160, 82, 0.16);
+}
+
+.qr-canvas-wrapper {
+  display: flex;
+  justify-content: center;
+  background: #FFFFFF;
+  border: 2rpx solid #E8E0D5;
+  border-radius: 12rpx;
+  padding: 10rpx;
+}

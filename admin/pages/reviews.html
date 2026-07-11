@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../css/admin.css">
+<style>
+  .review-stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:20px; }
+  .review-stat-card { background:var(--bg-card); border-radius:var(--radius); padding:16px; text-align:center; box-shadow:var(--shadow); }
+  .review-stat-card .rsc-value { font-size:28px; font-weight:700; color:var(--gold-dark); }
+  .review-stat-card .rsc-label { font-size:12px; color:var(--text-muted); margin-top:4px; }
+  .review-rating-bar { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .review-rating-bar .rrb-label { width:36px; font-size:12px; color:var(--text-muted); flex-shrink:0; }
+  .review-rating-bar .rrb-track { flex:1; height:8px; background:#f0ede4; border-radius:4px; overflow:hidden; }
+  .review-rating-bar .rrb-fill { height:100%; background:linear-gradient(90deg, var(--gold), var(--gold-light)); border-radius:4px; transition:width .4s; }
+  .review-rating-bar .rrb-count { width:32px; font-size:11px; color:var(--text-muted); text-align:right; flex-shrink:0; }
+  .review-content-cell { max-width:300px; white-space:normal; word-break:break-all; font-size:12px; line-height:1.5; }
+  .review-images-hint { color:var(--gold-dark); font-size:11px; cursor:pointer; }
+  .review-actions { display:flex; gap:6px; }
+  @media (max-width:768px) {
+    .review-stats { grid-template-columns:1fr 1fr; }
+    .filter-bar { flex-direction:column; align-items:stretch; }
+    .filter-bar .form-input, .filter-bar .form-select { width:100%; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text-muted);">
+    <span style="color:var(--gold-dark);">🏠 首页</span>
+    <span>/</span>
+    <span style="color:var(--text-primary);font-weight:600;">游客评价</span>
+  </div>
+
+  <div class="page-title">评价管理</div>
+
+  <!-- 统计卡片 -->
+  <div class="review-stats" id="reviewStats">
+    <div class="loading">加载中...</div>
+  </div>
+
+  <!-- 评分分布 -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-header"><div class="card-title">评分分布</div></div>
+    <div id="ratingDistribution">
+      <div class="loading">加载中...</div>
+    </div>
+  </div>
+
+  <!-- 筛选 -->
+  <div class="filter-bar">
+    <select class="form-select" id="ratingFilter">
+      <option value="">全部评分</option>
+      <option value="5">5分</option>
+      <option value="4">4分</option>
+      <option value="3">3分</option>
+      <option value="2">2分</option>
+      <option value="1">1分</option>
+    </select>
+    <input class="form-input" type="text" id="keywordFilter" placeholder="搜索评价内容..." style="width:200px;">
+    <button class="btn btn-primary btn-sm" onclick="loadReviews()">查询</button>
+  </div>
+
+  <!-- 评价表格 -->
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>用户</th>
+            <th>评分</th>
+            <th>评价内容</th>
+            <th>图片</th>
+            <th>点赞</th>
+            <th>游玩日期</th>
+            <th>评价时间</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="reviewTableBody">
+          <tr><td colspan="10" class="loading">加载中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 分页 -->
+    <div class="pagination" id="reviewPagination"></div>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  var token = localStorage.getItem('scenic_token');
+  if (!token) { window.top.location.href = 'pages/login.html'; return; }
+  var headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+  var currentPage = 1;
+  var pageSize = 20;
+  var currentFilterRating = '';
+  var currentKeyword = '';
+
+  function showToast(msg, type) {
+    type = type || 'info';
+    var toast = document.createElement('div');
+    toast.className = 'toast ' + type + ' show';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.classList.remove('show'); }, 500);
+    setTimeout(function() { toast.remove(); }, 2500);
+  }
+
+  function renderStars(rating) {
+    var s = '';
+    for (var i = 1; i <= 5; i++) {
+      s += (i <= rating) ? '<span style="color:var(--gold);">★</span>' : '<span style="color:#ddd;">☆</span>';
+    }
+    return s;
+  }
+
+  function renderReviewStats(data) {
+    var avg = data.avg_rating || 0;
+    var total = data.total || 0;
+    var dist = data.rating_distribution || {};
+    var fiveCount = parseInt(dist['5']) || 0;
+    var fiveRate = total > 0 ? Math.round(fiveCount / total * 100) : 0;
+
+    document.getElementById('reviewStats').innerHTML =
+      '<div class="review-stat-card">' +
+        '<div class="rsc-value">' + avg + '</div>' +
+        '<div class="rsc-label">平均评分</div>' +
+      '</div>' +
+      '<div class="review-stat-card">' +
+        '<div class="rsc-value">' + total + '</div>' +
+        '<div class="rsc-label">评价总数</div>' +
+      '</div>' +
+      '<div class="review-stat-card">' +
+        '<div class="rsc-value">' + fiveCount + '</div>' +
+        '<div class="rsc-label">5分好评</div>' +
+      '</div>' +
+      '<div class="review-stat-card">' +
+        '<div class="rsc-value">' + fiveRate + '%</div>' +
+        '<div class="rsc-label">好评率</div>' +
+      '</div>';
+  }
+
+  function renderRatingDistribution(dist, total) {
+    var el = document.getElementById('ratingDistribution');
+    if (!dist || Object.keys(dist).length === 0) {
+      el.innerHTML = '<div class="empty">暂无评价数据</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 5; i >= 1; i--) {
+      var count = parseInt(dist[String(i)]) || 0;
+      var pct = total > 0 ? Math.round(count / total * 100) : 0;
+      html += '<div class="review-rating-bar">' +
+        '<span class="rrb-label">' + i + '分</span>' +
+        '<div class="rrb-track"><div class="rrb-fill" style="width:' + pct + '%;"></div></div>' +
+        '<span class="rrb-count">' + count + ' (' + pct + '%)</span>' +
+      '</div>';
+    }
+    el.innerHTML = html;
+  }
+
+  function renderTable(items) {
+    var tbody = document.getElementById('reviewTableBody');
+    if (!items || items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:40px;">暂无评价数据</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(function(r) {
+      var imgHint = '';
+      if (r.images) {
+        imgHint = '<span class="review-images-hint" onclick="window._previewReviewImages(\'' + (typeof r.images === 'string' ? r.images.replace(/'/g, "\\'") : JSON.stringify(r.images).replace(/'/g, "\\'")) + '\')">📷 查看</span>';
+      }
+      return '<tr>' +
+        '<td>' + r.id + '</td>' +
+        '<td>' + (r.nickname || r.username || '--') + '</td>' +
+        '<td>' + renderStars(r.rating) + '</td>' +
+        '<td><div class="review-content-cell">' + (r.content || '') + '</div></td>' +
+        '<td>' + imgHint + '</td>' +
+        '<td>' + (r.like_count || 0) + '</td>' +
+        '<td>' + (r.visit_date || '--') + '</td>' +
+        '<td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString('zh-CN') : '--') + '</td>' +
+        '<td>' + (r.is_approved ? '<span class="tag tag-green">已审核</span>' : '<span class="tag tag-warm">待审核</span>') + '</td>' +
+        '<td><div class="review-actions">' +
+          '<button class="btn btn-danger btn-sm" onclick="deleteReview(' + r.id + ')">删除</button>' +
+        '</div></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderPagination(total, page, ps) {
+    var totalPages = Math.ceil(total / ps);
+    var el = document.getElementById('reviewPagination');
+    if (totalPages <= 1) {
+      el.innerHTML = '';
+      return;
+    }
+    var html = '<button class="page-btn" onclick="goPage(' + (page - 1) + ')"' + (page <= 1 ? ' disabled' : '') + '>上一页</button>';
+    for (var i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || Math.abs(i - page) <= 2) {
+        html += '<button class="page-btn' + (i === page ? ' active' : '') + '" onclick="goPage(' + i + ')">' + i + '</button>';
+      } else if (i === page - 3 || i === page + 3) {
+        html += '<span class="page-info">...</span>';
+      }
+    }
+    html += '<button class="page-btn" onclick="goPage(' + (page + 1) + ')"' + (page >= totalPages ? ' disabled' : '') + '>下一页</button>';
+    html += '<span class="page-info" style="margin-left:8px;">共 ' + total + ' 条</span>';
+    el.innerHTML = html;
+  }
+
+  async function loadReviews() {
+    var ratingVal = document.getElementById('ratingFilter').value;
+    var keywordVal = document.getElementById('keywordFilter').value.trim();
+
+    currentFilterRating = ratingVal;
+    currentKeyword = keywordVal;
+    currentPage = 1;
+
+    var params = new URLSearchParams();
+    params.set('page', currentPage);
+    params.set('page_size', pageSize);
+    if (ratingVal) params.set('rating', ratingVal);
+
+    try {
+      // 管理员需要查看全部评价（含未审核），所以不带 spot_id 限制
+      var res = await fetch('/api/scenic/reviews?' + params.toString(), { headers: headers });
+      if (res.status === 401 || res.status === 403) {
+        window.top.location.href = 'pages/login.html';
+        return;
+      }
+      var json = await res.json();
+      var data = json.data || json;
+
+      // 客户端按关键词过滤
+      var items = data.items || [];
+      var total = data.total || items.length;
+      if (keywordVal) {
+        items = items.filter(function(r) {
+          return (r.content || '').indexOf(keywordVal) !== -1;
+        });
+        total = items.length;
+      }
+
+      renderReviewStats(data);
+      renderRatingDistribution(data.rating_distribution, data.total);
+      renderTable(items);
+      renderPagination(total, currentPage, pageSize);
+    } catch(e) {
+      document.getElementById('reviewTableBody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--error);padding:40px;">加载失败: ' + e.message + '</td></tr>';
+    }
+  }
+
+  window.goPage = function(page) {
+    currentPage = page;
+    loadReviews();
+  };
+
+  window.deleteReview = async function(id) {
+    if (!confirm('确定要删除该评价吗？此操作不可恢复。')) return;
+    try {
+      var res = await fetch('/api/scenic/reviews/' + id, { method: 'DELETE', headers: headers });
+      if (res.status === 401 || res.status === 403) {
+        window.top.location.href = 'pages/login.html';
+        return;
+      }
+      if (res.ok) {
+        showToast('评价已删除', 'success');
+        loadReviews();
+      } else {
+        var err = await res.json().catch(function() { return {}; });
+        showToast((err.detail || '删除失败'), 'error');
+      }
+    } catch(e) {
+      showToast('删除失败: ' + e.message, 'error');
+    }
+  };
+
+  window._previewReviewImages = function(imagesStr) {
+    try {
+      var images = JSON.parse(imagesStr);
+      if (images && images.length) {
+        alert('图片URL:\\n' + images.join('\\n'));
+      }
+    } catch(e) {
+      alert('图片数据: ' + imagesStr);
+    }
+  };
+
+  loadReviews();
+})();
+</script>
+</body>
+</html>

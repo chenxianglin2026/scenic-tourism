@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>套餐管理 - 景区智慧管理</title>
+<link rel="stylesheet" href="../css/admin.css">
+<style>
+  .section { margin-bottom:24px; }
+  .toast-msg { position:fixed; top:20px; left:50%; transform:translateX(-50%); padding:10px 24px; border-radius:6px; color:#fff; font-size:14px; z-index:9999; opacity:0; transition:opacity .3s; pointer-events:none; }
+  .toast-msg.show { opacity:1; }
+  .toast-msg.success { background:#52c41a; }
+  .toast-msg.error { background:#f5222d; }
+  .toast-msg.info { background:#1890ff; }
+  .modal-overlay { display:none; position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(0,0,0,.45); align-items:flex-start; justify-content:center; z-index:1000; padding-top:60px; overflow-y:auto; }
+  .modal-overlay.show { display:flex; }
+  .modal-box { background:#fff; border-radius:12px; padding:24px; width:680px; max-width:95vw; max-height:85vh; overflow-y:auto; }
+  .modal-box h3 { margin:0 0 16px 0; font-size:18px; color:var(--text-primary); }
+  .form-row { display:flex; gap:12px; margin-bottom:12px; }
+  .form-row .form-group { flex:1; }
+  .form-group { margin-bottom:12px; }
+  .form-group label { display:block; font-size:13px; color:var(--text-secondary); margin-bottom:4px; font-weight:600; }
+  .form-input, .form-select, .form-textarea { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:14px; font-family:inherit; }
+  .form-textarea { min-height:60px; resize:vertical; }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { outline:none; border-color:var(--gold); box-shadow:0 0 0 2px rgba(200,160,82,.15); }
+  .btn { padding:8px 20px; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-weight:600; transition:all .2s; }
+  .btn-primary { background:var(--gold-dark); color:#fff; }
+  .btn-primary:hover { background:var(--gold); }
+  .btn-outline { background:#fff; color:var(--gold-dark); border:1px solid var(--gold-dark); }
+  .btn-danger { background:var(--error); color:#fff; }
+  .btn-sm { padding:4px 12px; font-size:12px; }
+  .btn-xs { padding:2px 8px; font-size:11px; border-radius:4px; }
+  .btn-icon { background:none; border:none; cursor:pointer; font-size:16px; padding:2px 6px; }
+  .package-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:12px; transition:all .2s; }
+  .package-card:hover { box-shadow:0 2px 12px rgba(0,0,0,.08); }
+  .package-card .pkg-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .package-card .pkg-name { font-size:16px; font-weight:700; color:var(--text-primary); }
+  .package-card .pkg-tags { display:flex; gap:6px; flex-wrap:wrap; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+  .tag-hot { background:rgba(245,34,45,.1); color:#cf1322; }
+  .tag-rec { background:rgba(200,160,82,.15); color:var(--gold-dark); }
+  .tag-new { background:rgba(24,144,255,.1); color:#096dd9; }
+  .pkg-price { font-size:24px; color:var(--gold-dark); font-weight:700; }
+  .pkg-price .original { font-size:14px; color:var(--text-muted); text-decoration:line-through; margin-left:8px; }
+  .pkg-items { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+  .pkg-item-tag { background:var(--bg-content); padding:4px 10px; border-radius:4px; font-size:12px; color:var(--text-secondary); }
+  .pkg-item-tag .item-type { font-size:10px; color:var(--text-muted); }
+  .pkg-actions { display:flex; gap:8px; margin-top:8px; }
+  .empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); }
+  .empty-state .empty-icon { font-size:48px; margin-bottom:12px; }
+  .item-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; padding:8px; background:var(--bg-content); border-radius:6px; }
+  .item-row select, .item-row input { flex:1; }
+  .item-row .item-qty { width:60px; }
+  .tag-select { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+  .tag-chip { padding:4px 12px; border-radius:20px; border:1px solid var(--border); cursor:pointer; font-size:12px; transition:all .2s; }
+  .tag-chip.active { border-color:var(--gold); background:rgba(200,160,82,.12); color:var(--gold-dark); }
+  .stat-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:16px; }
+  .stat-card { background:var(--bg-card); border-radius:var(--radius); padding:16px; text-align:center; border:1px solid var(--border); }
+  .stat-card .stat-num { font-size:28px; font-weight:700; color:var(--gold-dark); }
+  .stat-card .stat-label { font-size:12px; color:var(--text-muted); margin-top:4px; }
+  @media (max-width:768px) {
+    .modal-box { width:95vw; padding:16px; }
+    .form-row { flex-direction:column; }
+    .package-card .pkg-header { flex-direction:column; align-items:flex-start; gap:8px; }
+  }
+</style>
+</head>
+<body>
+<script>if(!localStorage.getItem('scenic_token'))location.href='login.html';</script>
+
+<div class="page">
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text-muted);">
+    <a href="../index.html" style="color:var(--gold-dark);">🏠 首页</a>
+    <span>/</span>
+    <span style="color:var(--text-primary);font-weight:600;">套餐管理</span>
+    <span style="margin-left:auto;font-size:12px;color:var(--text-muted);">🎫 门票+酒店+停车组合套餐</span>
+  </div>
+
+  <div class="page-title">📦 套餐管理</div>
+
+  <!-- Stats -->
+  <div class="stat-cards" id="statCards"></div>
+
+  <!-- Toolbar -->
+  <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+    <button class="btn btn-primary" onclick="showCreateModal()">+ 新增套餐</button>
+    <select class="form-select" id="filterSpot" onchange="loadPackages()" style="width:140px;">
+      <option value="">全部景区</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:4px;font-size:13px;margin-left:auto;">
+      <input type="checkbox" id="showInactive" onchange="loadPackages()"> 显示已停用
+    </label>
+  </div>
+
+  <!-- Package List -->
+  <div id="packageList">
+    <div class="empty-state"><div class="empty-icon">📦</div><div>加载中...</div></div>
+  </div>
+
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <h3 id="modalTitle">新增套餐</h3>
+    <div class="form-group">
+      <label>所属景区 *</label>
+      <select class="form-select" id="editSpotId"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>套餐名称 *</label>
+        <input class="form-input" id="editName" placeholder="如：家庭欢乐套票">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>原价 (元) *</label>
+        <input class="form-input" type="number" id="editOrigPrice" placeholder="原价总和" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>套餐售价 (元) *</label>
+        <input class="form-input" type="number" id="editPrice" placeholder="优惠后售价" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>封面图URL</label>
+      <input class="form-input" id="editCover" placeholder="https://...">
+    </div>
+    <div class="form-group">
+      <label>套餐说明</label>
+      <textarea class="form-textarea" id="editDesc" placeholder="套餐详细说明..."></textarea>
+    </div>
+
+    <!-- Combo Items -->
+    <div class="form-group">
+      <label style="display:flex;align-items:center;justify-content:space-between;">
+        <span>套餐内容</span>
+        <button class="btn btn-outline btn-xs" onclick="addComboItem()">+ 添加项目</button>
+      </label>
+      <div id="comboItems"></div>
+    </div>
+
+    <!-- Tags -->
+    <div class="form-group">
+      <label>标签</label>
+      <div class="tag-select" id="tagSelect">
+        <span class="tag-chip" data-tag="hot" onclick="toggleTag(this)">🔥 热门</span>
+        <span class="tag-chip" data-tag="rec" onclick="toggleTag(this)">⭐ 推荐</span>
+        <span class="tag-chip" data-tag="new" onclick="toggleTag(this)">🆕 限时</span>
+        <span class="tag-chip" data-tag="family" onclick="toggleTag(this)">👨‍👩‍👧 家庭</span>
+        <span class="tag-chip" data-tag="couple" onclick="toggleTag(this)">💑 情侣</span>
+      </div>
+    </div>
+
+    <!-- Active -->
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="editActive" checked> 启用套餐
+      </label>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="savePackage()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-msg" id="toast"></div>
+
+<script>
+var _token = localStorage.getItem('scenic_token') || '';
+if (!_token) { location.href = 'pages/login.html'; }
+var _editId = null;
+var _allTickets = [];
+var _allHotels = [];
+var _allRooms = [];
+var _allParking = [];
+var _allSpots = [];
+var _selectedTags = [];
+
+function h(u,opts) {
+  opts = opts || {};
+  var headers = { 'Content-Type': 'application/json' };
+  if (_token) headers['Authorization'] = 'Bearer ' + _token;
+  return fetch(u, { method: opts.method || 'GET', headers: headers, body: opts.body || undefined })
+    .then(function(r) {
+      if (r.status === 401) { location.href = 'pages/login.html'; return Promise.reject('unauth'); }
+      if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+      return r.json();
+    });
+}
+
+function toast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast-msg ' + (type || 'info') + ' show';
+  setTimeout(function() { el.className = 'toast-msg ' + (type || 'info'); }, 2000);
+}
+
+// Load reference data
+function loadRefData() {
+  return Promise.all([
+    h('/api/tickets/types?spot_id=1'),
+    h('/api/hotels?spot_id=1'),
+    h('/api/parking/rates?spot_id=1'),
+    h('/api/scenic/spots')
+  ]).then(function(d) {
+    _allTickets = Array.isArray(d[0]) ? d[0] : (d[0].items || []);
+    _allHotels = Array.isArray(d[1]) ? d[1] : (d[1].items || []);
+    _allParking = Array.isArray(d[2]) ? d[2] : (d[2].items || []);
+    _allSpots = Array.isArray(d[3]) ? d[3] : (d[3].items || []);
+    // Load rooms for each hotel
+    var roomPromises = _allHotels.map(function(hotel) {
+      return h('/api/hotels/' + hotel.id + '/rooms').then(function(rooms) {
+        var rArray = Array.isArray(rooms) ? rooms : (rooms.items || []);
+        rArray.forEach(function(r) { r._hotel_id = hotel.id; r._hotel_name = hotel.name; });
+        return rArray;
+      }).catch(function() { return []; });
+    });
+    return Promise.all(roomPromises).then(function(allRoomArrays) {
+      _allRooms = [];
+      allRoomArrays.forEach(function(arr) { _allRooms = _allRooms.concat(arr); });
+      // Populate spot filter
+      var sel = document.getElementById('filterSpot');
+      _allSpots.forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        sel.appendChild(opt);
+      });
+      var editSel = document.getElementById('editSpotId');
+      _allSpots.forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        editSel.appendChild(opt);
+      });
+      // Default to first spot
+      if (_allSpots.length > 0) {
+        sel.value = _allSpots[0].id;
+        editSel.value = _allSpots[0].id;
+      }
+    });
+  });
+}
+
+// Load packages
+function loadPackages() {
+  var spotId = document.getElementById('filterSpot').value;
+  var showInactive = document.getElementById('showInactive').checked;
+  var url = '/api/packages?active_only=' + (showInactive ? 'false' : 'true');
+  if (spotId) url += '&spot_id=' + spotId;
+  h(url).then(function(data) {
+    var packages = data.items || [];
+    renderPackages(packages);
+    updateStats(packages);
+  }).catch(function(e) {
+    document.getElementById('packageList').innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><div>加载失败</div></div>';
+  });
+}
+
+function renderPackages(packages) {
+  var html = '';
+  if (packages.length === 0) {
+    html = '<div class="empty-state"><div class="empty-icon">📦</div><div>暂无套餐</div><div style="font-size:12px;margin-top:8px;">点击"新增套餐"创建第一个组合套餐</div></div>';
+  } else {
+    packages.forEach(function(pkg) {
+      var tagsHtml = '';
+      if (pkg.tags) {
+        pkg.tags.split(',').forEach(function(t) {
+          var cls = t === 'hot' ? 'tag-hot' : (t === 'rec' ? 'tag-rec' : 'tag-new');
+          var label = t === 'hot' ? '🔥热门' : (t === 'rec' ? '⭐推荐' : (t === 'new' ? '🆕限时' : (t === 'family' ? '👨‍👩‍👧家庭' : t)));
+          tagsHtml += '<span class="tag ' + cls + '">' + label + '</span>';
+        });
+      }
+      var itemsHtml = '';
+      if (pkg.items && pkg.items.length > 0) {
+        pkg.items.forEach(function(item) {
+          var icon = item.type === 'ticket' ? '🎫' : (item.type === 'hotel' ? '🏨' : (item.type === 'room' ? '🛏️' : '🅿️'));
+          var typeLabel = item.type === 'ticket' ? '门票' : (item.type === 'hotel' ? '酒店' : (item.type === 'room' ? '房型' : '停车'));
+          itemsHtml += '<span class="pkg-item-tag">' + icon + ' ' + item.name + ' x' + item.qty + ' <span class="item-type">[' + typeLabel + ']</span></span>';
+        });
+      }
+      var activeBadge = pkg.is_active ? '' : ' <span style="background:#f0f0f0;padding:2px 6px;border-radius:4px;font-size:11px;color:#999;">已停用</span>';
+      html += '<div class="package-card">' +
+        '<div class="pkg-header">' +
+          '<div>' +
+            '<span class="pkg-name">' + esc(pkg.name) + '</span>' + activeBadge +
+            '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">' + (pkg.spot_name || '') + '</div>' +
+          '</div>' +
+          '<div class="pkg-tags">' + tagsHtml + '</div>' +
+        '</div>' +
+        '<div class="pkg-price">¥' + pkg.price.toFixed(2) + '<span class="original">¥' + pkg.original_price.toFixed(2) + '</span></div>' +
+        '<div class="pkg-items">' + (itemsHtml || '<span style="color:var(--text-muted);font-size:12px;">无内容</span>') + '</div>' +
+        (pkg.description ? '<div style="font-size:12px;color:var(--text-muted);margin:8px 0;">' + esc(pkg.description).substring(0, 100) + '</div>' : '') +
+        '<div class="pkg-actions">' +
+          '<button class="btn btn-outline btn-sm" onclick="editPackage(' + pkg.id + ')">✏️ 编辑</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="deletePackage(' + pkg.id + ')">🗑 删除</button>' +
+          '<button class="btn btn-outline btn-sm" onclick="togglePackage(' + pkg.id + ',' + pkg.is_active + ')">' + (pkg.is_active ? '⏸ 停用' : '▶️ 启用') + '</button>' +
+        '</div>' +
+      '</div>';
+    });
+  }
+  document.getElementById('packageList').innerHTML = html;
+}
+
+function updateStats(packages) {
+  var active = packages.filter(function(p) { return p.is_active; });
+  var avgPrice = active.length > 0 ? (active.reduce(function(s,p) { return s + p.price; }, 0) / active.length).toFixed(0) : 0;
+  var avgDiscount = active.length > 0 ? (active.reduce(function(s,p) { return s + (1 - p.price / Math.max(p.original_price, 1)); }, 0) / active.length * 100).toFixed(0) : 0;
+  document.getElementById('statCards').innerHTML =
+    '<div class="stat-card"><div class="stat-num">' + packages.length + '</div><div class="stat-label">套餐总数</div></div>' +
+    '<div class="stat-card"><div class="stat-num">' + active.length + '</div><div class="stat-label">已启用</div></div>' +
+    '<div class="stat-card"><div class="stat-num">¥' + avgPrice + '</div><div class="stat-label">均价</div></div>' +
+    '<div class="stat-card"><div class="stat-num">' + avgDiscount + '%</div><div class="stat-label">平均折扣</div></div>';
+}
+
+function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Modal
+function showCreateModal() {
+  _editId = null;
+  document.getElementById('modalTitle').textContent = '新增套餐';
+  document.getElementById('editName').value = '';
+  document.getElementById('editOrigPrice').value = '';
+  document.getElementById('editPrice').value = '';
+  document.getElementById('editDesc').value = '';
+  document.getElementById('editCover').value = '';
+  document.getElementById('editActive').checked = true;
+  _selectedTags = [];
+  document.querySelectorAll('#tagSelect .tag-chip').forEach(function(el) { el.classList.remove('active'); });
+  document.getElementById('comboItems').innerHTML = '';
+  addComboItem();
+  document.getElementById('editModal').classList.add('show');
+}
+
+function editPackage(id) {
+  _editId = id;
+  h('/api/packages/' + id).then(function(pkg) {
+    document.getElementById('modalTitle').textContent = '编辑套餐';
+    document.getElementById('editName').value = pkg.name || '';
+    document.getElementById('editOrigPrice').value = pkg.original_price || '';
+    document.getElementById('editPrice').value = pkg.price || '';
+    document.getElementById('editDesc').value = pkg.description || '';
+    document.getElementById('editCover').value = pkg.cover_image || '';
+    document.getElementById('editActive').checked = pkg.is_active;
+    _selectedTags = pkg.tags ? pkg.tags.split(',').map(function(t) { return t.trim(); }) : [];
+    document.querySelectorAll('#tagSelect .tag-chip').forEach(function(el) {
+      el.classList.toggle('active', _selectedTags.indexOf(el.getAttribute('data-tag')) >= 0);
+    });
+    if (_allSpots.length > 0) document.getElementById('editSpotId').value = pkg.spot_id || _allSpots[0].id;
+    document.getElementById('comboItems').innerHTML = '';
+    if (pkg.items && pkg.items.length > 0) {
+      pkg.items.forEach(function(item) { addComboItem(item); });
+    } else {
+      addComboItem();
+    }
+    document.getElementById('editModal').classList.add('show');
+  }).catch(function(e) { toast('加载套餐详情失败', 'error'); });
+}
+
+function closeModal() {
+  document.getElementById('editModal').classList.remove('show');
+}
+
+function savePackage() {
+  var name = document.getElementById('editName').value.trim();
+  var origPrice = parseFloat(document.getElementById('editOrigPrice').value) || 0;
+  var price = parseFloat(document.getElementById('editPrice').value) || 0;
+  var desc = document.getElementById('editDesc').value.trim();
+  var cover = document.getElementById('editCover').value.trim();
+  var active = document.getElementById('editActive').checked;
+  var spotId = parseInt(document.getElementById('editSpotId').value) || 1;
+
+  if (!name) { toast('请输入套餐名称', 'error'); return; }
+  if (origPrice <= 0 || price <= 0) { toast('价格必须大于0', 'error'); return; }
+
+  var items = [];
+  var itemRows = document.querySelectorAll('#comboItems .item-row');
+  itemRows.forEach(function(row) {
+    var type = row.querySelector('.item-type-sel').value;
+    var idEl = row.querySelector('.item-id-sel');
+    var id = parseInt(idEl.value);
+    var qty = parseInt(row.querySelector('.item-qty').value) || 1;
+    if (!isNaN(id) && id > 0) {
+      var name = idEl.options[idEl.selectedIndex].textContent;
+      items.push({ type: type, id: id, name: name, qty: qty });
+    }
+  });
+
+  var body = JSON.stringify({
+    spot_id: spotId,
+    name: name,
+    description: desc,
+    cover_image: cover,
+    original_price: origPrice,
+    price: price,
+    items: items,
+    tags: _selectedTags.join(','),
+    is_active: active,
+    sort_order: 0
+  });
+
+  var method = _editId ? 'PUT' : 'POST';
+  var url = _editId ? '/api/packages/' + _editId : '/api/packages';
+
+  h(url, { method: method, body: body }).then(function() {
+    toast(_editId ? '套餐已更新' : '套餐已创建', 'success');
+    closeModal();
+    loadPackages();
+  }).catch(function(e) {
+    toast('保存失败: ' + e.message, 'error');
+  });
+}
+
+function deletePackage(id) {
+  if (!confirm('确定要删除这个套餐吗？')) return;
+  h('/api/packages/' + id, { method: 'DELETE' }).then(function() {
+    toast('套餐已删除', 'success');
+    loadPackages();
+  }).catch(function(e) { toast('删除失败: ' + e.message, 'error'); });
+}
+
+function togglePackage(id, currentActive) {
+  var body = JSON.stringify({ is_active: !currentActive });
+  h('/api/packages/' + id, { method: 'PUT', body: body }).then(function() {
+    toast(currentActive ? '套餐已停用' : '套餐已启用', 'success');
+    loadPackages();
+  }).catch(function(e) { toast('操作失败', 'error'); });
+}
+
+// Combo item management
+function addComboItem(data) {
+  data = data || {};
+  var container = document.getElementById('comboItems');
+  var idx = container.children.length;
+  var div = document.createElement('div');
+  div.className = 'item-row';
+  div.innerHTML =
+    '<select class="form-select item-type-sel" onchange="onItemTypeChange(this)" style="width:100px;">' +
+      '<option value="ticket"' + (data.type === 'ticket' || !data.type ? ' selected' : '') + '>🎫 门票</option>' +
+      '<option value="room"' + (data.type === 'room' ? ' selected' : '') + '>🛏️ 房型</option>' +
+      '<option value="parking"' + (data.type === 'parking' ? ' selected' : '') + '>🅿️ 停车</option>' +
+    '</select>' +
+    '<select class="form-select item-id-sel" style="flex:1;"></select>' +
+    '<input type="number" class="form-input item-qty" value="' + (data.qty || 1) + '" min="1" max="99" placeholder="数量">' +
+    '<button class="btn-icon" onclick="removeComboItem(this)" title="删除" style="color:var(--error);">✕</button>';
+  container.appendChild(div);
+  populateItemOptions(div.querySelector('.item-type-sel'));
+}
+
+function onItemTypeChange(sel) {
+  populateItemOptions(sel);
+}
+
+function populateItemOptions(sel) {
+  var row = sel.parentElement;
+  var idSel = row.querySelector('.item-id-sel');
+  var type = sel.value;
+  idSel.innerHTML = '';
+  var data = type === 'ticket' ? _allTickets : (type === 'room' ? _allRooms : _allParking);
+  data.forEach(function(d) {
+    var opt = document.createElement('option');
+    opt.value = d.id;
+    if (type === 'room') {
+      opt.textContent = (d._hotel_name || '') + ' - ' + d.name + ' ¥' + d.price;
+    } else if (type === 'parking') {
+      opt.textContent = d.name + ' ¥' + d.first_hour_price + '/h';
+    } else {
+      opt.textContent = d.name + ' ¥' + d.price + ' (' + d.category + ')';
+    }
+    idSel.appendChild(opt);
+  });
+}
+
+function removeComboItem(btn) {
+  var container = document.getElementById('comboItems');
+  if (container.children.length <= 1) {
+    toast('至少保留一个套餐项目', 'info');
+    return;
+  }
+  btn.parentElement.remove();
+}
+
+function toggleTag(el) {
+  var tag = el.getAttribute('data-tag');
+  var idx = _selectedTags.indexOf(tag);
+  if (idx >= 0) {
+    _selectedTags.splice(idx, 1);
+    el.classList.remove('active');
+  } else {
+    _selectedTags.push(tag);
+    el.classList.add('active');
+  }
+}
+
+// Init
+loadRefData().then(loadPackages).catch(function(e) {
+  document.getElementById('packageList').innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><div>初始化失败: ' + (e.message || '未知错误') + '</div></div>';
+});
+</script>
+</body>
+</html>

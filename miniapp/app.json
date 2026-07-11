@@ -1,0 +1,62 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/tickets/tickets",
+    "pages/hotels/hotels",
+    "pages/scenic/scenic",
+    "pages/parking/parking",
+    "pages/points/points",
+    "pages/reviews/reviews",
+    "pages/mine/mine",
+    "pages/faq/faq"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#c8a052",
+    "navigationBarTitleText": "景区智慧管理",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#FAF7F2"
+  },
+  "tabBar": {
+    "color": "#8B7E6A",
+    "selectedColor": "#c8a052",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "images/icon-home.png",
+        "selectedIconPath": "images/icon-home-active.png"
+      },
+      {
+        "pagePath": "pages/tickets/tickets",
+        "text": "票务",
+        "iconPath": "images/icon-ticket.png",
+        "selectedIconPath": "images/icon-ticket-active.png"
+      },
+      {
+        "pagePath": "pages/hotels/hotels",
+        "text": "客房",
+        "iconPath": "images/icon-hotel.png",
+        "selectedIconPath": "images/icon-hotel-active.png"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的",
+        "iconPath": "images/icon-mine.png",
+        "selectedIconPath": "images/icon-mine-active.png"
+      }
+    ]
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "获取位置推荐附近景区"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation",
+    "chooseLocation"
+  ],
+  "sitemapLocation": "sitemap.json"
+}

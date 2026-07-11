@@ -1,0 +1,103 @@
+/* 附近推荐样式 */
+.page-container {
+  padding-top: 10rpx;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 分类筛选栏 */
+.category-bar {
+  white-space: nowrap;
+  padding: 20rpx 30rpx;
+}
+
+.category-list {
+  display: inline-flex;
+  gap: 20rpx;
+}
+
+.category-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 16rpx 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(61, 50, 38, 0.04);
+  border: 2rpx solid transparent;
+  min-width: 100rpx;
+  transition: all 0.2s;
+}
+
+.category-item.active {
+  background: linear-gradient(135deg, #c8a052, #D4B896);
+  border-color: #c8a052;
+}
+
+.category-item.active .category-label {
+  color: #FFFFFF;
+}
+
+.category-icon {
+  font-size: 36rpx;
+  margin-bottom: 6rpx;
+}
+
+.category-label {
+  font-size: 22rpx;
+  color: #3D3226;
+  font-weight: 500;
+}
+
+/* 点位卡片 */
+.point-card {
+  transition: all 0.2s;
+}
+
+.point-card:active {
+  background: #FAF7F2;
+  transform: scale(0.99);
+}
+
+.point-name {
+  max-width: 400rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.point-cat-tag {
+  flex-shrink: 0;
+}
+
+.point-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rating-star {
+  font-size: 28rpx;
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 120rpx 0;
+}
+
+.loading-state .text {
+  font-size: 28rpx;
+  color: #B0A492;
+}
+
+.loading-more {
+  display: flex;
+  justify-content: center;
+  padding: 30rpx 0;
+}

@@ -1,1 +1,28 @@
+<<<<<<< HEAD
 code/
+=======
+# Scenic 景区智慧管理系统
+
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.*
+*.db
+*.sqlite3
+.venv/
+venv/
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# 密钥和凭据文件 — DO NOT COMMIT
+*.pem
+*.p8
+*.key
+credentials/
+secrets/
+.coverage
+htmlcov/
+>>>>>>> 3e8aa7ae9f42778437a7de7f58d54d5c0d4bfe96

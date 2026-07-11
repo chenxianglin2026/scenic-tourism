@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>景区智慧管理 - 管理后台</title>
+<link rel="stylesheet" href="css/admin.css">
+<style>
+  .logo-icon-img { width: 40px; height: 40px; }
+</style>
+</head>
+<body>
+<!-- Mobile sidebar toggle -->
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="菜单">☰</button>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<div class="layout">
+  <!-- ========== Sidebar ========== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🏞️</span>
+      <div class="logo-name">景区智慧管理</div>
+      <div class="logo-sub">管理后台 v1.0</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-item active" data-page="pages/dashboard.html" data-title="数据看板">
+        <span class="nav-icon">📊</span> 数据看板
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-title">业务管理</div>
+        <div class="nav-item" data-page="pages/scenic.html" data-title="景区管理">
+          <span class="nav-icon">🏞️</span> 景区管理
+        </div>
+        <div class="nav-item" data-page="pages/tickets.html" data-title="票务管理">
+          <span class="nav-icon">🎫</span> 票务管理
+        </div>
+        <div class="nav-item" data-page="pages/hotels.html" data-title="客房管理">
+          <span class="nav-icon">🏨</span> 客房管理
+        </div>
+        <div class="nav-item" data-page="pages/parking.html" data-title="停车管理">
+          <span class="nav-icon">🅿️</span> 停车管理
+        </div>
+        <div class="nav-item" data-page="pages/packages.html" data-title="套餐管理">
+          <span class="nav-icon">📦</span> 套餐管理
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-title">内容管理</div>
+        <div class="nav-item" data-page="pages/points.html" data-title="附近推荐">
+          <span class="nav-icon">📍</span> 附近推荐
+        </div>
+        <div class="nav-item" data-page="pages/reviews.html" data-title="游客评价">
+          <span class="nav-icon">💬</span> 游客评价
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-title">数据中心</div>
+        <div class="nav-item" data-page="pages/export.html" data-title="导出数据">
+          <span class="nav-icon">📤</span> 导出数据
+        </div>
+        <div class="nav-item" data-page="pages/ota.html" data-title="OTA渠道">
+          <span class="nav-icon">🔗</span> OTA渠道
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-title">系统</div>
+        <div class="nav-item" data-page="pages/settings.html" data-title="系统设置">
+          <span class="nav-icon">⚙️</span> 系统设置
+        </div>
+        <div class="nav-item" id="logoutBtn" data-title="退出登录">
+          <span class="nav-icon">🚪</span> 退出登录
+        </div>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      &copy; 2026 景区智慧管理系统
+    </div>
+  </aside>
+
+  <!-- ========== Main Content ========== -->
+  <div class="main">
+    <header class="main-header">
+      <div class="breadcrumb">
+        🏠 首页 / <span id="pageBreadcrumb">数据看板</span>
+      </div>
+      <div class="header-actions">
+        <div class="header-time" id="headerTime">--</div>
+        <div class="header-user">
+          <div class="avatar">管</div>
+          <span>管理员</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <iframe id="contentFrame" src="pages/dashboard.html" title="内容区"></iframe>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // Auth check
+  var token = localStorage.getItem('scenic_token');
+  if (!token) { location.href = 'pages/login.html'; return; }
+
+  var iframe = document.getElementById('contentFrame');
+  var breadcrumb = document.getElementById('pageBreadcrumb');
+  var timeEl = document.getElementById('headerTime');
+  var navItems = document.querySelectorAll('.sidebar .nav-item[data-page]');
+
+  // Clock update
+  function updateTime() {
+    var now = new Date();
+    var str = now.getFullYear() + '\u5E74' +
+      (now.getMonth()+1) + '\u6708' +
+      now.getDate() + '\u65E5 ' +
+      String(now.getHours()).padStart(2,'0') + ':' +
+      String(now.getMinutes()).padStart(2,'0') + ':' +
+      String(now.getSeconds()).padStart(2,'0');
+    timeEl.textContent = str;
+  }
+  updateTime();
+  setInterval(updateTime, 1000);
+
+  // Navigation
+  navItems.forEach(function(item) {
+    item.addEventListener('click', function() {
+      navItems.forEach(function(n) { n.classList.remove('active'); });
+      item.classList.add('active');
+      var page = item.getAttribute('data-page');
+      var title = item.getAttribute('data-title');
+      iframe.src = page;
+      breadcrumb.textContent = title;
+    });
+  });
+
+  // Logout
+  document.getElementById('logoutBtn').addEventListener('click', function() {
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem('scenic_token');
+      location.href = 'pages/login.html';
+    }
+  });
+
+  // Expose token helper for iframe pages
+  window.getScenicToken = function() {
+    return localStorage.getItem('scenic_token') || '';
+  };
+
+  // ── Mobile Sidebar Toggle ──
+  window.toggleSidebar = function() {
+    var sidebar = document.getElementById('sidebar');
+    var overlay = document.getElementById('sidebarOverlay');
+    var isOpen = sidebar.classList.contains('open');
+    if (isOpen) {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('show');
+    } else {
+      sidebar.classList.add('open');
+      overlay.classList.add('show');
+    }
+  };
+
+  window.closeSidebar = function() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('show');
+  };
+
+  // Close sidebar when a nav item is clicked (mobile)
+  navItems.forEach(function(item) {
+    item.addEventListener('click', function() {
+      closeSidebar();
+    });
+  });
+
+})();
+</script>
+</body>
+</html>

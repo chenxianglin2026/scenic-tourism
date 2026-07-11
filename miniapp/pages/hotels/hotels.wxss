@@ -1,0 +1,117 @@
+/* 客房页样式 */
+.page-container {
+  padding-bottom: 60rpx;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 酒店切换 */
+.hotel-tabs {
+  /* placeholder */
+}
+
+.hotel-tab {
+  padding: 12rpx 28rpx;
+  border-radius: 20rpx;
+  font-size: 26rpx;
+  white-space: nowrap;
+  background: #F5F0E8;
+  color: #8B7E6A;
+}
+
+.hotel-tab.active {
+  background: #c8a052;
+  color: #FFFFFF;
+}
+
+/* Tab 头部 */
+.tab-bar-header {
+  display: flex;
+  background: #FFFFFF;
+  padding: 10rpx 30rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(61, 50, 38, 0.04);
+}
+
+.tab-item {
+  padding: 16rpx 0;
+  font-size: 28rpx;
+  color: #8B7E6A;
+  border-bottom: 4rpx solid transparent;
+  transition: all 0.3s;
+}
+
+.tab-item.active {
+  color: #c8a052;
+  border-bottom-color: #c8a052;
+  font-weight: 600;
+}
+
+/* 房型卡片 */
+.room-card {
+  margin-bottom: 20rpx;
+}
+
+.room-img {
+  /* placeholder, overridden inline */
+}
+
+.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* 表单 */
+.form-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+}
+
+.form-label {
+  font-size: 28rpx;
+  color: #3D3226;
+  font-weight: 500;
+}
+
+.form-input {
+  width: 100%;
+  padding: 20rpx;
+  border: 2rpx solid #E8E0D5;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  background: #FAF7F2;
+}
+
+.qty-btn {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: #F5F0E8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  color: #3D3226;
+}
+
+.qty-btn:active {
+  background: #E8E0D5;
+}
+
+/* 订单成功 */
+.order-success-icon {
+  font-size: 100rpx;
+}
+
+.loading-text {
+  text-align: center;
+  padding: 40rpx;
+  color: #B0A492;
+  font-size: 28rpx;
+}

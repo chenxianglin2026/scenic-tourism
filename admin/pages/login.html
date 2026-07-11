@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>景区管理 - 登录</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:linear-gradient(135deg,#1e1c18 0%,#2c2416 100%);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+}
+.box{
+  background:#fff;border-radius:16px;padding:40px;width:360px;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);
+}
+.box h1{text-align:center;font-size:22px;color:#2c2416;margin-bottom:4px}
+.box .sub{text-align:center;font-size:13px;color:#968c7a;margin-bottom:24px}
+.box .logo{text-align:center;font-size:48px;margin-bottom:8px}
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:13px;color:#6b5e4a;margin-bottom:4px}
+.fg input{
+  width:100%;padding:10px 12px;border:1px solid #e5ded0;
+  border-radius:6px;font-size:14px;outline:none;
+}
+.fg input:focus{border-color:#c8a052;box-shadow:0 0 0 3px rgba(200,160,82,.12)}
+.btn{
+  width:100%;padding:12px;background:#c8a052;color:#fff;
+  border:none;border-radius:6px;font-size:15px;cursor:pointer;margin-top:4px;
+}
+.btn:hover{background:#9a7a32}
+.err{color:#f5222d;font-size:13px;text-align:center;margin-top:12px;display:none}
+.back{text-align:center;margin-top:16px;font-size:13px}
+.back a{color:#968c7a;text-decoration:none}
+.back a:hover{color:#c8a052}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="logo">🏞️</div>
+  <h1>景区智慧管理系统</h1>
+  <div class="sub">请登录管理后台</div>
+  <form id="f">
+    <div class="fg"><label>用户名</label><input id="u" placeholder="请输入用户名" required></div>
+    <div class="fg"><label>密码</label><input id="p" type="password" placeholder="请输入密码" required></div>
+    <button type="submit" class="btn">登 录</button>
+  </form>
+  <div class="err" id="e"></div>
+  <div class="back"><a href="/">返回首页</a></div>
+</div>
+<script>
+document.getElementById('f').addEventListener('submit',async function(ev){
+  ev.preventDefault();
+  var u = document.getElementById('u').value;
+  var p = document.getElementById('p').value;
+  document.getElementById('e').style.display='none';
+  try {
+    var r = await fetch('/api/auth/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:u, password:p})
+    });
+    var j = await r.json();
+    var t = j.access_token || (j.data && j.data.access_token);
+    if (t) {
+      localStorage.setItem('scenic_token', t);
+      location.href = '../index.html';
+    } else {
+      var el = document.getElementById('e');
+      el.textContent = j.msg || j.detail || '\u767B\u5F55\u5931\u8D25';
+      el.style.display='block';
+    }
+  } catch(x) {
+    var el = document.getElementById('e');
+    el.textContent = '\u7F51\u7EDC\u9519\u8BEF';
+    el.style.display='block';
+  }
+});
+</script>
+</body>
+</html>

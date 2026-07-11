@@ -1,0 +1,116 @@
+/* 景区介绍 + 导览 */
+.page-container {
+  padding-bottom: 20rpx;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 封面 */
+.scenic-cover {
+  width: 100%;
+  height: 400rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, #c8a052, #D4B896);
+}
+
+.cover-text {
+  color: #fff;
+  text-shadow: 0 2rpx 8rpx rgba(0,0,0,0.3);
+}
+
+.cover-rating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  color: #fff;
+}
+
+/* 景区信息卡片 */
+.scenic-info-card {
+  margin-top: -40rpx;
+  position: relative;
+  z-index: 2;
+}
+
+/* 信息行 */
+.info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  font-size: 28rpx;
+}
+
+.info-icon {
+  font-size: 32rpx;
+  width: 40rpx;
+  text-align: center;
+}
+
+/* 分类筛选 */
+.category-scroll {
+  white-space: nowrap;
+  width: 100%;
+}
+
+.category-list {
+  display: inline-flex;
+  gap: 12rpx;
+  padding-bottom: 10rpx;
+}
+
+.category-item {
+  display: inline-block;
+  padding: 12rpx 24rpx;
+  border-radius: 24rpx;
+  background: #FAF7F2;
+  font-size: 26rpx;
+  color: #8B7E6A;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.category-item.active {
+  background: #c8a052;
+  color: #fff;
+}
+
+/* POI列表项 */
+.poi-item {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+}
+
+.poi-icon {
+  font-size: 44rpx;
+  width: 60rpx;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 200rpx 0;
+}
+
+.loading-state .text {
+  font-size: 28rpx;
+  color: #B0A492;
+}

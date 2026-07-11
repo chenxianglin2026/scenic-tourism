@@ -1,0 +1,95 @@
+<!--
+  附近推荐: 景区周边餐饮/购物/娱乐
+  金色主题，分类筛选 + 列表展示
+-->
+<view class="page-container">
+
+  <!-- 分类筛选 -->
+  <scroll-view scroll-x class="category-bar">
+    <view class="category-list">
+      <view
+        wx:for="{{categories}}"
+        wx:key="key"
+        class="category-item {{activeCategory === item.key ? 'active' : ''}}"
+        bindtap="onCategoryTap"
+        data-key="{{item.key}}"
+      >
+        <view class="category-icon">{{item.icon}}</view>
+        <view class="category-label">{{item.label}}</view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 点位列表 -->
+  <view wx:if="{{loading && points.length === 0}}" class="loading-state">
+    <view class="text">加载中...</view>
+  </view>
+
+  <view wx:elif="{{points.length === 0}}" class="empty-state">
+    <view class="icon">🗺️</view>
+    <view class="text">暂无附近推荐</view>
+  </view>
+
+  <view wx:else>
+    <view
+      wx:for="{{points}}"
+      wx:key="id"
+      class="card point-card"
+      bindtap="onPointTap"
+      data-id="{{item.id}}"
+    >
+      <!-- 头部: 名称 + 评分 + 分类标签 -->
+      <view class="flex-between">
+        <view class="flex-row" style="flex:1; min-width:0;">
+          <view class="text-bold text-dark point-name">{{item.name}}</view>
+          <view class="tag tag-gold ml-10 point-cat-tag">
+            {{item.category === 'dining' ? '餐饮' : (item.category === 'shopping' ? '购物' : (item.category === 'entertainment' ? '娱乐' : item.category))}}
+          </view>
+        </view>
+        <view class="flex-row">
+          <text class="rating-star">⭐</text>
+          <text class="text-sm text-bold text-dark ml-10">{{item.rating || '--'}}</text>
+        </view>
+      </view>
+
+      <!-- 描述 -->
+      <view wx:if="{{item.description}}" class="text-sm text-light mt-10 point-desc">
+        {{item.description}}
+      </view>
+
+      <!-- 底部信息行 -->
+      <view class="flex-row mt-10" style="flex-wrap:wrap; gap:10rpx;">
+        <text wx:if="{{item.distance !== null && item.distance !== undefined}}" class="text-sm text-light">
+          📏 {{item.distance}}km
+        </text>
+        <text wx:if="{{item.price_range}}" class="text-sm text-light">
+          💰 {{item.price_range}}
+        </text>
+        <text wx:if="{{item.open_time}}" class="text-sm text-light">
+          🕐 {{item.open_time}}
+        </text>
+      </view>
+
+      <!-- 操作按钮行 -->
+      <view wx:if="{{item.phone || (item.lat && item.lng)}}" class="flex-row mt-10" style="gap: 16rpx;">
+        <view wx:if="{{item.lat && item.lng}}" class="btn-ghost" catchtap="onNavigate" data-id="{{item.id}}">
+          🧭 导航
+        </view>
+        <view wx:if="{{item.phone}}" class="btn-ghost" catchtap="onCall" data-id="{{item.id}}">
+          📞 致电
+        </view>
+      </view>
+    </view>
+
+    <!-- 加载更多 -->
+    <view wx:if="{{loading && points.length > 0}}" class="loading-more">
+      <text class="text-sm text-light">加载更多...</text>
+    </view>
+    <view wx:elif="{{!hasMore && points.length > 0}}" class="loading-more">
+      <text class="text-sm text-lighter">— 已加载全部 —</text>
+    </view>
+
+    <view class="safe-bottom" style="height: 40rpx;"></view>
+  </view>
+
+</view>
