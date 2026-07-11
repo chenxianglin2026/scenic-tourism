@@ -124,7 +124,7 @@ function lg() {
   return fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+    body: JSON.stringify({ username: 'admin', password: p })
   }).then(function(r) { return r.json(); }).then(function(j) {
     var k = 'acc' + 'ess_' + 'tok' + 'en';
     tk = j[k] || (j.data && j.data[k]) || '';
