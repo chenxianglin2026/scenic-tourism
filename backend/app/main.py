@@ -11,7 +11,7 @@ import os
 
 from app.config import settings
 from app.db import init_db
-from app.api import auth, tickets, hotels, dashboard, payment, scenic, parking, export, ota, packages
+from app.api import auth, tickets, hotels, rooms, dashboard, payment, scenic, parking, export, ota, packages
 
 
 @asynccontextmanager
@@ -45,6 +45,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(tickets.router)
 app.include_router(hotels.router)
+app.include_router(rooms.router)
 app.include_router(dashboard.router)
 app.include_router(payment.router)
 app.include_router(scenic.router)
