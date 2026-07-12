@@ -574,6 +574,10 @@ async def refund_hotel_order(
 
 
 # ── 按订单号查询（供支付回调使用） ──────────────────
+
+@router.get("/_test", summary="TEST")
+async def test_endpoint():
+    return {"ok": True}
 @router.get("/orders/detail/{order_no}", response_model=HotelOrderOut, summary="按订单号查询")
 async def get_hotel_order_by_no(
     order_no: str,
