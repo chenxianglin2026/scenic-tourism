@@ -121,7 +121,7 @@ var orders = [];
 var tk = '';
 
 function lg() {
-  return fetch('/api/auth/login', {
+  return fetch('/scenic/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: 'admin', password: p })
@@ -164,7 +164,7 @@ function closeModal() { document.getElementById('ci-modal').classList.remove('sh
 function doCheckin() {
   var oid = parseInt(document.getElementById('ci-order').value) || 0;
   if (!oid) { ts('请输入订单ID', 'error'); return; }
-  api('/api/hotels/orders/' + oid + '/checkin', { method: 'POST' }).then(function(j) {
+  api('/scenic/api/hotels/orders/' + oid + '/checkin', { method: 'POST' }).then(function(j) {
     ts(j.message || '入住成功', j.success ? 'ok' : 'error');
     closeModal();
     loadAll();
@@ -173,7 +173,7 @@ function doCheckin() {
 
 function doCheckout(oid) {
   if (!confirm('确认退房?')) return;
-  api('/api/hotels/orders/' + oid + '/checkout', { method: 'POST' }).then(function(j) {
+  api('/scenic/api/hotels/orders/' + oid + '/checkout', { method: 'POST' }).then(function(j) {
     ts(j.message || '退房成功', j.success ? 'ok' : 'error');
     loadAll();
   }).catch(function(e) { ts('退房失败: ' + e.message, 'error'); });
@@ -286,7 +286,7 @@ function onHotelChange() {
 
 function loadAll() {
   // Load hotels with rooms
-  return api('/api/hotels').then(function(data) {
+  return api('/scenic/api/hotels').then(function(data) {
     hotels = data || [];
     rooms = [];
     hotels.forEach(function(ht) {
@@ -301,7 +301,7 @@ function loadAll() {
       sel.innerHTML += '<option value="' + ht.id + '"' + (curHotel === ht.id ? ' selected' : '') + '>' + ht.name + '</option>';
     });
     // Load orders
-    return api('/api/hotels/orders');
+    return api('/scenic/api/hotels/orders');
   }).then(function(data) {
     var resp = data;
     if (resp && resp.items) orders = resp.items;

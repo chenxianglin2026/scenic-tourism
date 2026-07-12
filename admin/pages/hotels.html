@@ -205,7 +205,7 @@
   // ── Load Hotels ──
   async function loadHotels() {
     try {
-      var res = await fetch('/api/hotels', { headers: headers });
+      var res = await fetch('/scenic/api/hotels', { headers: headers });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       var data = await res.json();
       hotels = Array.isArray(data) ? data : (data.data || []);
@@ -290,7 +290,7 @@
       var status = document.getElementById('hotelOrderStatusFilter').value;
       var params = new URLSearchParams({ page: hotelOrderPage, page_size: hotelOrderPageSize });
       if (status) params.set('status', status);
-      var res = await fetch('/api/hotels/orders?' + params, { headers: headers });
+      var res = await fetch('/scenic/api/hotels/orders?' + params, { headers: headers });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       var json = await res.json();
       renderHotelOrders(json);
@@ -344,7 +344,7 @@
     var description = document.getElementById('hotelDesc').value.trim();
     if (!name || !address) { toast('请填写酒店名称和地址', 'error'); return; }
     try {
-      var res = await fetch('/api/hotels', { method: 'POST', headers: headers,
+      var res = await fetch('/scenic/api/hotels', { method: 'POST', headers: headers,
         body: JSON.stringify({ spot_id: spotId, name: name, address: address, city: city, district: district || null, phone: phone || null, description: description || null })
       });
       if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '创建失败'); }
@@ -383,7 +383,7 @@
     var description = document.getElementById('roomDesc').value.trim();
     if (!name || !price || isNaN(price)) { toast('请填写房型名称和价格', 'error'); return; }
     try {
-      var res = await fetch('/api/hotels/' + hotelId + '/rooms', { method: 'POST', headers: headers,
+      var res = await fetch('/scenic/api/hotels/' + hotelId + '/rooms', { method: 'POST', headers: headers,
         body: JSON.stringify({ hotel_id: hotelId, name: name, room_type: roomType, price: price, total_count: totalCount, area: area, bed_type: bedType, max_guests: maxGuests, has_window: hasWindow, has_wifi: hasWifi, has_bathtub: hasBathtub, description: description || null })
       });
       if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '创建失败'); }

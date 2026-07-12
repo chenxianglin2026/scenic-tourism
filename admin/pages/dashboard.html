@@ -269,7 +269,7 @@
 
   async function loadDashboard() {
     try {
-      var res = await fetch('/api/dashboard/stats', { headers: headers });
+      var res = await fetch('/scenic/api/dashboard/stats', { headers: headers });
       if (res.status === 401 || res.status === 403) {
         window.top.location.href = 'pages/login.html';
         return;
@@ -289,7 +289,7 @@
 
     // Load scenic info
     try {
-      var scenicRes = await fetch('/api/scenic/info');
+      var scenicRes = await fetch('/scenic/api/scenic/info');
       if (scenicRes.status === 401 || scenicRes.status === 403) {
         window.top.location.href = 'pages/login.html';
         return;
@@ -306,7 +306,7 @@
 
     // Load parking overview (admin all records)
     try {
-      var parkRes = await fetch('/api/parking/records/all', { headers: headers });
+      var parkRes = await fetch('/scenic/api/parking/records/all', { headers: headers });
       if (parkRes.status === 401 || parkRes.status === 403) {
         window.top.location.href = 'pages/login.html';
         return;
@@ -353,7 +353,7 @@
 
   async function loadRevenueReport(period) {
     try {
-      var res = await fetch('/api/dashboard/revenue?period=' + period, { headers: headers });
+      var res = await fetch('/scenic/api/dashboard/revenue?period=' + period, { headers: headers });
       if (res.status === 401 || res.status === 403) {
         window.top.location.href = 'pages/login.html';
         return;
@@ -439,7 +439,7 @@
 
   async function loadReviewStats() {
     try {
-      var res = await fetch('/api/scenic/reviews?page=1&page_size=1', { headers: headers });
+      var res = await fetch('/scenic/api/scenic/reviews?page=1&page_size=1', { headers: headers });
       if (res.status === 401 || res.status === 403) {
         window.top.location.href = 'pages/login.html';
         return;

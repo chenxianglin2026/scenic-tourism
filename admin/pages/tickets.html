@@ -235,7 +235,7 @@
   // ── Load Ticket Types ──
   async function loadTypes() {
     try {
-      var res = await fetch('/api/tickets/types', { headers: headers });
+      var res = await fetch('/scenic/api/tickets/types', { headers: headers });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       ticketTypes = await res.json();
       renderTypes();
@@ -272,7 +272,7 @@
       var status = document.getElementById('orderStatusFilter').value;
       var params = new URLSearchParams({ page: orderPage, page_size: orderPageSize });
       if (status) params.set('status', status);
-      var res = await fetch('/api/tickets/orders?' + params, { headers: headers });
+      var res = await fetch('/scenic/api/tickets/orders?' + params, { headers: headers });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       var json = await res.json();
       renderOrders(json);
@@ -310,7 +310,7 @@
     var qr = document.getElementById('qrInput').value.trim();
     if (!qr) { toast('请输入二维码token', 'error'); return; }
     try {
-      var res = await fetch('/api/tickets/verify', { method:'POST', headers:headers, body:JSON.stringify({qr_token:qr}) });
+      var res = await fetch('/scenic/api/tickets/verify', { method:'POST', headers:headers, body:JSON.stringify({qr_token:qr}) });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       var json = await res.json();
       var el = document.getElementById('verifyResult');
@@ -356,7 +356,7 @@
     // Get spot_id from scenic info
     var spotId = null;
     try {
-      var infoRes = await fetch('/api/scenic/info');
+      var infoRes = await fetch('/scenic/api/scenic/info');
       if (infoRes.ok) {
         var info = await infoRes.json();
         spotId = info.id;
@@ -377,7 +377,7 @@
     };
 
     try {
-      var res = await fetch('/api/tickets/types', {
+      var res = await fetch('/scenic/api/tickets/types', {
         method: 'POST', headers: headers, body: JSON.stringify(body)
       });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
@@ -400,7 +400,7 @@
     var status = document.getElementById('orderStatusFilter').value;
     var params = [];
     if (status) params.push('status=' + encodeURIComponent(status));
-    var url = '/api/export/tickets' + (params.length ? '?' + params.join('&') : '');
+    var url = '/scenic/api/export/tickets' + (params.length ? '?' + params.join('&') : '');
     
     fetch(url, { headers: headers })
       .then(function(res) {

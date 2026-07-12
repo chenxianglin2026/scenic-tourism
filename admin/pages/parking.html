@@ -217,7 +217,7 @@
   // ── Rates ──
   async function loadRates() {
     try {
-      var res = await fetch('/api/parking/rates');
+      var res = await fetch('/scenic/api/parking/rates');
       if (res.status === 401 || res.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var rates = await res.json();
@@ -274,7 +274,7 @@
       var params = new URLSearchParams({ page: recordPage, page_size: recordPageSize });
       if (plate) params.set('plate_number', plate);
       if (status) params.set('status', status);
-      var res = await fetch('/api/parking/records/all?' + params, { headers: headers });
+      var res = await fetch('/scenic/api/parking/records/all?' + params, { headers: headers });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var json = await res.json();
@@ -320,7 +320,7 @@
   // ── Stats ──
   async function loadParkingStats() {
     try {
-      var res = await fetch('/api/parking/records/all?page_size=100', { headers: headers });
+      var res = await fetch('/scenic/api/parking/records/all?page_size=100', { headers: headers });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var json = await res.json();
@@ -425,7 +425,7 @@
       is_active: document.getElementById('editRateActive').checked
     };
     try {
-      var res = await fetch('/api/parking/rates/' + rateId, { method: 'PUT', headers: headers,
+      var res = await fetch('/scenic/api/parking/rates/' + rateId, { method: 'PUT', headers: headers,
         body: JSON.stringify(body)
       });
       if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '修改失败'); }
@@ -458,7 +458,7 @@
     };
     if (!body.name) { toast('请输入停车场名称', 'error'); return; }
     try {
-      var res = await fetch('/api/parking/rates', { method: 'POST', headers: headers,
+      var res = await fetch('/scenic/api/parking/rates', { method: 'POST', headers: headers,
         body: JSON.stringify(body)
       });
       if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '新增失败'); }
@@ -472,7 +472,7 @@
   window.deleteRate = async function(rateId, rateName) {
     if (!confirm('确定删除停车场 "' + rateName + '" 吗？\\n\\n删除后该停车场的费率配置将被永久移除。\\n如有车辆在场，删除将被阻止。')) return;
     try {
-      var res = await fetch('/api/parking/rates/' + rateId, { method: 'DELETE', headers: headers });
+      var res = await fetch('/scenic/api/parking/rates/' + rateId, { method: 'DELETE', headers: headers });
       if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '删除失败'); }
       toast('删除成功', 'success');
       loadRates();
@@ -483,7 +483,7 @@
   window.forceCheckout = function(recordId) {
     if (!confirm('确认强制该车辆出场吗？\\n\\n系统将自动计算停车费用。\\n此操作不可撤销！')) return;
     toast('正在处理...', 'info');
-    fetch('/api/parking/checkout/' + recordId + '/admin', {
+    fetch('/scenic/api/parking/checkout/' + recordId + '/admin', {
       method: 'POST',
       headers: headers,
       body: JSON.stringify({ pay_method: 'cash' })
