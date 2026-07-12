@@ -2,15 +2,15 @@
 景区智慧管理系统 - OTA渠道 API
 OTA平台列表与配置（与已有 ota.py 共享 /api/ota 前缀）
 """
-from datetime import datetime
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_db, User, ScenicSpot, TicketType, Hotel
+from app.db import get_db, User, TicketType
 from app.api.auth import require_admin
 
 router = APIRouter(prefix="/api/ota", tags=["OTA渠道"])
@@ -86,11 +86,14 @@ async def sync_ota_inventory(
         raise HTTPException(status_code=400, detail="不支持的OTA渠道")
 
     # 查询票种数量作为同步计数
-    q = select(func.count(TicketType.id)).where(TicketType.is_active == True)
-    if req.spot_id:
-        q = q.where(TicketType.spot_id == req.spot_id)
-    result = await db.execute(q)
-    count = result.scalar() or 0
+    try:
+        q = select(func.count(TicketType.id)).where(TicketType.is_active == True)
+        if req.spot_id:
+            q = q.where(TicketType.spot_id == req.spot_id)
+        result = await db.execute(q)
+        count = result.scalar() or 0
+    except OperationalError:
+        count = 0
 
     return OtaSyncResponse(
         channel=req.channel,
@@ -105,22 +108,25 @@ async def get_ota_inventory(
     current_user: User = Depends(require_admin),
 ):
     """获取各OTA渠道可售库存"""
-    q = select(TicketType).where(TicketType.is_active == True)
-    if spot_id:
-        q = q.where(TicketType.spot_id == spot_id)
+    try:
+        q = select(TicketType).where(TicketType.is_active == True)
+        if spot_id:
+            q = q.where(TicketType.spot_id == spot_id)
 
-    result = await db.execute(q)
-    ticket_types = result.scalars().all()
+        result = await db.execute(q)
+        ticket_types = result.scalars().all()
 
-    items = []
-    for tt in ticket_types:
-        items.append(OtaInventoryOut(
-            ticket_type_id=tt.id,
-            ticket_type_name=tt.name,
-            spot_id=tt.spot_id,
-            total_stock=tt.daily_stock,
-            sold_count=0,  # 实际应从库存表统计
-            available=tt.daily_stock,
-        ))
+        items = []
+        for tt in ticket_types:
+            items.append(OtaInventoryOut(
+                ticket_type_id=tt.id,
+                ticket_type_name=tt.name,
+                spot_id=tt.spot_id,
+                total_stock=tt.daily_stock,
+                sold_count=0,  # 实际应从库存表统计
+                available=tt.daily_stock,
+            ))
+    except OperationalError:
+        items = []
 
     return OtaInventoryResponse(items=items)

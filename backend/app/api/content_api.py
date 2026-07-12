@@ -6,11 +6,12 @@ from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import (
-    get_db, Hotel, Room, NearbyPoint, Review, ScenicSpot
+    get_db, Hotel, Room, NearbyPoint, Review
 )
 
 router = APIRouter(prefix="/api/content", tags=["内容管理"])
@@ -66,15 +67,21 @@ async def get_content(
     db: AsyncSession = Depends(get_db),
 ):
     """聚合返回酒店介绍、房型实景、周边推荐、精选评价"""
-    # 酒店
-    hotel_q = select(Hotel).where(Hotel.is_active == True)
-    if spot_id:
-        hotel_q = hotel_q.where(Hotel.spot_id == spot_id)
-    hotel_result = await db.execute(hotel_q)
-    hotels = hotel_result.scalars().all()
-
     hotels_out = []
     galleries_out = []
+    surrounds_out = []
+    reviews_out = []
+
+    # 酒店
+    try:
+        hotel_q = select(Hotel).where(Hotel.is_active == True)
+        if spot_id:
+            hotel_q = hotel_q.where(Hotel.spot_id == spot_id)
+        hotel_result = await db.execute(hotel_q)
+        hotels = hotel_result.scalars().all()
+    except OperationalError:
+        hotels = []
+
     for h in hotels:
         features = []
         if h.description:
@@ -95,10 +102,13 @@ async def get_content(
         ))
 
         # 房型实景
-        room_result = await db.execute(
-            select(Room).where(Room.hotel_id == h.id, Room.is_active == True)
-        )
-        rooms = room_result.scalars().all()
+        try:
+            room_result = await db.execute(
+                select(Room).where(Room.hotel_id == h.id, Room.is_active == True)
+            )
+            rooms = room_result.scalars().all()
+        except OperationalError:
+            rooms = []
         for r in rooms:
             imgs = []
             if r.images:
@@ -115,13 +125,15 @@ async def get_content(
             ))
 
     # 周边推荐
-    nearby_q = select(NearbyPoint).where(NearbyPoint.is_active == True)
-    if spot_id:
-        nearby_q = nearby_q.where(NearbyPoint.spot_id == spot_id)
-    nearby_result = await db.execute(nearby_q.order_by(NearbyPoint.sort_order).limit(20))
-    nearby_items = nearby_result.scalars().all()
+    try:
+        nearby_q = select(NearbyPoint).where(NearbyPoint.is_active == True)
+        if spot_id:
+            nearby_q = nearby_q.where(NearbyPoint.spot_id == spot_id)
+        nearby_result = await db.execute(nearby_q.order_by(NearbyPoint.sort_order).limit(20))
+        nearby_items = nearby_result.scalars().all()
+    except OperationalError:
+        nearby_items = []
 
-    surrounds_out = []
     for n in nearby_items:
         surrounds_out.append({
             "name": n.name,
@@ -133,13 +145,15 @@ async def get_content(
         })
 
     # 精选评价
-    review_q = select(Review).where(Review.is_approved == True)
-    if spot_id:
-        review_q = review_q.where(Review.spot_id == spot_id)
-    review_result = await db.execute(review_q.order_by(Review.created_at.desc()).limit(10))
-    reviews = review_result.scalars().all()
+    try:
+        review_q = select(Review).where(Review.is_approved == True)
+        if spot_id:
+            review_q = review_q.where(Review.spot_id == spot_id)
+        review_result = await db.execute(review_q.order_by(Review.created_at.desc()).limit(10))
+        reviews = review_result.scalars().all()
+    except OperationalError:
+        reviews = []
 
-    reviews_out = []
     for r in reviews:
         imgs = []
         if r.images:

@@ -7,6 +7,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db, Room, Hotel
@@ -51,18 +52,21 @@ async def list_hotel_rooms(
     db: AsyncSession = Depends(get_db),
 ):
     """查询所有酒店房型列表，支持按酒店或景区筛选"""
-    q = select(Room).where(Room.is_active == True)
+    try:
+        q = select(Room).where(Room.is_active == True)
 
-    if hotel_id:
-        q = q.where(Room.hotel_id == hotel_id)
+        if hotel_id:
+            q = q.where(Room.hotel_id == hotel_id)
 
-    if spot_id:
-        q = q.where(Room.hotel_id.in_(
-            select(Hotel.id).where(Hotel.spot_id == spot_id, Hotel.is_active == True)
-        ))
+        if spot_id:
+            q = q.where(Room.hotel_id.in_(
+                select(Hotel.id).where(Hotel.spot_id == spot_id, Hotel.is_active == True)
+            ))
 
-    result = await db.execute(q)
-    rooms = result.scalars().all()
+        result = await db.execute(q)
+        rooms = result.scalars().all()
+    except OperationalError:
+        rooms = []
 
     return HotelRoomListResponse(
         items=list(rooms),

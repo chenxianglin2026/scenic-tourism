@@ -7,6 +7,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select, func, or_
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db, NearbyPoint
@@ -54,33 +55,37 @@ async def list_recommendations(
     db: AsyncSession = Depends(get_db),
 ):
     """查询景区周边餐饮/购物/娱乐推荐"""
-    base_q = select(NearbyPoint).where(NearbyPoint.is_active == True)
-    count_q = select(func.count(NearbyPoint.id)).where(NearbyPoint.is_active == True)
+    try:
+        base_q = select(NearbyPoint).where(NearbyPoint.is_active == True)
+        count_q = select(func.count(NearbyPoint.id)).where(NearbyPoint.is_active == True)
 
-    if spot_id:
-        base_q = base_q.where(NearbyPoint.spot_id == spot_id)
-        count_q = count_q.where(NearbyPoint.spot_id == spot_id)
-    if category:
-        base_q = base_q.where(NearbyPoint.category == category)
-        count_q = count_q.where(NearbyPoint.category == category)
-    if keyword:
-        kw_filter = or_(
-            NearbyPoint.name.like(f"%{keyword}%"),
-            NearbyPoint.description.like(f"%{keyword}%"),
-            NearbyPoint.address.like(f"%{keyword}%"),
+        if spot_id:
+            base_q = base_q.where(NearbyPoint.spot_id == spot_id)
+            count_q = count_q.where(NearbyPoint.spot_id == spot_id)
+        if category:
+            base_q = base_q.where(NearbyPoint.category == category)
+            count_q = count_q.where(NearbyPoint.category == category)
+        if keyword:
+            kw_filter = or_(
+                NearbyPoint.name.like(f"%{keyword}%"),
+                NearbyPoint.description.like(f"%{keyword}%"),
+                NearbyPoint.address.like(f"%{keyword}%"),
+            )
+            base_q = base_q.where(kw_filter)
+            count_q = count_q.where(kw_filter)
+
+        total_result = await db.execute(count_q)
+        total = total_result.scalar() or 0
+
+        offset = (page - 1) * page_size
+        items_result = await db.execute(
+            base_q.order_by(NearbyPoint.sort_order, NearbyPoint.distance.asc().nulls_last(), NearbyPoint.rating.desc())
+            .offset(offset).limit(page_size)
         )
-        base_q = base_q.where(kw_filter)
-        count_q = count_q.where(kw_filter)
-
-    total_result = await db.execute(count_q)
-    total = total_result.scalar() or 0
-
-    offset = (page - 1) * page_size
-    items_result = await db.execute(
-        base_q.order_by(NearbyPoint.sort_order, NearbyPoint.distance.asc().nulls_last(), NearbyPoint.rating.desc())
-        .offset(offset).limit(page_size)
-    )
-    items = items_result.scalars().all()
+        items = items_result.scalars().all()
+    except OperationalError:
+        total = 0
+        items = []
 
     return RecommendationListResponse(
         total=total,

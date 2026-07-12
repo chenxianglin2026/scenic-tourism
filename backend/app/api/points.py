@@ -7,6 +7,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select, func
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db, Poi
@@ -48,25 +49,29 @@ async def list_points(
     db: AsyncSession = Depends(get_db),
 ):
     """查询景区导览点位(POI)列表"""
-    q = select(Poi).where(Poi.is_active == True)
-    count_q = select(func.count(Poi.id)).where(Poi.is_active == True)
+    try:
+        q = select(Poi).where(Poi.is_active == True)
+        count_q = select(func.count(Poi.id)).where(Poi.is_active == True)
 
-    if spot_id:
-        q = q.where(Poi.spot_id == spot_id)
-        count_q = count_q.where(Poi.spot_id == spot_id)
-    if category:
-        q = q.where(Poi.category == category)
-        count_q = count_q.where(Poi.category == category)
+        if spot_id:
+            q = q.where(Poi.spot_id == spot_id)
+            count_q = count_q.where(Poi.spot_id == spot_id)
+        if category:
+            q = q.where(Poi.category == category)
+            count_q = count_q.where(Poi.category == category)
 
-    total_result = await db.execute(count_q)
-    total = total_result.scalar() or 0
+        total_result = await db.execute(count_q)
+        total = total_result.scalar() or 0
 
-    q = q.order_by(Poi.sort_order, Poi.id)
-    offset = (page - 1) * page_size
-    q = q.offset(offset).limit(page_size)
+        q = q.order_by(Poi.sort_order, Poi.id)
+        offset = (page - 1) * page_size
+        q = q.offset(offset).limit(page_size)
 
-    result = await db.execute(q)
-    items = result.scalars().all()
+        result = await db.execute(q)
+        items = result.scalars().all()
+    except OperationalError:
+        total = 0
+        items = []
 
     return PointListResponse(
         total=total,

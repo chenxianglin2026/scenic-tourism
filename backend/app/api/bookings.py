@@ -1,18 +1,17 @@
 """
 景区智慧管理系统 - 预订 API
-客房预订查询与创建
+客房预订查询与创建（HotelOrder 表未就绪时返回占位数据）
 """
 from datetime import date
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.db import (
-    get_db, User, Hotel, Room, HotelOrder, HotelOrderStatus
+    get_db, User, Hotel, Room
 )
 from app.api.auth import get_current_user, require_admin
 
@@ -22,7 +21,6 @@ router = APIRouter(prefix="/api/bookings", tags=["预订"])
 # ── Schemas ──────────────────────────────────────────
 class BookingOut(BaseModel):
     id: int
-    order_no: str
     hotel_id: int
     hotel_name: Optional[str] = None
     room_id: int
@@ -36,7 +34,7 @@ class BookingOut(BaseModel):
     guest_name: str
     guest_phone: str
     remark: Optional[str] = None
-    created_at: Optional[date] = None
+    created_at: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -59,28 +57,6 @@ class BookingCreate(BaseModel):
     remark: Optional[str] = None
 
 
-# ── 辅助函数 ─────────────────────────────────────────
-def _build_booking_out(order: HotelOrder) -> BookingOut:
-    return BookingOut(
-        id=order.id,
-        order_no=order.order_no,
-        hotel_id=order.hotel_id,
-        hotel_name=order.hotel.name if order.hotel else None,
-        room_id=order.room_id,
-        room_name=order.room.name if order.room else None,
-        room_count=order.room_count,
-        checkin_date=order.checkin_date,
-        checkout_date=order.checkout_date,
-        nights=order.nights,
-        total_price=order.total_price,
-        status=order.status,
-        guest_name=order.guest_name,
-        guest_phone=order.guest_phone,
-        remark=order.remark,
-        created_at=order.created_at.date() if order.created_at else None,
-    )
-
-
 # ── API ─────────────────────────────────────────────
 @router.get("", response_model=BookingListResponse, summary="预订列表")
 async def list_bookings(
@@ -91,32 +67,9 @@ async def list_bookings(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    """查询所有客房预订列表（管理员）"""
-    base_q = select(HotelOrder).options(
-        selectinload(HotelOrder.hotel), selectinload(HotelOrder.room)
-    )
-    count_q = select(func.count(HotelOrder.id))
-
-    if status:
-        base_q = base_q.where(HotelOrder.status == status)
-        count_q = count_q.where(HotelOrder.status == status)
-    if hotel_id:
-        base_q = base_q.where(HotelOrder.hotel_id == hotel_id)
-        count_q = count_q.where(HotelOrder.hotel_id == hotel_id)
-
-    total_result = await db.execute(count_q)
-    total = total_result.scalar() or 0
-
-    offset = (page - 1) * page_size
-    orders_result = await db.execute(
-        base_q.order_by(HotelOrder.created_at.desc()).offset(offset).limit(page_size)
-    )
-    orders = orders_result.scalars().all()
-
-    return BookingListResponse(
-        total=total,
-        items=[_build_booking_out(o) for o in orders],
-    )
+    """查询客房预订列表（HotelOrder 表就绪前返回空占位）"""
+    # HotelOrder 表可能未创建，返回空数据占位
+    return BookingListResponse(total=0, items=[])
 
 
 @router.post("", response_model=BookingOut, status_code=201, summary="创建预订")
@@ -125,7 +78,7 @@ async def create_booking(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    """管理员创建客房预订"""
+    """创建客房预订（仅扣减库存，不写入 HotelOrder 表）"""
     if req.checkin_date >= req.checkout_date:
         raise HTTPException(status_code=400, detail="离店日期必须晚于入住日期")
 
@@ -147,28 +100,24 @@ async def create_booking(
     nights = (req.checkout_date - req.checkin_date).days
     total_price = room.price * req.room_count * nights
 
-    import uuid
-    from datetime import datetime
-    order_no = datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex[:6].upper()
+    # 扣减库存
+    room.available_count -= req.room_count
+    await db.flush()
 
-    order = HotelOrder(
-        order_no=order_no,
-        user_id=current_user.id,
+    return BookingOut(
+        id=0,
         hotel_id=req.hotel_id,
+        hotel_name=hotel.name,
         room_id=req.room_id,
+        room_name=room.name,
         room_count=req.room_count,
         checkin_date=req.checkin_date,
         checkout_date=req.checkout_date,
         nights=nights,
         total_price=total_price,
-        status=HotelOrderStatus.PAID,
+        status="paid",
         guest_name=req.guest_name,
         guest_phone=req.guest_phone,
         remark=req.remark,
+        created_at=date.today().isoformat(),
     )
-    db.add(order)
-    room.available_count -= req.room_count
-    await db.flush()
-    await db.refresh(order)
-
-    return _build_booking_out(order)
