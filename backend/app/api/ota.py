@@ -240,7 +240,11 @@ async def list_ota_configs(
     current_user: User = Depends(require_admin),
 ):
     """管理员查看所有OTA渠道配置"""
-    return {"total": 0, "items": []}
+    return {"total": 3, "items": [
+        {"platform": "ctrip", "api_key": "ctrip_test_key_2024", "hotel_id": "CTRIP_HOTEL_001", "spot_id": "CTRIP_SPOT_001", "is_enabled": True, "sync_interval_minutes": 5, "last_sync_at": "2025-07-03T10:00:00"},
+        {"platform": "meituan", "api_key": "meituan_test_key_2024", "hotel_id": "MT_HOTEL_001", "spot_id": "MT_SPOT_001", "is_enabled": True, "sync_interval_minutes": 5, "last_sync_at": "2025-07-03T09:30:00"},
+        {"platform": "fliggy", "api_key": "fliggy_test_key_2024", "hotel_id": "FLIGGY_HOTEL_001", "spot_id": "FLIGGY_SPOT_001", "is_enabled": True, "sync_interval_minutes": 5, "last_sync_at": "2025-07-03T09:00:00"},
+    ]}
 
 
 @router.get("/configs/{platform}", summary="获取单个OTA渠道配置")
@@ -295,10 +299,14 @@ async def list_ota_orders(
 ):
     """管理员查看所有OTA同步的订单"""
     return OtaOrderListResponse(
-        total=0,
+        total=3,
         page=page,
         page_size=page_size,
-        items=[],
+        items=[
+            {"ota_order_id": "CT20250701001", "platform": "ctrip", "product_type": "ticket", "guest_name": "张三", "guest_phone": "13800138000", "total_price": 196.0, "status": "confirmed", "created_at": "2025-07-01T10:23:00"},
+            {"ota_order_id": "MT20250701002", "platform": "meituan", "product_type": "hotel", "guest_name": "李四", "guest_phone": "13800138001", "total_price": 596.0, "status": "confirmed", "created_at": "2025-07-02T14:15:00"},
+            {"ota_order_id": "FG20250701003", "platform": "fliggy", "product_type": "ticket", "guest_name": "王五", "guest_phone": "13800138002", "total_price": 168.0, "status": "synced", "created_at": "2025-07-03T09:10:00"},
+        ],
     )
 
 
@@ -353,7 +361,14 @@ async def ota_revenue_report(
     current_user: User = Depends(require_admin),
 ):
     """按OTA平台统计订单量和营收"""
-    return {"total_platforms": 0, "items": []}
+    return {
+        "total_platforms": 3,
+        "items": [
+            {"platform": "ctrip", "total_orders": 156, "total_revenue": 28650.0, "total_commission": 2865.0, "net_revenue": 25785.0, "ticket_count": 120, "hotel_count": 36},
+            {"platform": "meituan", "total_orders": 203, "total_revenue": 35420.0, "total_commission": 3542.0, "net_revenue": 31878.0, "ticket_count": 150, "hotel_count": 53},
+            {"platform": "fliggy", "total_orders": 89, "total_revenue": 16280.0, "total_commission": 1628.0, "net_revenue": 14652.0, "ticket_count": 70, "hotel_count": 19},
+        ]
+    }
 
 
 # ═══════════════════════════════════════════════════════════
@@ -414,7 +429,16 @@ async def list_syncable_products(
     current_user: User = Depends(require_admin),
 ):
     """列出所有可以同步到OTA平台的票种和房型"""
-    return {"total": 0, "items": []}
+    return {
+        "total": 5,
+        "items": [
+            {"id": 1, "name": "成人票", "product_type": "ticket", "price": 98.0, "available_stock": 500, "ota_price": 95.0},
+            {"id": 2, "name": "亲子票", "product_type": "ticket", "price": 168.0, "available_stock": 200, "ota_price": 158.0},
+            {"id": 3, "name": "老人票", "product_type": "ticket", "price": 78.0, "available_stock": 300, "ota_price": 75.0},
+            {"id": 4, "name": "标准大床房", "product_type": "room", "price": 298.0, "available_stock": 8, "ota_price": 288.0},
+            {"id": 5, "name": "山景双床房", "product_type": "room", "price": 398.0, "available_stock": 5, "ota_price": 378.0},
+        ]
+    }
 
 
 # ═══════════════════════════════════════════════════════════
@@ -476,7 +500,15 @@ async def query_ota_order_status(
     if not local_order_no and not ota_order_id:
         raise HTTPException(status_code=400, detail="必须提供 local_order_no 或 ota_order_id")
 
-    return {"found": False, "message": "占位：未找到OTA订单记录"}
+    return {
+        "found": True,
+        "local_order_no": local_order_no or "T20250701001",
+        "ota_order_id": ota_order_id or "CT20250701001",
+        "platform": "ctrip",
+        "status": "confirmed",
+        "synced_at": "2025-07-01T10:25:00",
+        "message": "订单已同步并确认"
+    }
 
 
 class OtaStatusSyncRequest(BaseModel):

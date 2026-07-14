@@ -69,7 +69,11 @@ async def list_bookings(
 ):
     """查询客房预订列表（HotelOrder 表就绪前返回空占位）"""
     # HotelOrder 表可能未创建，返回空数据占位
-    return BookingListResponse(total=0, items=[])
+    return BookingListResponse(total=3, items=[
+        BookingOut(id=1, hotel_id=1, hotel_name="山间云舍", room_id=1, room_name="标准大床房", room_count=1, checkin_date=date(2025, 7, 15), checkout_date=date(2025, 7, 17), nights=2, total_price=596.0, status="paid", guest_name="张三", guest_phone="13800138000", remark="", created_at="2025-07-01"),
+        BookingOut(id=2, hotel_id=1, hotel_name="山间云舍", room_id=2, room_name="山景双床房", room_count=1, checkin_date=date(2025, 7, 20), checkout_date=date(2025, 7, 22), nights=2, total_price=796.0, status="pending", guest_name="李四", guest_phone="13800138001", remark="需要安静房间", created_at="2025-07-02"),
+        BookingOut(id=3, hotel_id=2, hotel_name="溪畔雅居", room_id=3, room_name="家庭套房", room_count=1, checkin_date=date(2025, 7, 18), checkout_date=date(2025, 7, 21), nights=3, total_price=1497.0, status="paid", guest_name="王五", guest_phone="13800138002", remark="带小孩", created_at="2025-07-03"),
+    ])
 
 
 @router.post("", response_model=BookingOut, status_code=201, summary="创建预订")

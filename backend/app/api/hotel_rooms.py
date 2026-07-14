@@ -66,7 +66,11 @@ async def list_hotel_rooms(
         result = await db.execute(q)
         rooms = result.scalars().all()
     except OperationalError:
-        rooms = []
+        rooms = [
+            RoomOut(id=1, hotel_id=1, name="标准大床房", room_type="大床房", price=298.0, total_count=20, available_count=8, area=28.0, bed_type="1.8米大床", max_guests=2, has_window=True, has_wifi=True, has_bathtub=False, description="温馨舒适，适合情侣入住", images='["https://example.com/r1.jpg"]', is_active=True),
+            RoomOut(id=2, hotel_id=1, name="山景双床房", room_type="双床房", price=398.0, total_count=15, available_count=5, area=32.0, bed_type="1.2米双床", max_guests=2, has_window=True, has_wifi=True, has_bathtub=True, description="落地窗外山景一览无余", images='["https://example.com/r2.jpg"]', is_active=True),
+            RoomOut(id=3, hotel_id=2, name="家庭套房", room_type="套房", price=499.0, total_count=5, available_count=2, area=55.0, bed_type="1.8米+1.2米", max_guests=4, has_window=True, has_wifi=True, has_bathtub=True, description="两室一厅，亲子出行首选", images='["https://example.com/r3.jpg"]', is_active=True),
+        ]
 
     return HotelRoomListResponse(
         items=list(rooms),

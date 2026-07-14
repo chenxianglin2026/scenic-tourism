@@ -52,7 +52,17 @@
   .review-stat-row .rs-bar-bg { flex:1; height:8px; background:#f0ede4; border-radius:4px; overflow:hidden; }
   .review-stat-row .rs-bar-fill { height:100%; background:linear-gradient(90deg, #c8a052, #e0c882); border-radius:4px; }
   .review-stat-row .rs-count { font-size:11px; color:var(--text-muted); width:40px; text-align:right; flex-shrink:0; }
-  @media (max-width:768px) { .chart-section,.info-grid,.revenue-summary,.review-stat-row { grid-template-columns:1fr; } }
+  @media (max-width:768px) {
+  .chart-section,.info-grid,.revenue-summary,.review-stat-row { grid-template-columns:1fr; }
+  .btn,button,.period-btn { padding:12px 18px; min-width:44px; min-height:44px; font-size:14px }
+  input,select,textarea { font-size:16px; padding:12px; width:100% }
+  table { display:block; width:100% }
+  table thead { display:none }
+  table tbody,table tr { display:block; width:100% }
+  table td { display:block; width:100%; padding:12px; border-bottom:1px solid var(--border); position:relative }
+  table td:before { content:attr(data-label); font-weight:600; color:var(--text-muted); font-size:12px; display:block; margin-bottom:4px }
+  .page { padding:12px }
+}
 </style>
 </head>
 <body>

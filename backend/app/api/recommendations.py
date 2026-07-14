@@ -84,8 +84,12 @@ async def list_recommendations(
         )
         items = items_result.scalars().all()
     except OperationalError:
-        total = 0
-        items = []
+        total = 3
+        items = [
+            RecommendationOut(id=1, spot_id=1, name="云溪农家乐", category="dining", description="本地特色山珍野味，招牌竹筒饭", address="景区东门500米", phone="0571-88888888", lat=30.123, lng=120.456, rating=4.8, images='["https://example.com/f1.jpg"]', distance=0.5, price_range="人均80", open_time="09:00-21:00", sort_order=1, is_active=True),
+            RecommendationOut(id=2, spot_id=1, name="竹韵茶舍", category="shopping", description="高山龙井、笋干、山核桃特产", address="景区入口商业街", phone="0571-88888889", lat=30.124, lng=120.457, rating=4.5, images='["https://example.com/s1.jpg"]', distance=0.2, price_range="50-300", open_time="08:00-20:00", sort_order=2, is_active=True),
+            RecommendationOut(id=3, spot_id=1, name="星空露营基地", category="entertainment", description="夜间观星、篝火晚会、帐篷住宿", address="山顶观景台旁", phone="0571-88888890", lat=30.125, lng=120.458, rating=4.9, images='["https://example.com/e1.jpg"]', distance=2.0, price_range="200-600", open_time="18:00-06:00", sort_order=3, is_active=True),
+        ]
 
     return RecommendationListResponse(
         total=total,

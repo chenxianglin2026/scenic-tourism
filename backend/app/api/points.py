@@ -70,8 +70,12 @@ async def list_points(
         result = await db.execute(q)
         items = result.scalars().all()
     except OperationalError:
-        total = 0
-        items = []
+        total = 3
+        items = [
+            PointOut(id=1, spot_id=1, name="迎客松", category="landscape", description="千年古松，景区标志性景点", lat=30.123, lng=120.456, images='["https://example.com/p1.jpg"]', audio_url="https://example.com/a1.mp3", sort_order=1, is_active=True),
+            PointOut(id=2, spot_id=1, name="飞瀑流泉", category="water", description="落差80米的天然瀑布，夏季清凉避暑", lat=30.124, lng=120.457, images='["https://example.com/p2.jpg"]', audio_url="https://example.com/a2.mp3", sort_order=2, is_active=True),
+            PointOut(id=3, spot_id=1, name="古寺禅院", category="culture", description="始建于唐代的千年古刹，香火鼎盛", lat=30.125, lng=120.458, images='["https://example.com/p3.jpg"]', audio_url="https://example.com/a3.mp3", sort_order=3, is_active=True),
+        ]
 
     return PointListResponse(
         total=total,

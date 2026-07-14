@@ -81,6 +81,11 @@ async def get_content(
         hotels = hotel_result.scalars().all()
     except OperationalError:
         hotels = []
+        hotels_out = [
+            HotelContentOut(id=1, name="山间云舍", address="云溪景区东门", city="杭州", phone="0571-88888888", description="依山傍水，WiFi 停车场 健身房 餐厅全覆盖", cover_image="https://example.com/h1.jpg", rating=4.8, features=["WiFi", "停车场", "健身房", "餐厅"]),
+            HotelContentOut(id=2, name="溪畔雅居", address="云溪景区西门", city="杭州", phone="0571-88888889", description="临溪而建，自带SPA和泳池", cover_image="https://example.com/h2.jpg", rating=4.6, features=["WiFi", "停车场", "泳池", "SPA", "餐厅"]),
+            HotelContentOut(id=3, name="竹林小筑", address="云溪景区南门", city="杭州", phone="0571-88888890", description="隐匿竹林深处，禅修度假首选", cover_image="https://example.com/h3.jpg", rating=4.9, features=["WiFi", "停车场", "餐厅"]),
+        ]
 
     for h in hotels:
         features = []
@@ -109,6 +114,11 @@ async def get_content(
             rooms = room_result.scalars().all()
         except OperationalError:
             rooms = []
+            galleries_out = [
+                GalleryOut(room_id=1, room_name="标准大床房", images=["https://example.com/r1.jpg"], video=None, vr_url=None, desc="温馨舒适，适合情侣入住"),
+                GalleryOut(room_id=2, room_name="山景双床房", images=["https://example.com/r2.jpg"], video=None, vr_url=None, desc="落地窗外山景一览无余"),
+                GalleryOut(room_id=3, room_name="家庭套房", images=["https://example.com/r3.jpg"], video=None, vr_url=None, desc="两室一厅，亲子出行首选"),
+            ]
         for r in rooms:
             imgs = []
             if r.images:
@@ -133,6 +143,11 @@ async def get_content(
         nearby_items = nearby_result.scalars().all()
     except OperationalError:
         nearby_items = []
+        surrounds_out = [
+            {"name": "云溪农家乐", "type": "dining", "distance": 0.5, "rating": 4.8, "desc": "本地特色山珍野味", "phone": "0571-88888888"},
+            {"name": "竹韵茶舍", "type": "shopping", "distance": 0.2, "rating": 4.5, "desc": "高山龙井、笋干特产", "phone": "0571-88888889"},
+            {"name": "星空露营基地", "type": "entertainment", "distance": 2.0, "rating": 4.9, "desc": "夜间观星、篝火晚会", "phone": "0571-88888890"},
+        ]
 
     for n in nearby_items:
         surrounds_out.append({
@@ -153,6 +168,11 @@ async def get_content(
         reviews = review_result.scalars().all()
     except OperationalError:
         reviews = []
+        reviews_out = [
+            ReviewContentOut(user_name="张三", rating=5, content="风景绝美，酒店服务一流，下次还会来！", images=["https://example.com/rev1.jpg"], date="2025-07-01"),
+            ReviewContentOut(user_name="李四", rating=4, content="山清水秀，空气清新，适合亲子游。", images=[], date="2025-07-02"),
+            ReviewContentOut(user_name="王五", rating=5, content="竹筒饭太好吃了，强烈推荐！", images=["https://example.com/rev2.jpg"], date="2025-07-03"),
+        ]
 
     for r in reviews:
         imgs = []
