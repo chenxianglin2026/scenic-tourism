@@ -56,7 +56,7 @@ document.getElementById('f').addEventListener('submit',async function(ev){
   var p = document.getElementById('p').value;
   document.getElementById('e').style.display='none';
   try {
-    var r = await fetch('/api/auth/login', {
+    var r = await fetch('/scenic/api/auth/login', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({username:u, password:p})
