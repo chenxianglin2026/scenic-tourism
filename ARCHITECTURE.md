@@ -1,67 +1,30 @@
-# 景区智慧管理系统 - 项目架构
+# 伊家智能科技 - 系统架构 v2.0
 
-> 最后更新: 2026-06-09
+## 服务器: 腾讯云上海 111.229.30.253
 
-## 技术栈
+## 三系统
 
-- 后端: Python FastAPI + SQLite
-- 前端: 微信小程序 (6 页面) + 管理后台 (11 页面)
-- OTA: 携程/美团/飞猪对接框架 (810 行)
-- 部署: Docker Compose
-- VPS: 43.163.5.90:8002, nginx /scenic/ 代理
-- 主题色: #c8a052 (金色)
+| 系统 | 端口 | git目录 | 服务目录 | nginx读取 |
+|------|:--:|------|------|------|
+| 酒店 | 8001 | /home/ubuntu/yijiaren/code/ | gitee直读 | alias git |
+| 景区 | 8002 | /home/ubuntu/projects/scenic/code/ | gitee直读 | alias git |
+| 公寓 | 8000 | /home/ubuntu/apartment/code/ | gitee直读 | proxy |
 
-## 目录结构
+## nginx 规则 (已入Gitee版本库)
+- `/admin/` → alias git目录 (酒店)
+- `/scenic/admin/` → alias git目录 (景区) 
+- `/api/` → proxy 8001 (酒店)
+- `/scenic/api/` → proxy 8002 (景区)
+- `/apartment/` → proxy 8000 (公寓)
 
-```
-code/
-├── backend/
-│   ├── app/
-│   │   ├── main.py          # FastAPI 入口
-│   │   ├── db.py            # 数据模型 (15 个)
-│   │   ├── config.py        # 配置
-│   │   └── api/
-│   │       ├── auth.py      # 认证
-│   │       ├── scenic.py    # 景区信息/POI/推荐
-│   │       ├── tickets.py   # 票务管理
-│   │       ├── hotels.py    # 酒店/房型
-│   │       ├── parking.py   # 停车管理
-│   │       ├── ota.py       # OTA 渠道 (810行)
-│   │       ├── export.py    # CSV 导出
-│   │       ├── payment.py   # 支付
-│   │       └── dashboard.py # 看板
-│   ├── tests/test_api.py    # 177 测试
-│   └── seed.py              # 种子数据 (泰山/西湖/黄山)
-├── admin/                   # 管理后台 (11 页面)
-├── miniapp/                 # 微信小程序 (6 页面)
-│   ├── app.js
-│   ├── utils/api.js
-│   └── pages/
-├── Dockerfile
-└── docker-compose.yml
-```
+## 部署: deploy-all.sh (cron每5分钟)
+git pull → 无cp → systemctl restart → curl验证
 
-## VPS 部署
+## Gitee 仓库
+- 酒店: yjr2026/yijiaren-hotel
+- 景区: yjr2026/scenic-tourism
+- 公寓: yjr2026/apartment-mgr
 
-| 组件 | 端口 | 路径 |
-|------|------|------|
-| scenic-backend | 8002 | 直接映射 |
-| 宿主机 nginx 443 | /scenic/ → 8002 | SSL 终止 |
-
-## 景区数据
-
-| 景区 | 经纬度 |
-|------|--------|
-| 泰山 | 36.2580, 117.1250 |
-| 西湖 | 30.2375, 120.1398 |
-| 黄山 | 30.1420, 118.1650 |
-
-## 外部依赖
-
-| 依赖 | 状态 |
-|------|------|
-| 小程序 AppID | 待注册 (企业打款验证) |
-| 携程 OTA | 框架就绪 |
-| 美团 OTA | 框架就绪 |
-| 飞猪 OTA | 框架就绪 |
-| 微信支付 | 未对接 |
+## 备案
+- 主站: 粤ICP备16027093号-2
+- VIP: 粤ICP备16027093号
