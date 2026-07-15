@@ -135,7 +135,7 @@
   // ── Load option lists ──
   async function loadOptions() {
     try {
-      var sRes = await fetch('/api/scenic/list?page_size=200', { headers: headers });
+      var sRes = await fetch('/scenic/api/scenic/list?page_size=200', { headers: headers });
       if (sRes.status === 401 || sRes.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (sRes.ok) {
         var sJson = await sRes.json();
@@ -179,7 +179,7 @@
       var params = new URLSearchParams({ page: pointPage, page_size: pointPageSize });
       if (keyword) params.set('keyword', keyword);
       if (category) params.set('category', category);
-      var res = await fetch('/api/scenic/points?' + params, { headers: headers });
+      var res = await fetch('/scenic/api/scenic/points?' + params, { headers: headers });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var json = await res.json();
@@ -240,7 +240,7 @@
 
     // Fetch point detail
     try {
-      var res = await fetch('/api/scenic/points/' + id, { headers: headers });
+      var res = await fetch('/scenic/api/scenic/points/' + id, { headers: headers });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var p = await res.json();
@@ -301,7 +301,7 @@
 
     try {
       var method = editingId ? 'PUT' : 'POST';
-      var url = editingId ? '/api/scenic/points/' + editingId : '/api/scenic/points';
+      var url = editingId ? '/scenic/api/scenic/points/' + editingId : '/scenic/api/scenic/points';
       var res = await fetch(url, {
         method: method,
         headers: headers,
@@ -322,7 +322,7 @@
   window.deletePoint = async function(id) {
     if (!confirm('确认删除该推荐？此操作不可恢复。')) return;
     try {
-      var res = await fetch('/api/scenic/points/' + id, { method: 'DELETE', headers: headers });
+      var res = await fetch('/scenic/api/scenic/points/' + id, { method: 'DELETE', headers: headers });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '删除失败'); }
       toast('推荐已删除', 'success');

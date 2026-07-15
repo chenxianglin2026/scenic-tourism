@@ -233,7 +233,7 @@
   // ── Configs ──
   async function loadConfigs() {
     try {
-      var res = await fetch('/api/ota/configs', { headers: headers });
+      var res = await fetch('/scenic/api/ota/configs', { headers: headers });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var json = await res.json();
@@ -268,7 +268,7 @@
   }
 
   window.editConfig = function(platform) {
-    fetch('/api/ota/configs/' + platform, { headers: headers })
+    fetch('/scenic/api/ota/configs/' + platform, { headers: headers })
       .then(function(r) { return r.json(); })
       .then(function(c) {
         document.getElementById('configModalPlatform').textContent = platformLabel(platform);
@@ -299,7 +299,7 @@
       is_enabled: document.getElementById('configEnabled').checked,
       webhook_url: document.getElementById('configWebhookUrl').value.trim() || null
     };
-    fetch('/api/ota/configs/' + platform, {
+    fetch('/scenic/api/ota/configs/' + platform, {
       method: 'PUT', headers: headers, body: JSON.stringify(body)
     }).then(function(r) { return r.json(); })
       .then(function(data) {
@@ -315,7 +315,7 @@
   };
 
   window.testConnection = function(platform) {
-    fetch('/api/ota/test-connection/' + platform, { method: 'POST', headers: headers })
+    fetch('/scenic/api/ota/test-connection/' + platform, { method: 'POST', headers: headers })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.connected) {
@@ -336,7 +336,7 @@
       var params = new URLSearchParams({ page: otaOrderPage, page_size: otaOrderPageSize });
       if (platform) params.set('platform', platform);
       if (status) params.set('status', status);
-      var res = await fetch('/api/ota/orders?' + params, { headers: headers });
+      var res = await fetch('/scenic/api/ota/orders?' + params, { headers: headers });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var json = await res.json();
@@ -382,7 +382,7 @@
     el.innerHTML = '⏳ 正在同步...';
 
     try {
-      var res = await fetch('/api/ota/stock/batch-sync', {
+      var res = await fetch('/scenic/api/ota/stock/batch-sync', {
         method: 'POST', headers: headers, body: JSON.stringify(body)
       });
       var data = await res.json();
@@ -402,7 +402,7 @@
 
   async function loadSyncableProducts() {
     try {
-      var res = await fetch('/api/ota/products', { headers: headers });
+      var res = await fetch('/scenic/api/ota/products', { headers: headers });
       if (!res.ok) throw new Error('请求失败');
       var json = await res.json();
       var el = document.getElementById('syncableProducts');
@@ -430,7 +430,7 @@
   // ── Revenue ──
   async function loadRevenue() {
     try {
-      var res = await fetch('/api/ota/revenue', { headers: headers });
+      var res = await fetch('/scenic/api/ota/revenue', { headers: headers });
       if (!res.ok) throw new Error('请求失败');
       var json = await res.json();
       renderRevenue(json);

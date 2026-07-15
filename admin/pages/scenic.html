@@ -226,7 +226,7 @@
   // ── Load Scenic Info ──
   async function loadScenicInfo() {
     try {
-      var res = await fetch('/api/scenic/info');
+      var res = await fetch('/scenic/api/scenic/info');
       if (res.status === 401 || res.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) { document.getElementById('scenicInfoDetail').innerHTML = '<div class="empty">加载失败</div>'; return; }
       var info = await res.json();
@@ -270,7 +270,7 @@
       var params = new URLSearchParams({ page: annPage, page_size: annPageSize });
       if (spotId) params.set('spot_id', spotId);
       if (cat) params.set('category', cat);
-      var res = await fetch('/api/scenic/announcements?' + params);
+      var res = await fetch('/scenic/api/scenic/announcements?' + params);
       if (res.status === 401 || res.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');
       var json = await res.json();
@@ -306,7 +306,7 @@
   window.deleteAnnouncement = async function(id) {
     if (!confirm('确认删除该公告？此操作不可恢复。')) return;
     try {
-      var res = await fetch('/api/scenic/announcements/' + id, { method: 'DELETE', headers: headers });
+      var res = await fetch('/scenic/api/scenic/announcements/' + id, { method: 'DELETE', headers: headers });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '删除失败'); }
       toast('公告已删除', 'success');
@@ -338,7 +338,7 @@
     };
 
     try {
-      var res = await fetch('/api/scenic/announcements', { method: 'POST', headers: headers, body: JSON.stringify(body) });
+      var res = await fetch('/scenic/api/scenic/announcements', { method: 'POST', headers: headers, body: JSON.stringify(body) });
       if (res.status === 401) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '创建失败'); }
       toast('公告发布成功', 'success');
@@ -358,7 +358,7 @@
       var params = new URLSearchParams();
       if (spotId) params.set('spot_id', spotId);
       if (cat) params.set('category', cat);
-      var url = '/api/scenic/pois' + (params.toString() ? '?' + params : '');
+      var url = '/scenic/api/scenic/pois' + (params.toString() ? '?' + params : '');
       var res = await fetch(url);
       if (res.status === 401 || res.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (!res.ok) throw new Error('请求失败');

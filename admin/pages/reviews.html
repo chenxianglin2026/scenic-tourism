@@ -231,7 +231,7 @@
 
     try {
       // 管理员需要查看全部评价（含未审核），所以不带 spot_id 限制
-      var res = await fetch('/api/scenic/reviews?' + params.toString(), { headers: headers });
+      var res = await fetch('/scenic/api/scenic/reviews?' + params.toString(), { headers: headers });
       if (res.status === 401 || res.status === 403) {
         window.top.location.href = 'pages/login.html';
         return;
@@ -266,7 +266,7 @@
   window.deleteReview = async function(id) {
     if (!confirm('确定要删除该评价吗？此操作不可恢复。')) return;
     try {
-      var res = await fetch('/api/scenic/reviews/' + id, { method: 'DELETE', headers: headers });
+      var res = await fetch('/scenic/api/scenic/reviews/' + id, { method: 'DELETE', headers: headers });
       if (res.status === 401 || res.status === 403) {
         window.top.location.href = 'pages/login.html';
         return;

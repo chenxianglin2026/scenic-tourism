@@ -183,7 +183,7 @@
   async function loadOptions() {
     try {
       // 景区列表
-      var sRes = await fetch('/api/scenic/list?page_size=200', { headers: headers });
+      var sRes = await fetch('/scenic/api/scenic/list?page_size=200', { headers: headers });
       if (sRes.status === 401 || sRes.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (sRes.ok) {
         var sJson = await sRes.json();
@@ -194,7 +194,7 @@
         }
       }
       // 票种列表
-      var tRes = await fetch('/api/tickets/types', { headers: headers });
+      var tRes = await fetch('/scenic/api/tickets/types', { headers: headers });
       if (tRes.status === 401 || tRes.status === 403) { window.top.location.href = 'pages/login.html'; return; }
       if (tRes.ok) {
         var types = await tRes.json();
@@ -255,7 +255,7 @@
       ticket_type_id: document.getElementById('tTicketType').value,
       status: document.getElementById('tStatus').value
     };
-    doExport('/api/export/tickets' + buildParams(filters), document.getElementById('tPreview'));
+    doExport('/scenic/api/export/tickets' + buildParams(filters), document.getElementById('tPreview'));
   };
 
   // ── 营收导出 ──
@@ -266,7 +266,7 @@
       end_date: document.getElementById('rEndDate').value,
       spot_id: document.getElementById('rSpot').value
     };
-    doExport('/api/export/revenue' + buildParams(filters), document.getElementById('rPreview'));
+    doExport('/scenic/api/export/revenue' + buildParams(filters), document.getElementById('rPreview'));
   };
 
   // ── 停车导出 ──
@@ -277,7 +277,7 @@
       plate_number: document.getElementById('pPlate').value,
       status: document.getElementById('pStatus').value
     };
-    doExport('/api/export/parking' + buildParams(filters), document.getElementById('pPreview'));
+    doExport('/scenic/api/export/parking' + buildParams(filters), document.getElementById('pPreview'));
   };
 
 })();

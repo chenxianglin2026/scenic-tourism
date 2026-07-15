@@ -213,10 +213,10 @@ function toast(msg, type) {
 // Load reference data
 function loadRefData() {
   return Promise.all([
-    h('/api/tickets/types?spot_id=1'),
-    h('/api/hotels?spot_id=1'),
-    h('/api/parking/rates?spot_id=1'),
-    h('/api/scenic/spots')
+    h('/scenic/api/tickets/types?spot_id=1'),
+    h('/scenic/api/hotels?spot_id=1'),
+    h('/scenic/api/parking/rates?spot_id=1'),
+    h('/scenic/api/scenic/spots')
   ]).then(function(d) {
     _allTickets = Array.isArray(d[0]) ? d[0] : (d[0].items || []);
     _allHotels = Array.isArray(d[1]) ? d[1] : (d[1].items || []);
@@ -224,7 +224,7 @@ function loadRefData() {
     _allSpots = Array.isArray(d[3]) ? d[3] : (d[3].items || []);
     // Load rooms for each hotel
     var roomPromises = _allHotels.map(function(hotel) {
-      return h('/api/hotels/' + hotel.id + '/rooms').then(function(rooms) {
+      return h('/scenic/api/hotels/' + hotel.id + '/rooms').then(function(rooms) {
         var rArray = Array.isArray(rooms) ? rooms : (rooms.items || []);
         rArray.forEach(function(r) { r._hotel_id = hotel.id; r._hotel_name = hotel.name; });
         return rArray;
@@ -261,7 +261,7 @@ function loadRefData() {
 function loadPackages() {
   var spotId = document.getElementById('filterSpot').value;
   var showInactive = document.getElementById('showInactive').checked;
-  var url = '/api/packages?active_only=' + (showInactive ? 'false' : 'true');
+  var url = '/scenic/api/packages?active_only=' + (showInactive ? 'false' : 'true');
   if (spotId) url += '&spot_id=' + spotId;
   h(url).then(function(data) {
     var packages = data.items || [];
@@ -349,7 +349,7 @@ function showCreateModal() {
 
 function editPackage(id) {
   _editId = id;
-  h('/api/packages/' + id).then(function(pkg) {
+  h('/scenic/api/packages/' + id).then(function(pkg) {
     document.getElementById('modalTitle').textContent = '编辑套餐';
     document.getElementById('editName').value = pkg.name || '';
     document.getElementById('editOrigPrice').value = pkg.original_price || '';
@@ -415,7 +415,7 @@ function savePackage() {
   });
 
   var method = _editId ? 'PUT' : 'POST';
-  var url = _editId ? '/api/packages/' + _editId : '/api/packages';
+  var url = _editId ? '/scenic/api/packages/' + _editId : '/scenic/api/packages';
 
   h(url, { method: method, body: body }).then(function() {
     toast(_editId ? '套餐已更新' : '套餐已创建', 'success');
@@ -428,7 +428,7 @@ function savePackage() {
 
 function deletePackage(id) {
   if (!confirm('确定要删除这个套餐吗？')) return;
-  h('/api/packages/' + id, { method: 'DELETE' }).then(function() {
+  h('/scenic/api/packages/' + id, { method: 'DELETE' }).then(function() {
     toast('套餐已删除', 'success');
     loadPackages();
   }).catch(function(e) { toast('删除失败: ' + e.message, 'error'); });
@@ -436,7 +436,7 @@ function deletePackage(id) {
 
 function togglePackage(id, currentActive) {
   var body = JSON.stringify({ is_active: !currentActive });
-  h('/api/packages/' + id, { method: 'PUT', body: body }).then(function() {
+  h('/scenic/api/packages/' + id, { method: 'PUT', body: body }).then(function() {
     toast(currentActive ? '套餐已停用' : '套餐已启用', 'success');
     loadPackages();
   }).catch(function(e) { toast('操作失败', 'error'); });
