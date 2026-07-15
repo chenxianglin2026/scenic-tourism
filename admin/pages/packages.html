@@ -216,7 +216,7 @@ function loadRefData() {
     h('/scenic/api/tickets/types?spot_id=1'),
     h('/scenic/api/hotels?spot_id=1'),
     h('/scenic/api/parking/rates?spot_id=1'),
-    h('/scenic/api/scenic/spots')
+    h('/scenic/api/scenic/list')
   ]).then(function(d) {
     _allTickets = Array.isArray(d[0]) ? d[0] : (d[0].items || []);
     _allHotels = Array.isArray(d[1]) ? d[1] : (d[1].items || []);
