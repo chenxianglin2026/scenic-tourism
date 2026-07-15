@@ -65,7 +65,7 @@ document.getElementById('f').addEventListener('submit',async function(ev){
     var t = j.access_token || (j.data && j.data.access_token);
     if (t) {
       localStorage.setItem('scenic_token', t);
-      location.href = '../index.html';
+      location.href = '../';
     } else {
       var el = document.getElementById('e');
       el.textContent = j.msg || j.detail || '\u767B\u5F55\u5931\u8D25';
