@@ -42,6 +42,13 @@ class ParkingCheckinRequest(BaseModel):
     vehicle_type: str = Field("car", description="car/bus/truck/motorcycle")
 
 
+class ParkingManualCheckinRequest(BaseModel):
+    plate_no: str = Field(..., min_length=1, max_length=20, description="车牌号")
+    spot_id: int = Field(..., description="景区ID")
+    entry_time: datetime = Field(..., description="入场时间")
+    vehicle_type: str = Field("car", description="car/bus/truck/motorcycle")
+
+
 class ParkingCheckoutRequest(BaseModel):
     pay_method: str = Field("wechat", description="wechat/alipay/cash")
 
@@ -294,6 +301,72 @@ async def parking_checkin(
     return ParkingCheckinResponse(
         success=True,
         message=f"车辆 {req.plate_number} 入场成功",
+        record=ParkingRecordOut(
+            id=record.id,
+            rate_id=record.rate_id,
+            parking_name=rate.name,
+            user_id=record.user_id,
+            plate_number=record.plate_number,
+            vehicle_type=record.vehicle_type,
+            checkin_time=record.checkin_time,
+            status=record.status,
+            pay_status=record.pay_status,
+            created_at=record.created_at,
+        ),
+        record_id=record.id,
+    )
+
+
+# ── 管理员手动入场 ────────────────────────────────────
+@router.post("/checkin/admin", response_model=ParkingCheckinResponse, summary="管理员手动入场")
+async def parking_manual_checkin(
+    req: ParkingManualCheckinRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """管理员手动登记车辆入场，可指定入场时间与景区"""
+    rate_result = await db.execute(
+        select(ParkingRate).where(
+            ParkingRate.spot_id == req.spot_id,
+            ParkingRate.is_active == True,
+        ).order_by(ParkingRate.id.asc()).limit(1)
+    )
+    rate = rate_result.scalar_one_or_none()
+    if not rate:
+        raise HTTPException(status_code=404, detail="该景区未配置停车场")
+
+    if rate.available_spots <= 0:
+        raise HTTPException(status_code=400, detail="车位已满")
+
+    exist_result = await db.execute(
+        select(ParkingRecord).where(
+            ParkingRecord.plate_number == req.plate_no,
+            ParkingRecord.status == "parking",
+        )
+    )
+    if exist_result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"车牌 {req.plate_no} 已有在场记录，请先出场")
+
+    record = ParkingRecord(
+        rate_id=rate.id,
+        user_id=current_user.id,
+        plate_number=req.plate_no,
+        vehicle_type=req.vehicle_type,
+        checkin_time=req.entry_time,
+        status="parking",
+        pay_status="unpaid",
+    )
+    db.add(record)
+    rate.available_spots -= 1
+    if rate.available_spots < 0:
+        raise HTTPException(status_code=400, detail="车位不足")
+
+    await db.flush()
+    await db.refresh(record)
+
+    return ParkingCheckinResponse(
+        success=True,
+        message=f"车辆 {req.plate_no} 手动入场成功",
         record=ParkingRecordOut(
             id=record.id,
             rate_id=record.rate_id,
