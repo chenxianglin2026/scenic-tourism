@@ -138,68 +138,6 @@ async def list_packages(
     result = await db.execute(stmt)
     packages = result.scalars().all()
     items = [_package_to_out(p) for p in packages]
-    if not items:
-        items = [
-            {
-                "id": 1,
-                "spot_id": 1,
-                "spot_name": "云台山风景区",
-                "name": "经典全景一日游",
-                "description": "含成人门票、往返索道及山顶特色午餐，适合首次游览游客。",
-                "cover_image": "https://example.com/covers/package1.jpg",
-                "original_price": 398.0,
-                "price": 268.0,
-                "items": [
-                    {"type": "ticket", "id": 1, "name": "成人门票", "qty": 1, "price": 120.0},
-                    {"type": "ticket", "id": 2, "name": "往返索道", "qty": 1, "price": 128.0},
-                    {"type": "hotel", "id": 3, "name": "山顶特色午餐", "qty": 1, "price": 50.0},
-                ],
-                "tags": "热门,推荐",
-                "is_active": True,
-                "sort_order": 1,
-                "created_at": "2026-07-01T10:00:00",
-            },
-            {
-                "id": 2,
-                "spot_id": 1,
-                "spot_name": "云台山风景区",
-                "name": "家庭亲子套餐",
-                "description": "2大1小门票+儿童探险乐园+家庭套餐，亲子出行首选。",
-                "cover_image": "https://example.com/covers/package2.jpg",
-                "original_price": 588.0,
-                "price": 398.0,
-                "items": [
-                    {"type": "ticket", "id": 4, "name": "成人门票", "qty": 2, "price": 120.0},
-                    {"type": "ticket", "id": 5, "name": "儿童门票", "qty": 1, "price": 60.0},
-                    {"type": "ticket", "id": 6, "name": "儿童探险乐园", "qty": 1, "price": 80.0},
-                    {"type": "hotel", "id": 7, "name": "家庭套餐", "qty": 1, "price": 128.0},
-                ],
-                "tags": "亲子,家庭",
-                "is_active": True,
-                "sort_order": 2,
-                "created_at": "2026-07-02T10:00:00",
-            },
-            {
-                "id": 3,
-                "spot_id": 2,
-                "spot_name": "龙潭大峡谷",
-                "name": "深度两日游",
-                "description": "景区门票+景区内酒店1晚+漂流+停车，深度体验自然风光。",
-                "cover_image": "https://example.com/covers/package3.jpg",
-                "original_price": 899.0,
-                "price": 599.0,
-                "items": [
-                    {"type": "ticket", "id": 8, "name": "景区门票", "qty": 1, "price": 150.0},
-                    {"type": "hotel", "id": 9, "name": "峡谷度假酒店", "qty": 1, "price": 320.0},
-                    {"type": "ticket", "id": 10, "name": "峡谷漂流", "qty": 1, "price": 180.0},
-                    {"type": "parking", "id": 11, "name": "景区停车(2天)", "qty": 1, "price": 40.0},
-                ],
-                "tags": "度假,深度游",
-                "is_active": True,
-                "sort_order": 3,
-                "created_at": "2026-07-03T10:00:00",
-            },
-        ]
     return {"items": items, "total": len(items)}
 
 
@@ -332,6 +270,7 @@ async def get_dynamic_qr(
     """动态二维码信息（30秒刷新防伪 — 框架入口）"""
     return {
         "order_no": order_no,
+        # TODO: 硬编码配置，需接入配置中心或数据库
         "qr_refresh_interval": 30,
         "mode": "dynamic_qr",
         "status": "framework_ready",
@@ -351,6 +290,7 @@ async def group_buy_info(
         "mode": "group_buy",
         "status": "framework_ready",
         "config": {
+            # TODO: 以下拼团配置为硬编码，需接入配置中心或数据库
             "min_group_size": 2,
             "max_group_size": 10,
             "discount_tiers": [
@@ -376,6 +316,7 @@ async def pay_later_status(
         "mode": "play_now_pay_later",
         "status": "framework_ready",
         "config": {
+            # TODO: 以下先玩后付配置为硬编码，需接入配置中心或数据库
             "credit_limit": 2000,
             "repayment_days": 7,
             "supported_types": ["ticket", "hotel", "parking"],
