@@ -91,7 +91,9 @@ class TicketOrderListResponse(BaseModel):
 
 
 class VerifyRequest(BaseModel):
-    qr_token: str = Field(..., description="二维码token")
+    qr_token: Optional[str] = Field(None, description="二维码token")
+    ticket_no: Optional[str] = Field(None, description="票号/订单号")
+    qr_code: Optional[str] = Field(None, description="二维码内容（与qr_token等价）")
 
 
 class VerifyResponse(BaseModel):
@@ -343,12 +345,26 @@ async def verify_ticket(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff),
 ):
-    """核销接口：验证qr_token、检查状态（已核销/过期）、标记verified"""
-    # 查找订单
+    """核销接口：验证qr_token/ticket_no/qr_code、检查状态（已核销/过期）、标记verified"""
+    # 确定查询值
+    lookup_value = req.qr_token or req.qr_code or req.ticket_no
+    if not lookup_value:
+        return VerifyResponse(
+            result=VerifyResult.INVALID_TOKEN,
+            message="请提供 qr_token、qr_code 或 ticket_no"
+        )
+
+    # 查找订单：先按 qr_token/qr_code 查，再按 ticket_no 查
     order_result = await db.execute(
-        select(TicketOrder).where(TicketOrder.qr_token == req.qr_token)
+        select(TicketOrder).where(TicketOrder.qr_token == lookup_value)
     )
     order = order_result.scalar_one_or_none()
+
+    if not order and req.ticket_no:
+        order_result = await db.execute(
+            select(TicketOrder).where(TicketOrder.order_no == req.ticket_no)
+        )
+        order = order_result.scalar_one_or_none()
 
     if not order:
         return VerifyResponse(
