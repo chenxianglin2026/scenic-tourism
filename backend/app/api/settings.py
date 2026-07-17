@@ -34,12 +34,12 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
     spot = result.scalar_one_or_none()
     if not spot:
         return SettingsOut(
-            spot_name="",
-            address="",
-            phone="",
-            open_time="08:00",
-            close_time="17:00",
-            daily_limit=5000,
+            spot_name="泰山风景名胜区",
+            address="山东省泰安市泰山区红门路45号",
+            phone="0538-96008888",
+            open_time="05:00",
+            close_time="23:00",
+            daily_limit=30000,
         )
     return SettingsOut(
         spot_name=spot.name,

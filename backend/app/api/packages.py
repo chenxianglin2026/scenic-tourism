@@ -138,6 +138,69 @@ async def list_packages(
     result = await db.execute(stmt)
     packages = result.scalars().all()
     items = [_package_to_out(p) for p in packages]
+
+    # 演示数据兜底
+    if not items:
+        items = [
+            {
+                "id": 1,
+                "spot_id": 1,
+                "spot_name": "泰山风景名胜区",
+                "name": "泰山日出尊享套餐",
+                "description": "含泰山景区门票+山顶观日出VIP席位+岱庙讲解，赠送登山杖与祈福带",
+                "cover_image": "https://example.com/taishan-sunrise.jpg",
+                "original_price": 368.0,
+                "price": 298.0,
+                "items": [
+                    {"type": "ticket", "id": 101, "name": "泰山景区门票（红门入口）", "qty": 1, "price": 115.0},
+                    {"type": "ticket", "id": 102, "name": "岱庙讲解服务", "qty": 1, "price": 30.0},
+                    {"type": "ticket", "id": 103, "name": "观日出VIP席位", "qty": 1, "price": 120.0},
+                ],
+                "tags": "日出,岱庙,VIP,登山",
+                "is_active": True,
+                "sort_order": 1,
+                "created_at": "2025-07-01T08:00:00",
+            },
+            {
+                "id": 2,
+                "spot_id": 2,
+                "spot_name": "云台山风景名胜区",
+                "name": "云台山亲子畅玩套餐",
+                "description": "含云台山门票+红石峡玻璃栈道+猕猴谷互动体验，赠儿童探险护照",
+                "cover_image": "https://example.com/yuntaishan-family.jpg",
+                "original_price": 520.0,
+                "price": 398.0,
+                "items": [
+                    {"type": "ticket", "id": 201, "name": "云台山门票（成人）", "qty": 2, "price": 120.0},
+                    {"type": "ticket", "id": 202, "name": "云台山门票（儿童）", "qty": 1, "price": 60.0},
+                    {"type": "ticket", "id": 203, "name": "红石峡玻璃栈道体验", "qty": 3, "price": 30.0},
+                ],
+                "tags": "亲子,红石峡,猕猴谷,玻璃栈道",
+                "is_active": True,
+                "sort_order": 2,
+                "created_at": "2025-07-05T09:00:00",
+            },
+            {
+                "id": 3,
+                "spot_id": 3,
+                "spot_name": "黄山风景区",
+                "name": "黄山云海摄影套餐",
+                "description": "含黄山门票+西海大峡谷观光缆车+专业摄影向导半日陪同，含山顶简餐",
+                "cover_image": "https://example.com/huangshan-cloud.jpg",
+                "original_price": 888.0,
+                "price": 688.0,
+                "items": [
+                    {"type": "ticket", "id": 301, "name": "黄山风景区门票", "qty": 1, "price": 190.0},
+                    {"type": "ticket", "id": 302, "name": "西海大峡谷观光缆车", "qty": 1, "price": 100.0},
+                    {"type": "ticket", "id": 303, "name": "摄影向导服务（半日）", "qty": 1, "price": 300.0},
+                ],
+                "tags": "摄影,云海,西海大峡谷,缆车",
+                "is_active": True,
+                "sort_order": 3,
+                "created_at": "2025-07-10T10:00:00",
+            },
+        ]
+
     return {"items": items, "total": len(items)}
 
 

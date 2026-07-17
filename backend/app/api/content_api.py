@@ -51,6 +51,17 @@ class ReviewContentOut(BaseModel):
     date: Optional[str] = None
 
 
+class ArticleOut(BaseModel):
+    id: int
+    title: str
+    summary: Optional[str] = None
+    content: Optional[str] = None
+    category: str  # article / notice
+    cover_image: Optional[str] = None
+    publish_date: Optional[str] = None
+    author: Optional[str] = None
+
+
 class ContentResponse(BaseModel):
     code: int = 0
     msg: str = "ok"
@@ -58,6 +69,7 @@ class ContentResponse(BaseModel):
     galleries: List[GalleryOut] = []
     surrounds: List[dict] = []
     reviews: List[ReviewContentOut] = []
+    articles: List[ArticleOut] = []
 
 
 # ── API ─────────────────────────────────────────────
@@ -190,9 +202,43 @@ async def get_content(
             date=r.created_at.strftime("%Y-%m-%d") if r.created_at else None,
         ))
 
+    articles_out = [
+        ArticleOut(
+            id=1,
+            title="泰山景区关于暑期开放时间调整的公告",
+            summary="为方便游客观日出，泰山景区自7月20日起将夜间开放时间提前至04:30...",
+            content="尊敬的各位游客：为方便大家登山观日出，泰山景区自2025年7月20日起，红门游览路夜间进山开放时间由05:00提前至04:30，中天门索道运营时间同步调整。请大家合理安排行程，注意安全。",
+            category="notice",
+            cover_image="https://example.com/taishan-notice.jpg",
+            publish_date="2025-07-14",
+            author="泰山景区管委会",
+        ),
+        ArticleOut(
+            id=2,
+            title="云台山两日游最佳路线攻略",
+            summary="第一天打卡红石峡与潭瀑峡，第二天登顶茱萸峰，附各景点游玩时长...",
+            content="云台山作为国家5A级景区，素有'北方九寨沟'之称。第一天建议上午游览红石峡（约2小时），下午前往潭瀑峡与泉瀑峡；第二天早起登顶茱萸峰，俯瞰云台全景。",
+            category="article",
+            cover_image="https://example.com/yuntaishan-guide.jpg",
+            publish_date="2025-07-10",
+            author="云台山旅游编辑部",
+        ),
+        ArticleOut(
+            id=3,
+            title="黄山暑期家庭套票限时优惠活动",
+            summary="7月15日至8月31日，两大一小家庭套票立减200元，赠送西海大峡谷缆车票...",
+            content="黄山风景区推出暑期家庭特惠活动：活动期间，购买两大一小家庭套票可享立减200元优惠，并赠送西海大峡谷观光往返缆车票一张。每日限量500套，先到先得。",
+            category="notice",
+            cover_image="https://example.com/huangshan-promo.jpg",
+            publish_date="2025-07-12",
+            author="黄山旅游发展股份",
+        ),
+    ]
+
     return ContentResponse(
         hotels=hotels_out,
         galleries=galleries_out,
         surrounds=surrounds_out,
         reviews=reviews_out,
+        articles=articles_out,
     )
