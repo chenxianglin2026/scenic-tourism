@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>支付管理</title>
+<link rel="stylesheet" href="../css/admin.css">
+<style>
+:root {
+  --gold: #c8a052;
+  --gold-light: #e0c882;
+  --gold-dark: #b08d40;
+  --bg-dark: #1a1a1a;
+  --bg-sidebar: #1e1c18;
+  --bg-content: #1a1a1a;
+  --bg-white: #252420;
+  --bg-card: #252420;
+  --text-primary: #e8e4d8;
+  --text-secondary: #b0a890;
+  --text-muted: #7a7260;
+  --border: #3a3528;
+  --success: #52c41a;
+  --warning: #faad14;
+  --error: #f5222d;
+  --info: #1890ff;
+  --radius: 8px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+body { background: var(--bg-content); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; font-size:14px; line-height:1.6; }
+
+/* Login Layer */
+.login-layer { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(26,26,26,.95); display:flex; align-items:center; justify-content:center; z-index:2000; }
+.login-box { background:var(--bg-card); border-radius:12px; padding:32px; width:360px; max-width:90vw; box-shadow:0 20px 60px rgba(0,0,0,.4); }
+.login-box h2 { text-align:center; font-size:20px; color:var(--gold-light); margin-bottom:4px; }
+.login-box .sub { text-align:center; font-size:13px; color:var(--text-muted); margin-bottom:20px; }
+.login-box .logo { text-align:center; font-size:40px; margin-bottom:8px; }
+.login-err { color:var(--error); font-size:13px; text-align:center; margin-top:12px; display:none; }
+
+/* Page */
+.page { padding:20px; max-width:1400px; }
+.page-title { font-size:20px; font-weight:700; color:var(--gold-light); margin-bottom:20px; padding-bottom:12px; border-bottom:2px solid var(--gold-dark); }
+
+/* Stat Cards */
+.stat-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:16px; margin-bottom:20px; }
+.stat-card { background:var(--bg-card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; display:flex; align-items:center; gap:16px; }
+.stat-icon { width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
+.stat-icon.gold { background:rgba(200,160,82,.15); }
+.stat-icon.green { background:rgba(82,196,26,.15); }
+.stat-icon.blue { background:rgba(24,144,255,.15); }
+.stat-icon.red { background:rgba(245,34,45,.15); }
+.stat-info { flex:1; }
+.stat-value { font-size:24px; font-weight:700; color:var(--text-primary); }
+.stat-label { font-size:12px; color:var(--text-muted); margin-top:2px; }
+
+/* Tab */
+.tab-bar { display:flex; border-bottom:1px solid var(--border); margin-bottom:0; background:var(--bg-card); border-radius:var(--radius) var(--radius) 0 0; padding:0 12px; }
+.tab-item { padding:12px 20px; cursor:pointer; color:var(--text-muted); font-size:14px; border-bottom:2px solid transparent; transition:all .2s; }
+.tab-item:hover { color:var(--gold-light); }
+.tab-item.active { color:var(--gold); border-bottom-color:var(--gold); font-weight:600; }
+
+/* Card */
+.card { background:var(--bg-card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:20px; }
+.card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.card-title { font-size:16px; font-weight:600; color:var(--text-primary); }
+
+/* Filter */
+.filter-bar { display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+.form-input, .form-select { padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:14px; outline:none; background:var(--bg-white); color:var(--text-primary); font-family:inherit; }
+.form-input:focus, .form-select:focus { border-color:var(--gold); box-shadow:0 0 0 3px rgba(200,160,82,.12); }
+
+/* Table */
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+table th { background:#2a2620; padding:10px 12px; text-align:left; font-weight:600; color:var(--text-secondary); border-bottom:2px solid var(--border); white-space:nowrap; }
+table td { padding:10px 12px; border-bottom:1px solid var(--border); white-space:nowrap; color:var(--text-primary); }
+table tbody tr:hover { background:rgba(200,160,82,.06); }
+
+/* Badges */
+.badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:4px; font-weight:500; }
+.badge-success { background:rgba(82,196,26,.15); color:#52c41a; }
+.badge-pending { background:rgba(250,173,20,.15); color:#faad14; }
+.badge-failed { background:rgba(245,34,45,.15); color:#f5222d; }
+.badge-refunding { background:rgba(24,144,255,.15); color:#1890ff; }
+.badge-refund { background:rgba(150,140,122,.15); color:var(--text-muted); }
+.badge-cancelled { background:rgba(100,100,100,.15); color:#999; }
+
+/* Modal */
+.modal-mask { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:1000; }
+.modal { background:var(--bg-card); border-radius:12px; padding:24px; width:480px; max-width:90vw; max-height:85vh; overflow-y:auto; border:1px solid var(--border); }
+.modal-title { font-size:18px; font-weight:600; margin-bottom:16px; color:var(--text-primary); }
+.modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+
+/* Form */
+.form-group { margin-bottom:14px; }
+.form-group label { display:block; font-size:13px; color:var(--text-secondary); margin-bottom:4px; font-weight:500; }
+.form-group input, .form-group select, .form-group textarea { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:14px; outline:none; background:var(--bg-white); color:var(--text-primary); font-family:inherit; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color:var(--gold); box-shadow:0 0 0 3px rgba(200,160,82,.12); }
+.form-group textarea { resize:vertical; min-height:80px; }
+
+/* Pagination */
+.pagination { display:flex; justify-content:center; align-items:center; gap:8px; margin-top:16px; }
+.pagination .page-btn { padding:6px 12px; border:1px solid var(--border); border-radius:4px; background:var(--bg-white); cursor:pointer; font-size:13px; color:var(--text-primary); }
+.pagination .page-btn.active { background:var(--gold); color:#fff; border-color:var(--gold); }
+.pagination .page-btn:disabled { opacity:.4; cursor:not-allowed; }
+.pagination .page-info { font-size:13px; color:var(--text-muted); }
+
+/* Loading */
+.loading-wrap { display:flex; align-items:center; justify-content:center; padding:40px; color:var(--text-muted); font-size:14px; gap:8px; }
+.loading-spinner { display:inline-block; width:20px; height:20px; border:2px solid var(--border); border-top-color:var(--gold); border-radius:50%; animation:spin .6s linear infinite; vertical-align:middle; margin-right:6px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.empty-text { text-align:center; padding:40px; color:var(--text-muted); font-size:14px; }
+
+/* Tag */
+.tag { display:inline-block; font-size:11px; padding:2px 8px; border-radius:4px; font-weight:500; }
+.tag-gold { background:rgba(200,160,82,.15); color:var(--gold-light); }
+
+/* Buttons */
+.btn { display:inline-flex; align-items:center; justify-content:center; padding:8px 20px; border-radius:6px; font-size:14px; cursor:pointer; border:none; transition:all .25s ease; font-family:inherit; }
+.btn-primary { background:var(--gold); color:#1a1a1a; font-weight:600; }
+.btn-primary:hover { background:var(--gold-dark); }
+.btn-outline { background:transparent; color:var(--gold); border:1px solid var(--gold); }
+.btn-outline:hover { background:rgba(200,160,82,.08); }
+.btn-sm { padding:4px 12px; font-size:12px; }
+.btn-danger { background:var(--error); color:#fff; }
+.btn-danger:hover { opacity:.85; }
+
+/* Responsive */
+@media (max-width:768px) {
+  .page { padding:12px; }
+  .stat-cards { grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+  .stat-card { padding:14px; gap:10px; }
+  .stat-value { font-size:20px; }
+  .filter-bar { flex-direction:column; align-items:stretch; }
+  .filter-bar .form-input, .filter-bar .form-select { width:100%; }
+  .tab-bar { overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch; }
+  .tab-item { padding:10px 14px; font-size:13px; flex-shrink:0; }
+  .table-wrap { margin:0 -12px; }
+  .modal { width:95vw; padding:18px; }
+}
+@media (max-width:480px) {
+  .stat-cards { grid-template-columns:1fr 1fr; gap:8px; }
+  .stat-card { padding:10px; gap:8px; }
+  .stat-icon { width:36px; height:36px; font-size:18px; }
+  .stat-value { font-size:18px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Login Layer -->
+<div class="login-layer" id="loginLayer" style="display:none;">
+  <div class="login-box">
+    <div class="logo">🏞️</div>
+    <h2>景区智慧管理系统</h2>
+    <p class="sub">请登录以管理支付数据</p>
+    <form id="loginForm">
+      <div class="form-group">
+        <label>用户名</label>
+        <input type="text" id="loginUser" placeholder="请输入用户名" required>
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="loginPass" placeholder="请输入密码" required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;">登 录</button>
+    </form>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="page" id="mainContent">
+  <div class="page-title">💰 支付管理</div>
+
+  <!-- Stat Cards -->
+  <div class="stat-cards" id="statCards">
+    <div class="stat-card"><div class="loading-spinner"></div> 加载中...</div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="card" style="padding:0;">
+    <div class="tab-bar" id="tabBar">
+      <div class="tab-item active" data-tab="records">支付记录</div>
+      <div class="tab-item" data-tab="refunds">退款审核</div>
+    </div>
+  </div>
+
+  <!-- Tab: Payment Records -->
+  <div id="tabRecords">
+    <div class="card">
+      <div class="filter-bar">
+        <select class="form-select" id="fType">
+          <option value="">全部类型</option>
+          <option value="ticket">门票</option>
+          <option value="hotel">酒店</option>
+        </select>
+        <select class="form-select" id="fStatus">
+          <option value="">全部状态</option>
+          <option value="pending">待支付</option>
+          <option value="success">支付成功</option>
+          <option value="failed">支付失败</option>
+          <option value="refunding">退款审核中</option>
+          <option value="refund">已退款</option>
+          <option value="cancelled">已取消</option>
+        </select>
+        <input type="date" class="form-input" id="fStart" placeholder="开始日期">
+        <input type="date" class="form-input" id="fEnd" placeholder="结束日期">
+        <button class="btn btn-primary btn-sm" onclick="loadRecords()">查询</button>
+        <button class="btn btn-outline btn-sm" onclick="resetFilters()">重置</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>交易号</th><th>订单号</th><th>类型</th><th>金额</th><th>状态</th><th>时间</th>
+            </tr>
+          </thead>
+          <tbody id="recordTableBody">
+            <tr><td colspan="7"><div class="loading-wrap"><span class="loading-spinner"></span>加载中...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="recordPagination"></div>
+    </div>
+  </div>
+
+  <!-- Tab: Refund Audit -->
+  <div id="tabRefunds" style="display:none;">
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>交易号</th><th>订单号</th><th>类型</th><th>金额</th><th>支付时间</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="refundTableBody">
+            <tr><td colspan="6"><div class="loading-wrap"><span class="loading-spinner"></span>加载中...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="refundPagination"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Approve/Reject Modal -->
+<div class="modal-mask" id="modalMask" style="display:none;" onclick="if(event.target===this)closeModal();">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">审核退款</div>
+    <div class="form-group">
+      <label>交易号</label>
+      <input type="text" id="mTxnId" readonly>
+    </div>
+    <div class="form-group">
+      <label>订单号</label>
+      <input type="text" id="mOrderNo" readonly>
+    </div>
+    <div class="form-group">
+      <label>退款金额</label>
+      <input type="text" id="mAmount" readonly>
+    </div>
+    <div class="form-group">
+      <label>审核备注 / 拒绝理由</label>
+      <textarea id="mReason" placeholder="请输入备注或拒绝理由（可选）"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">取消</button>
+      <button class="btn btn-danger btn-sm" id="mRejectBtn" onclick="submitAudit(false)">拒绝</button>
+      <button class="btn btn-primary btn-sm" id="mApproveBtn" onclick="submitAudit(true)">批准</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var API_BASE = '/scenic/api';
+  var token = localStorage.getItem('scenic_token');
+  var currentTab = 'records';
+  var recordPage = 1, refundPage = 1;
+  var auditTxnId = '', auditOrderNo = '';
+
+  function getHeaders() {
+    return { 'Authorization': 'Bearer ' + (localStorage.getItem('scenic_token')||''), 'Content-Type': 'application/json' };
+  }
+
+  function showLogin() {
+    document.getElementById('loginLayer').style.display = 'flex';
+  }
+  function hideLogin() {
+    document.getElementById('loginLayer').style.display = 'none';
+  }
+
+  // Login
+  document.getElementById('loginForm').addEventListener('submit', async function(ev) {
+    ev.preventDefault();
+    var u = document.getElementById('loginUser').value;
+    var p = document.getElementById('loginPass').value;
+    var errEl = document.getElementById('loginErr');
+    errEl.style.display = 'none';
+    try {
+      var r = await fetch(API_BASE + '/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p })
+      });
+      var j = await r.json();
+      var t = j.access_token || (j.data && j.data.access_token);
+      if (t) {
+        localStorage.setItem('scenic_token', t);
+        hideLogin();
+        initPage();
+      } else {
+        errEl.textContent = j.msg || j.detail || '登录失败';
+        errEl.style.display = 'block';
+      }
+    } catch(x) {
+      errEl.textContent = '网络错误';
+      errEl.style.display = 'block';
+    }
+  });
+
+  async function apiGet(path) {
+    var r = await fetch(API_BASE + path, { headers: getHeaders() });
+    if (r.status === 401 || r.status === 403) {
+      localStorage.removeItem('scenic_token');
+      showLogin();
+      throw new Error('未登录');
+    }
+    if (!r.ok) throw new Error('请求失败: ' + r.status);
+    return r.json();
+  }
+  async function apiPost(path, body) {
+    var r = await fetch(API_BASE + path, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
+    if (r.status === 401 || r.status === 403) {
+      localStorage.removeItem('scenic_token');
+      showLogin();
+      throw new Error('未登录');
+    }
+    if (!r.ok) {
+      var txt = await r.text();
+      throw new Error(txt || '请求失败: ' + r.status);
+    }
+    return r.json();
+  }
+
+  function fmtMoney(n) { return '¥' + Number(n||0).toFixed(2); }
+  function fmtDate(s) {
+    if (!s) return '--';
+    var d = new Date(s);
+    return d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')+'-'+d.getDate().toString().padStart(2,'0')+' '+
+           d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+  }
+  function statusBadge(s) {
+    var map = {
+      pending: '<span class="badge badge-pending">待支付</span>',
+      success: '<span class="badge badge-success">支付成功</span>',
+      failed: '<span class="badge badge-failed">支付失败</span>',
+      refunding: '<span class="badge badge-refunding">退款审核中</span>',
+      refund: '<span class="badge badge-refund">已退款</span>',
+      cancelled: '<span class="badge badge-cancelled">已取消</span>',
+    };
+    return map[s] || '<span class="badge badge-cancelled">'+s+'</span>';
+  }
+
+  // Stats
+  async function loadStats() {
+    try {
+      var d = await apiGet('/payment/stats');
+      var cards = [
+        { icon:'💰', cls:'gold', val: fmtMoney(d.today_revenue), label:'今日收款' },
+        { icon:'🧾', cls:'green', val: d.today_count||0, label:'今日笔数' },
+        { icon:'⏳', cls:'blue', val: d.pending_refund||0, label:'待审核退款' },
+        { icon:'📊', cls:'gold', val: fmtMoney(d.total_revenue), label:'累计交易额' },
+      ];
+      document.getElementById('statCards').innerHTML = cards.map(function(s) {
+        return '<div class="stat-card">'+
+          '<div class="stat-icon '+s.cls+'">'+s.icon+'</div>'+
+          '<div class="stat-info">'+
+            '<div class="stat-value">'+s.val+'</div>'+
+            '<div class="stat-label">'+s.label+'</div>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+    } catch(e) {
+      document.getElementById('statCards').innerHTML = '<div class="empty-text">统计加载失败: '+e.message+'</div>';
+    }
+  }
+
+  // Tabs
+  document.getElementById('tabBar').addEventListener('click', function(e) {
+    var item = e.target.closest('.tab-item');
+    if (!item) return;
+    document.querySelectorAll('#tabBar .tab-item').forEach(function(n){ n.classList.remove('active'); });
+    item.classList.add('active');
+    currentTab = item.dataset.tab;
+    document.getElementById('tabRecords').style.display = currentTab==='records'?'block':'none';
+    document.getElementById('tabRefunds').style.display = currentTab==='refunds'?'block':'none';
+    if (currentTab==='records') loadRecords();
+    else loadRefunds();
+  });
+
+  // Records
+  function resetFilters() {
+    document.getElementById('fType').value='';
+    document.getElementById('fStatus').value='';
+    document.getElementById('fStart').value='';
+    document.getElementById('fEnd').value='';
+    recordPage=1;
+    loadRecords();
+  }
+  async function loadRecords() {
+    var params = new URLSearchParams();
+    params.set('page', recordPage);
+    params.set('page_size', '20');
+    var t = document.getElementById('fType').value;
+    var s = document.getElementById('fStatus').value;
+    var start = document.getElementById('fStart').value;
+    var end = document.getElementById('fEnd').value;
+    if (t) params.set('order_type', t);
+    if (s) params.set('status', s);
+    if (start) params.set('start_date', start);
+    if (end) params.set('end_date', end);
+    try {
+      var d = await apiGet('/payment/list?' + params.toString());
+      renderRecords(d);
+    } catch(e) {
+      document.getElementById('recordTableBody').innerHTML = '<tr><td colspan="7" class="empty-text">加载失败: '+e.message+'</td></tr>';
+    }
+  }
+  function renderRecords(d) {
+    var tbody = document.getElementById('recordTableBody');
+    var items = d.items || [];
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-text">暂无支付记录</td></tr>';
+    } else {
+      tbody.innerHTML = items.map(function(r) {
+        return '<tr>'+
+          '<td>'+r.id+'</td>'+
+          '<td>'+(r.transaction_id||'--')+'</td>'+
+          '<td>'+(r.order_no||'--')+'</td>'+
+          '<td>'+(r.order_type==='ticket'?'门票':'酒店')+'</td>'+
+          '<td style="font-weight:600;color:var(--gold-light);">'+fmtMoney(r.amount)+'</td>'+
+          '<td>'+statusBadge(r.status)+'</td>'+
+          '<td>'+fmtDate(r.created_at)+'</td>'+
+        '</tr>';
+      }).join('');
+    }
+    renderPagination(document.getElementById('recordPagination'), d.page, d.page_size, d.total, function(p){ recordPage=p; loadRecords(); });
+  }
+
+  // Refunds
+  async function loadRefunds() {
+    var params = new URLSearchParams();
+    params.set('page', refundPage);
+    params.set('page_size', '20');
+    try {
+      var d = await apiGet('/payment/refund/pending?' + params.toString());
+      renderRefunds(d);
+    } catch(e) {
+      document.getElementById('refundTableBody').innerHTML = '<tr><td colspan="6" class="empty-text">加载失败: '+e.message+'</td></tr>';
+    }
+  }
+  function renderRefunds(d) {
+    var tbody = document.getElementById('refundTableBody');
+    var items = d.items || [];
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-text">暂无待审核退款</td></tr>';
+    } else {
+      tbody.innerHTML = items.map(function(r) {
+        return '<tr>'+
+          '<td>'+(r.transaction_id||'--')+'</td>'+
+          '<td>'+(r.order_no||'--')+'</td>'+
+          '<td>'+(r.order_type==='ticket'?'门票':'酒店')+'</td>'+
+          '<td style="font-weight:600;color:var(--gold-light);">'+fmtMoney(r.amount)+'</td>'+
+          '<td>'+fmtDate(r.pay_time)+'</td>'+
+          '<td>'+
+            '<button class="btn btn-primary btn-sm" onclick="openAudit(\''+r.transaction_id+'\',\''+r.order_no+'\','+r.amount+',true)">批准</button> '+
+            '<button class="btn btn-outline btn-sm" style="color:var(--error);border-color:var(--error);" onclick="openAudit(\''+r.transaction_id+'\',\''+r.order_no+'\','+r.amount+',false)">拒绝</button>'+
+          '</td>'+
+        '</tr>';
+      }).join('');
+    }
+    renderPagination(document.getElementById('refundPagination'), d.page, d.page_size, d.total, function(p){ refundPage=p; loadRefunds(); });
+  }
+
+  // Pagination
+  function renderPagination(el, page, pageSize, total, onChange) {
+    var totalPages = Math.max(1, Math.ceil(total / pageSize));
+    var html = '';
+    html += '<button class="page-btn" '+(page<=1?'disabled':'')+' onclick="if('+page+'>1){'+'onChange('+(page-1)+');}">上一页</button>';
+    html += '<span class="page-info">'+page+' / '+totalPages+'（共 '+total+' 条）</span>';
+    html += '<button class="page-btn" '+(page>=totalPages?'disabled':'')+' onclick="if('+page+'<'+totalPages+'){'+'onChange('+(page+1)+');}">下一页</button>';
+    el.innerHTML = html;
+    // Bind using dataset for closures
+    var btns = el.querySelectorAll('button:not([disabled])');
+    btns.forEach(function(btn){
+      if (btn.textContent.indexOf('上一页')!==-1) {
+        btn.onclick = function(){ if(page>1) onChange(page-1); };
+      } else if (btn.textContent.indexOf('下一页')!==-1) {
+        btn.onclick = function(){ if(page<totalPages) onChange(page+1); };
+      }
+    });
+  }
+
+  // Modal
+  window.openAudit = function(txnId, orderNo, amount, isApprove) {
+    auditTxnId = txnId;
+    auditOrderNo = orderNo;
+    document.getElementById('mTxnId').value = txnId;
+    document.getElementById('mOrderNo').value = orderNo;
+    document.getElementById('mAmount').value = fmtMoney(amount);
+    document.getElementById('mReason').value = '';
+    document.getElementById('modalTitle').textContent = isApprove ? '批准退款' : '拒绝退款';
+    document.getElementById('mApproveBtn').style.display = isApprove ? 'inline-flex' : 'none';
+    document.getElementById('mRejectBtn').style.display = isApprove ? 'none' : 'inline-flex';
+    document.getElementById('modalMask').style.display = 'flex';
+  };
+  window.closeModal = function() {
+    document.getElementById('modalMask').style.display = 'none';
+    auditTxnId = '';
+    auditOrderNo = '';
+  };
+  window.submitAudit = async function(approved) {
+    if (!auditTxnId) return;
+    var reason = document.getElementById('mReason').value;
+    try {
+      await apiPost('/payment/refund/approve', {
+        transaction_id: auditTxnId,
+        approved: approved,
+        reason: reason || undefined
+      });
+      closeModal();
+      loadStats();
+      if (currentTab === 'refunds') loadRefunds();
+      else loadRecords();
+    } catch(e) {
+      alert('操作失败: ' + e.message);
+    }
+  };
+
+  function initPage() {
+    loadStats();
+    loadRecords();
+  }
+
+  if (!token) { showLogin(); }
+  else { initPage(); }
+})();
+</script>
+</body>
+</html>

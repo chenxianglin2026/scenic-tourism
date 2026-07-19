@@ -80,10 +80,22 @@ class Settings(BaseSettings):
     WX_APPID: str = ""
     WX_SECRET: str = ""
 
+    # 微信支付 V3 配置（生产环境必填）
+    WX_PAY_MCHID: str = ""
+    WX_PAY_SERIAL_NO: str = ""
+    WX_PAY_PRIVATE_KEY_PATH: str = ""
+    WX_PAY_API_V3_KEY: str = ""
+
     # 服务器域名
     SERVER_DOMAIN: str = ""
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    # TTLock 配置
+    TTLOCK_CLIENT_ID: Optional[str] = None
+    TTLOCK_CLIENT_SECRET: Optional[str] = None
+    TTLOCK_USERNAME: Optional[str] = None
+    TTLOCK_PASSWORD: Optional[str] = None
+
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
 settings = Settings()
