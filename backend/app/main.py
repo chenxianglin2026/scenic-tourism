@@ -11,7 +11,7 @@ import os
 
 from app.config import settings
 from app.db import init_db
-from app.api import auth, tickets, hotels, dashboard, payment, scenic, parking, export, ota, packages, bookings, content, settings as settings_api
+from app.api import auth, tickets, hotels, rooms, dashboard, payment, scenic, parking, export, ota, packages, bookings, content, settings as settings_api
 
 
 @asynccontextmanager
