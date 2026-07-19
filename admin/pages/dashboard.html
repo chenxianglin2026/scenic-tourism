@@ -139,13 +139,17 @@
 
   function fmtMoney(n) { return '¥' + Number(n||0).toLocaleString('zh-CN', {minimumFractionDigits:0,maximumFractionDigits:0}); }
 
+  var paymentStatsData = {};
+
   function renderStatCards(d) {
+    var pay = paymentStatsData || {};
     var cards = [
       { icon:'🎫', cls:'gold', val: d.tickets_sold_today || 0, label: '今日售票', sub: '有效售票数量' },
       { icon:'🚶', cls:'green', val: d.tickets_verified_today || 0, label: '今日入园', sub: '已核销验票' },
       { icon:'🏨', cls:'blue', val: d.occupied_rooms || 0, label: '今日客房入住', sub: '已占用房间数' },
       { icon:'🅿️', cls:'green', val: (d.parking_active_count || 0), label: '在场车辆', sub: '停车中: ' + fmtMoney(d.parking_revenue_today || 0) + ' 今日收入' },
-      { icon:'💰', cls:'gold', val: fmtMoney(d.total_revenue_today), label: '今日营收', sub: '票务+酒店+停车总收入' }
+      { icon:'💰', cls:'gold', val: fmtMoney(d.total_revenue_today), label: '今日营收', sub: '票务+酒店+停车总收入' },
+      { icon:'💳', cls:'gold', val: fmtMoney(pay.today_revenue), label: '今日收款', sub: '支付成功笔数: ' + (pay.today_count||0) }
     ];
     document.getElementById('statCards').innerHTML = cards.map(function(s) {
       return '<div class="stat-card">' +
@@ -285,6 +289,24 @@
       });
     } catch(e) {
       document.getElementById('statCards').innerHTML = '<div class="loading" style="color:var(--error);">核心数据加载失败: ' + e.message + '</div>';
+    }
+
+    // Load payment stats
+    try {
+      var payRes = await fetch('/scenic/api/payment/stats', { headers: headers });
+      if (payRes.status === 401 || payRes.status === 403) {
+        window.top.location.href = 'pages/login.html';
+        return;
+      }
+      if (payRes.ok) {
+        paymentStatsData = await payRes.json();
+        // Re-render stat cards to include payment data
+        var d2 = {};
+        try { d2 = (await (await fetch('/api/dashboard/stats',{headers:headers})).json()).data || {}; } catch(_){}
+        renderStatCards(d2);
+      }
+    } catch(e) {
+      // 支付统计非核心数据，静默失败
     }
 
     // Load scenic info

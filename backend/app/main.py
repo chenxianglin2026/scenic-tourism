@@ -11,7 +11,7 @@ import os
 
 from app.config import settings
 from app.db import init_db
-from app.api import auth, tickets, hotels, dashboard, payment, scenic, parking, export, ota, packages
+from app.api import auth, tickets, hotels, dashboard, payment, scenic, parking, export, ota, packages, bookings, content, settings as settings_api
 
 
 @asynccontextmanager
@@ -58,6 +58,15 @@ app.include_router(ota.router)
 
 # 注册套餐组合路由
 app.include_router(packages.router)
+
+# 注册预订路由
+app.include_router(bookings.router)
+
+# 注册内容管理路由
+app.include_router(content.router)
+
+# 注册系统设置路由
+app.include_router(settings_api.router)
 
 # 托管管理后台静态文件（本地调试）
 admin_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'admin')

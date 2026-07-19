@@ -18,6 +18,7 @@ from app.db import (
     HotelOrder, HotelOrderStatus, PaymentRecord, Room, ScenicSpot
 )
 from app.api.auth import get_current_user, require_admin
+from app.utils import wechatpay
 
 router = APIRouter(prefix="/api/payment", tags=["支付"])
 
@@ -256,18 +257,61 @@ async def create_payment(
             },
         )
 
-    # 生产模式：返回JSAPI参数
+    # ── 生产模式：微信 V3 真实下单 ─────────────────────
+    if not current_user.wx_openid:
+        raise HTTPException(status_code=400, detail="用户未绑定微信，无法使用JSAPI支付")
+
+    if not settings.WX_PAY_MCHID or not settings.WX_PAY_PRIVATE_KEY_PATH:
+        raise HTTPException(status_code=500, detail="微信支付商户配置不完整")
+
+    try:
+        private_key_str = wechatpay.load_private_key_from_path(settings.WX_PAY_PRIVATE_KEY_PATH)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"读取商户私钥失败: {exc}") from exc
+
+    notify_url = ""
+    if settings.SERVER_DOMAIN:
+        notify_url = f"{settings.SERVER_DOMAIN.rstrip('/')}/api/payment/notify"
+
+    try:
+        wx_resp = await wechatpay.create_jsapi_order(
+            appid=settings.WX_APPID,
+            mchid=settings.WX_PAY_MCHID,
+            serial_no=settings.WX_PAY_SERIAL_NO,
+            private_key_str=private_key_str,
+            openid=current_user.wx_openid,
+            order_no=req.order_no,
+            amount_yuan=pay_amount,
+            description=f"景区{'门票' if req.order_type == 'ticket' else '酒店客房'}订单",
+            notify_url=notify_url,
+            attach=req.order_type,
+        )
+        prepay_id = wx_resp.get("prepay_id")
+        if not prepay_id:
+            raise RuntimeError(f"微信响应缺少 prepay_id: {wx_resp}")
+        payment.prepay_id = prepay_id
+        await db.flush()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"微信下单失败: {exc}") from exc
+
+    timestamp = str(int(datetime.utcnow().timestamp()))
+    nonce_str = uuid.uuid4().hex[:16]
+    package = f"prepay_id={prepay_id}"
+    pay_sign = wechatpay.jsapi_pay_sign(
+        settings.WX_APPID, timestamp, nonce_str, package, private_key_str
+    )
+
     return PaymentCreateResponse(
         success=True,
         message=f"支付订单已创建，请调起微信支付（{PAYMENT_TIMEOUT_MINUTES}分钟内完成）",
         transaction_id=transaction_id,
         payment_params={
-            "appId": settings.WX_APPID or "wx_dev_mock_appid",
-            "timeStamp": str(int(datetime.utcnow().timestamp())),
-            "nonceStr": uuid.uuid4().hex[:16],
-            "package": f"prepay_id={payment.prepay_id}",
-            "signType": "MD5",
-            "paySign": "PROD_SIGNATURE_PLACEHOLDER",
+            "appId": settings.WX_APPID,
+            "timeStamp": timestamp,
+            "nonceStr": nonce_str,
+            "package": package,
+            "signType": "RSA",
+            "paySign": pay_sign,
         },
     )
 
@@ -419,10 +463,50 @@ async def cancel_payment(
 # ── 支付回调 ─────────────────────────────────────────
 @router.post("/notify", response_model=PaymentNotifyResponse, summary="微信支付回调通知")
 async def payment_notify(
-    req: PaymentNotifyRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """接收微信支付回调，更新订单状态"""
+    """接收微信支付回调，更新订单状态（DEV_MODE接收封装JSON，生产模式接收原始Request并验签解密）"""
+    body_bytes = await request.body()
+    body_str = body_bytes.decode("utf-8")
+
+    if not settings.DEV_MODE:
+        # ── 生产模式：验签 + 解密 ──────────────────────
+        ok = wechatpay.verify_notify_sign(dict(request.headers), body_str)
+        if not ok:
+            return PaymentNotifyResponse(return_code="FAIL", return_msg="验签失败")
+
+        try:
+            data = json.loads(body_str)
+            resource = data.get("resource", {})
+            if not resource:
+                return PaymentNotifyResponse(return_code="FAIL", return_msg="缺少resource")
+            plaintext = wechatpay.decrypt_notify_resource(
+                resource.get("ciphertext", ""),
+                resource.get("nonce", ""),
+                resource.get("associated_data", ""),
+                settings.WX_PAY_API_V3_KEY,
+            )
+            notify_data = json.loads(plaintext)
+        except Exception as exc:
+            return PaymentNotifyResponse(return_code="FAIL", return_msg=f"解密失败: {exc}")
+
+        req = PaymentNotifyRequest(
+            transaction_id=notify_data.get("transaction_id", ""),
+            order_no=notify_data.get("out_trade_no", ""),
+            order_type=notify_data.get("attach") or "ticket",
+            amount=(notify_data.get("amount", {}).get("total", 0) or 0) / 100.0,
+            result_code="SUCCESS" if notify_data.get("trade_state") == "SUCCESS" else "FAIL",
+            raw_data=body_str,
+        )
+    else:
+        # ── DEV_MODE：直接解析封装格式 ──────────────────
+        try:
+            payload = json.loads(body_str)
+            req = PaymentNotifyRequest(**payload)
+        except Exception as exc:
+            return PaymentNotifyResponse(return_code="FAIL", return_msg=f"参数错误: {exc}")
+
     # 查找支付记录
     pay_result = await db.execute(
         select(PaymentRecord).where(PaymentRecord.order_no == req.order_no)
@@ -691,4 +775,111 @@ async def auto_cancel_expired(
         "message": f"已自动取消 {len(cancelled)} 个超时订单",
         "cancelled_count": len(cancelled),
         "items": cancelled,
+    }
+
+
+# ── 支付记录列表（管理员） ───────────────────────────
+@router.get("/list", summary="支付记录列表（管理员）")
+async def list_payments(
+    order_type: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """管理员分页查询支付记录，支持类型/状态/日期筛选"""
+    from sqlalchemy import func as sa_func, and_
+
+    conditions = []
+    if order_type:
+        conditions.append(PaymentRecord.order_type == order_type)
+    if status:
+        conditions.append(PaymentRecord.status == status)
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            conditions.append(PaymentRecord.created_at >= start_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="start_date 格式错误，应为 YYYY-MM-DD")
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+            conditions.append(PaymentRecord.created_at < end_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="end_date 格式错误，应为 YYYY-MM-DD")
+
+    count_q = select(sa_func.count(PaymentRecord.id))
+    if conditions:
+        count_q = count_q.where(and_(*conditions))
+    count_result = await db.execute(count_q)
+    total = count_result.scalar() or 0
+
+    q = select(PaymentRecord).order_by(PaymentRecord.created_at.desc())
+    if conditions:
+        q = q.where(and_(*conditions))
+    offset = (page - 1) * page_size
+    q = q.offset(offset).limit(page_size)
+    result = await db.execute(q)
+    records = result.scalars().all()
+
+    items = []
+    for r in records:
+        items.append({
+            "id": r.id,
+            "order_no": r.order_no,
+            "order_type": r.order_type,
+            "transaction_id": r.transaction_id,
+            "amount": r.amount,
+            "status": r.status,
+            "pay_method": r.pay_method,
+            "pay_time": r.pay_time.isoformat() if r.pay_time else None,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        })
+
+    return {"total": total, "page": page, "page_size": page_size, "items": items}
+
+
+# ── 支付统计（管理员） ───────────────────────────────
+@router.get("/stats", summary="支付统计（管理员）")
+async def payment_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """今日收款、今日笔数、待审核退款数、累计交易额"""
+    from sqlalchemy import func as sa_func
+
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    today_revenue_result = await db.execute(
+        select(sa_func.coalesce(sa_func.sum(PaymentRecord.amount), 0.0))
+        .where(PaymentRecord.status == "success", PaymentRecord.pay_time >= today_start)
+    )
+    today_revenue = today_revenue_result.scalar() or 0.0
+
+    today_count_result = await db.execute(
+        select(sa_func.count(PaymentRecord.id))
+        .where(PaymentRecord.status == "success", PaymentRecord.pay_time >= today_start)
+    )
+    today_count = today_count_result.scalar() or 0
+
+    pending_refund_result = await db.execute(
+        select(sa_func.count(PaymentRecord.id))
+        .where(PaymentRecord.status == "refunding")
+    )
+    pending_refund = pending_refund_result.scalar() or 0
+
+    total_revenue_result = await db.execute(
+        select(sa_func.coalesce(sa_func.sum(PaymentRecord.amount), 0.0))
+        .where(PaymentRecord.status == "success")
+    )
+    total_revenue = total_revenue_result.scalar() or 0.0
+
+    return {
+        "today_revenue": today_revenue,
+        "today_count": today_count,
+        "pending_refund": pending_refund,
+        "total_revenue": total_revenue,
     }

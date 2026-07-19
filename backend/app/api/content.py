@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from app.api.auth import get_current_user
-from app.db import async_session_factory, User
+from app.db import User
 from pydantic import BaseModel
 from typing import Optional
 import json
@@ -30,6 +30,7 @@ class HotelIntro(BaseModel):
     desc: str = ""
     cover: str = ""
     features: list[str] = []
+    facilities: list[str] = []
     checkin_time: str = "14:00"
     checkout_time: str = "12:00"
 
@@ -59,6 +60,8 @@ class RoomGallery(BaseModel):
     video: str = ""
     vr_url: str = ""
     desc: str = ""
+    amenities: list[str] = []
+    perks: list[str] = []
 
 @router.get("/gallery")
 async def list_galleries(room_id:int=0):
