@@ -108,6 +108,28 @@ class ScenicSpot(Base):
     hotels: Mapped[List["Hotel"]] = relationship(back_populates="spot")
 
 
+# ── 价格策略模型 ────────────────────────────────────
+class PricingRule(Base):
+    __tablename__ = "pricing_rules"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    target_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="ticket/hotel/parking/package")
+    target_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, comment="具体票种/房型/停车费率/套餐ID, null=全部")
+    name: Mapped[str] = mapped_column(String(100), nullable=False, comment="规则名称")
+    rule_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="weekend/weekday/holiday/advance_book/long_stay/seasonal")
+    adjust_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="percent/fixed/override")
+    adjust_value: Mapped[float] = mapped_column(Float, nullable=False, comment="调整值")
+    priority: Mapped[int] = mapped_column(Integer, default=0, comment="优先级，越小越优先")
+    start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, comment="生效开始日期")
+    end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, comment="生效结束日期")
+    weekdays: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, comment="适用星期，如 0,6 表示周末")
+    min_nights: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, comment="最少入住晚数（酒店）")
+    max_advance_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, comment="最大提前预订天数")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 # ── 票种模型 ────────────────────────────────────────
 class TicketType(Base):
     __tablename__ = "ticket_types"

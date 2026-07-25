@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>价格策略 - 景区智慧管理</title>
+<link rel="stylesheet" href="../css/admin.css">
+<style>
+  .section { margin-bottom:24px; }
+  .toast-msg { position:fixed; top:20px; left:50%; transform:translateX(-50%); padding:10px 24px; border-radius:6px; color:#fff; font-size:14px; z-index:9999; opacity:0; transition:opacity .3s; pointer-events:none; }
+  .toast-msg.show { opacity:1; }
+  .toast-msg.success { background:#52c41a; }
+  .toast-msg.error { background:#f5222d; }
+  .toast-msg.info { background:#1890ff; }
+  .modal-overlay { display:none; position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(0,0,0,.45); align-items:flex-start; justify-content:center; z-index:1000; padding-top:60px; overflow-y:auto; }
+  .modal-overlay.show { display:flex; }
+  .modal-box { background:#fff; border-radius:12px; padding:24px; width:720px; max-width:95vw; max-height:85vh; overflow-y:auto; }
+  .modal-box h3 { margin:0 0 16px 0; font-size:18px; color:var(--text-primary); }
+  .form-row { display:flex; gap:12px; margin-bottom:12px; }
+  .form-row .form-group { flex:1; }
+  .form-group { margin-bottom:12px; }
+  .form-group label { display:block; font-size:13px; color:var(--text-secondary); margin-bottom:4px; font-weight:600; }
+  .form-input, .form-select, .form-textarea { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:14px; font-family:inherit; }
+  .form-textarea { min-height:60px; resize:vertical; }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { outline:none; border-color:var(--gold); box-shadow:0 0 0 2px rgba(200,160,82,.15); }
+  .btn { padding:8px 20px; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-weight:600; transition:all .2s; }
+  .btn-primary { background:var(--gold-dark); color:#fff; }
+  .btn-primary:hover { background:var(--gold); }
+  .btn-outline { background:#fff; color:var(--gold-dark); border:1px solid var(--gold-dark); }
+  .btn-danger { background:var(--error); color:#fff; }
+  .btn-sm { padding:4px 12px; font-size:12px; }
+  .btn-xs { padding:2px 8px; font-size:11px; border-radius:4px; }
+  .stat-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:16px; }
+  .stat-card { background:var(--bg-card); border-radius:var(--radius); padding:16px; text-align:center; border:1px solid var(--border); }
+  .stat-card .stat-num { font-size:28px; font-weight:700; color:var(--gold-dark); }
+  .stat-card .stat-label { font-size:12px; color:var(--text-muted); margin-top:4px; }
+  .filter-bar { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  .filter-bar .form-select { width:auto; min-width:120px; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+  .tag-active { background:rgba(82,196,26,.1); color:#389e0d; }
+  .tag-inactive { background:#f0f0f0; color:#999; }
+  .tag-percent { background:rgba(24,144,255,.1); color:#096dd9; }
+  .tag-fixed { background:rgba(200,160,82,.12); color:var(--gold-dark); }
+  .tag-override { background:rgba(245,34,45,.1); color:#cf1322; }
+  .rule-row td { vertical-align:middle; }
+  .empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); }
+  .empty-state .empty-icon { font-size:48px; margin-bottom:12px; }
+  @media (max-width:768px) {
+    .modal-box { width:95vw; padding:16px; }
+    .form-row { flex-direction:column; }
+    .filter-bar { flex-direction:column; align-items:stretch; }
+    .filter-bar .form-select { width:100%; }
+    .btn,button { padding:12px 18px; min-width:44px; min-height:44px; font-size:14px }
+    input,select,textarea { font-size:16px; padding:12px; width:100% }
+    table { display:block; width:100% }
+    table thead { display:none }
+    table tbody,table tr { display:block; width:100% }
+    table td { display:block; width:100%; padding:12px; border-bottom:1px solid #e8e8e8; position:relative }
+    table td:before { content:attr(data-label); font-weight:600; color:#999; font-size:12px; display:block; margin-bottom:4px }
+    .page { padding:12px }
+  }
+</style>
+</head>
+<body>
+<script>if(!localStorage.getItem('scenic_token'))location.href='login.html';</script>
+
+<div class="page">
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text-muted);">
+    <a href="../index.html" style="color:var(--gold-dark);">🏠 首页</a>
+    <span>/</span>
+    <span style="color:var(--text-primary);font-weight:600;">价格策略</span>
+  </div>
+
+  <div class="page-title">💲 价格策略</div>
+
+  <!-- Stats -->
+  <div class="stat-cards" id="statCards"></div>
+
+  <!-- Filter -->
+  <div class="filter-bar">
+    <button class="btn btn-primary" onclick="showCreateModal()">+ 新增策略</button>
+    <select class="form-select" id="filterTargetType" onchange="loadRules()">
+      <option value="">全部品类</option>
+      <option value="ticket">🎫 门票</option>
+      <option value="hotel">🏨 酒店</option>
+      <option value="parking">🅿️ 停车</option>
+      <option value="package">📦 套餐</option>
+    </select>
+    <select class="form-select" id="filterStatus" onchange="loadRules()">
+      <option value="">全部状态</option>
+      <option value="true">启用中</option>
+      <option value="false">已停用</option>
+    </select>
+  </div>
+
+  <!-- Rules Table -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">策略列表</div>
+      <span style="font-size:12px;color:var(--text-muted);" id="ruleTotal">--</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>名称</th>
+            <th>品类</th>
+            <th>规则类型</th>
+            <th>调整方式</th>
+            <th>调整值</th>
+            <th>优先级</th>
+            <th>有效期</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="ruleList"><tr><td colspan="10" class="empty">加载中...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="rulePager"></div>
+  </div>
+
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <h3 id="modalTitle">新增价格策略</h3>
+    <input type="hidden" id="editId">
+    <div class="form-row">
+      <div class="form-group">
+        <label>目标品类 *</label>
+        <select class="form-select" id="editTargetType" onchange="onTargetTypeChange()">
+          <option value="ticket">🎫 门票</option>
+          <option value="hotel">🏨 酒店</option>
+          <option value="parking">🅿️ 停车</option>
+          <option value="package">📦 套餐</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>目标对象</label>
+        <select class="form-select" id="editTargetId"><option value="">全部对象</option></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>策略名称 *</label>
+      <input class="form-input" id="editName" placeholder="如：周末门票溢价">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>规则类型 *</label>
+        <select class="form-select" id="editRuleType">
+          <option value="weekend">周末</option>
+          <option value="weekday">工作日</option>
+          <option value="holiday">节假日</option>
+          <option value="advance_book">提前预订</option>
+          <option value="long_stay">长住优惠</option>
+          <option value="seasonal">季节性</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>调整方式 *</label>
+        <select class="form-select" id="editAdjustType">
+          <option value="percent">百分比 (%)</option>
+          <option value="fixed">固定金额 (元)</option>
+          <option value="override">直接覆盖 (元)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>调整值 *</label>
+        <input class="form-input" type="number" id="editAdjustValue" placeholder="如 20 或 -10" step="0.01">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>优先级</label>
+        <input class="form-input" type="number" id="editPriority" value="0" min="0">
+      </div>
+      <div class="form-group">
+        <label>开始日期</label>
+        <input class="form-input" type="date" id="editStartDate">
+      </div>
+      <div class="form-group">
+        <label>结束日期</label>
+        <input class="form-input" type="date" id="editEndDate">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>适用星期 (如 0,6 表示周末)</label>
+        <input class="form-input" id="editWeekdays" placeholder="0,1,2,3,4,5,6">
+      </div>
+      <div class="form-group">
+        <label>最少入住晚数</label>
+        <input class="form-input" type="number" id="editMinNights" placeholder="酒店长住用" min="1">
+      </div>
+      <div class="form-group">
+        <label>最大提前预订天数</label>
+        <input class="form-input" type="number" id="editMaxAdvanceDays" placeholder="提前预订用" min="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="editActive" checked> 启用策略
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveRule()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-msg" id="toast"></div>
+
+<script>
+var _token = localStorage.getItem('scenic_token') || '';
+if (!_token) { location.href = 'pages/login.html'; }
+var _editId = null;
+var _allTickets = [];
+var _allRooms = [];
+var _allParking = [];
+var _allPackages = [];
+var _page = 1, _pageSize = 20;
+
+function h(u,opts) {
+  opts = opts || {};
+  var headers = { 'Content-Type': 'application/json' };
+  if (_token) headers['Authorization'] = 'Bearer ' + _token;
+  return fetch(u, { method: opts.method || 'GET', headers: headers, body: opts.body || undefined })
+    .then(function(r) {
+      if (r.status === 401) { location.href = 'pages/login.html'; return Promise.reject('unauth'); }
+      if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+      return r.json();
+    });
+}
+
+function toast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast-msg ' + (type || 'info') + ' show';
+  setTimeout(function() { el.className = 'toast-msg ' + (type || 'info'); }, 2000);
+}
+
+function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function typeLabel(t) {
+  var map = { ticket: '🎫 门票', hotel: '🏨 酒店', parking: '🅿️ 停车', package: '📦 套餐' };
+  return map[t] || t;
+}
+
+function ruleTypeLabel(t) {
+  var map = { weekend: '周末', weekday: '工作日', holiday: '节假日', advance_book: '提前预订', long_stay: '长住优惠', seasonal: '季节性' };
+  return map[t] || t;
+}
+
+function adjustLabel(t) {
+  var map = { percent: '百分比', fixed: '固定金额', override: '直接覆盖' };
+  return map[t] || t;
+}
+
+function statusTag(active) {
+  return active ? '<span class="tag tag-active">启用</span>' : '<span class="tag tag-inactive">停用</span>';
+}
+
+function adjustTag(t) {
+  return '<span class="tag tag-' + t + '">' + adjustLabel(t) + '</span>';
+}
+
+// Load reference data
+function loadRefData() {
+  return Promise.all([
+    h('/scenic/api/tickets/types?spot_id=1'),
+    h('/scenic/api/rooms?spot_id=1'),
+    h('/scenic/api/parking/rates?spot_id=1'),
+    h('/scenic/api/packages?spot_id=1')
+  ]).then(function(d) {
+    _allTickets = Array.isArray(d[0]) ? d[0] : (d[0].items || []);
+    var roomsData = d[1];
+    _allRooms = roomsData && roomsData.items ? roomsData.items : [];
+    _allParking = Array.isArray(d[2]) ? d[2] : (d[2].items || []);
+    var pkgData = d[3];
+    _allPackages = pkgData && pkgData.items ? pkgData.items : [];
+  }).catch(function(e) { console.log('ref data load warning', e); });
+}
+
+function populateTargetOptions(type) {
+  var sel = document.getElementById('editTargetId');
+  sel.innerHTML = '<option value="">全部对象</option>';
+  var data = type === 'ticket' ? _allTickets : (type === 'hotel' ? _allRooms : (type === 'parking' ? _allParking : _allPackages));
+  data.forEach(function(d) {
+    var opt = document.createElement('option');
+    opt.value = d.id;
+    var price = d.price !== undefined ? ' ¥' + d.price : '';
+    opt.textContent = (d.name || d.room_type || '--') + price;
+    sel.appendChild(opt);
+  });
+}
+
+function onTargetTypeChange() {
+  populateTargetOptions(document.getElementById('editTargetType').value);
+}
+
+// Load rules
+function loadRules(page) {
+  if (page) _page = page;
+  var targetType = document.getElementById('filterTargetType').value;
+  var status = document.getElementById('filterStatus').value;
+  var url = '/scenic/api/pricing/rules?page=' + _page + '&page_size=' + _pageSize;
+  if (targetType) url += '&target_type=' + targetType;
+  if (status) url += '&is_active=' + status;
+  h(url).then(function(data) {
+    renderRules(data.items || []);
+    updateStats(data.items || [], data.total || 0);
+    renderPager(data.total || 0);
+  }).catch(function(e) {
+    document.getElementById('ruleList').innerHTML = '<tr><td colspan="10" class="empty">加载失败: ' + e.message + '</td></tr>';
+  });
+}
+
+function renderRules(items) {
+  var html = '';
+  if (items.length === 0) {
+    html = '<tr><td colspan="10" class="empty">暂无价格策略</td></tr>';
+  } else {
+    items.forEach(function(r) {
+      var validRange = '';
+      if (r.start_date || r.end_date) {
+        validRange = (r.start_date || '永久') + ' ~ ' + (r.end_date || '永久');
+      } else {
+        validRange = '永久有效';
+      }
+      var valueStr = r.adjust_value;
+      if (r.adjust_type === 'percent') valueStr = r.adjust_value + '%';
+      else if (r.adjust_type === 'fixed' || r.adjust_type === 'override') valueStr = '¥' + r.adjust_value;
+      html += '<tr class="rule-row">' +
+        '<td data-label="ID">' + r.id + '</td>' +
+        '<td data-label="名称"><b>' + esc(r.name) + '</b></td>' +
+        '<td data-label="品类">' + typeLabel(r.target_type) + (r.target_id ? ' #' + r.target_id : ' (全部)') + '</td>' +
+        '<td data-label="规则类型">' + ruleTypeLabel(r.rule_type) + (r.weekdays ? ' · ' + r.weekdays : '') + (r.min_nights ? ' · ≥' + r.min_nights + '晚' : '') + (r.max_advance_days ? ' · 提前≤' + r.max_advance_days + '天' : '') + '</td>' +
+        '<td data-label="调整方式">' + adjustTag(r.adjust_type) + '</td>' +
+        '<td data-label="调整值">' + valueStr + '</td>' +
+        '<td data-label="优先级">' + r.priority + '</td>' +
+        '<td data-label="有效期">' + validRange + '</td>' +
+        '<td data-label="状态">' + statusTag(r.is_active) + '</td>' +
+        '<td data-label="操作">' +
+          '<button class="btn btn-outline btn-xs" onclick="editRule(' + r.id + ')">编辑</button> ' +
+          '<button class="btn btn-danger btn-xs" onclick="deleteRule(' + r.id + ')">删除</button> ' +
+          '<button class="btn btn-sm" style="background:' + (r.is_active ? '#faad14' : '#52c41a') + ';color:#fff;border:none;" onclick="toggleRule(' + r.id + ')">' + (r.is_active ? '停用' : '启用') + '</button>' +
+        '</td>' +
+      '</tr>';
+    });
+  }
+  document.getElementById('ruleList').innerHTML = html;
+}
+
+function updateStats(items, total) {
+  var active = items.filter(function(r) { return r.is_active; }).length;
+  document.getElementById('statCards').innerHTML =
+    '<div class="stat-card"><div class="stat-num">' + total + '</div><div class="stat-label">策略总数</div></div>' +
+    '<div class="stat-card"><div class="stat-num">' + active + '</div><div class="stat-label">启用中</div></div>' +
+    '<div class="stat-card"><div class="stat-num">' + (total - active) + '</div><div class="stat-label">已停用</div></div>';
+  document.getElementById('ruleTotal').textContent = '共 ' + total + ' 条';
+}
+
+function renderPager(total) {
+  var pages = Math.ceil(total / _pageSize) || 1;
+  var pager = '';
+  for (var i = 1; i <= pages; i++) {
+    pager += '<button class="page-btn' + (i === _page ? ' active' : '') + '" onclick="loadRules(' + i + ')">' + i + '</button>';
+  }
+  document.getElementById('rulePager').innerHTML = pages > 1 ? pager : '';
+}
+
+// Modal
+function showCreateModal() {
+  _editId = null;
+  document.getElementById('modalTitle').textContent = '新增价格策略';
+  document.getElementById('editTargetType').value = 'ticket';
+  populateTargetOptions('ticket');
+  document.getElementById('editTargetId').value = '';
+  document.getElementById('editName').value = '';
+  document.getElementById('editRuleType').value = 'weekend';
+  document.getElementById('editAdjustType').value = 'percent';
+  document.getElementById('editAdjustValue').value = '';
+  document.getElementById('editPriority').value = '0';
+  document.getElementById('editStartDate').value = '';
+  document.getElementById('editEndDate').value = '';
+  document.getElementById('editWeekdays').value = '';
+  document.getElementById('editMinNights').value = '';
+  document.getElementById('editMaxAdvanceDays').value = '';
+  document.getElementById('editActive').checked = true;
+  document.getElementById('editModal').classList.add('show');
+}
+
+function editRule(id) {
+  _editId = id;
+  h('/scenic/api/pricing/rules?page=1&page_size=1000').then(function(data) {
+    var items = data.items || [];
+    var r = items.find(function(x) { return x.id === id; });
+    if (!r) { toast('策略不存在', 'error'); return; }
+    document.getElementById('modalTitle').textContent = '编辑价格策略';
+    document.getElementById('editTargetType').value = r.target_type;
+    populateTargetOptions(r.target_type);
+    document.getElementById('editTargetId').value = r.target_id || '';
+    document.getElementById('editName').value = r.name || '';
+    document.getElementById('editRuleType').value = r.rule_type;
+    document.getElementById('editAdjustType').value = r.adjust_type;
+    document.getElementById('editAdjustValue').value = r.adjust_value;
+    document.getElementById('editPriority').value = r.priority;
+    document.getElementById('editStartDate').value = r.start_date || '';
+    document.getElementById('editEndDate').value = r.end_date || '';
+    document.getElementById('editWeekdays').value = r.weekdays || '';
+    document.getElementById('editMinNights').value = r.min_nights || '';
+    document.getElementById('editMaxAdvanceDays').value = r.max_advance_days || '';
+    document.getElementById('editActive').checked = r.is_active;
+    document.getElementById('editModal').classList.add('show');
+  }).catch(function(e) { toast('加载失败', 'error'); });
+}
+
+function closeModal() {
+  document.getElementById('editModal').classList.remove('show');
+}
+
+function saveRule() {
+  var targetType = document.getElementById('editTargetType').value;
+  var targetId = document.getElementById('editTargetId').value;
+  var name = document.getElementById('editName').value.trim();
+  var ruleType = document.getElementById('editRuleType').value;
+  var adjustType = document.getElementById('editAdjustType').value;
+  var adjustValue = parseFloat(document.getElementById('editAdjustValue').value);
+  var priority = parseInt(document.getElementById('editPriority').value) || 0;
+  var startDate = document.getElementById('editStartDate').value || null;
+  var endDate = document.getElementById('editEndDate').value || null;
+  var weekdays = document.getElementById('editWeekdays').value.trim() || null;
+  var minNights = document.getElementById('editMinNights').value;
+  var maxAdvanceDays = document.getElementById('editMaxAdvanceDays').value;
+  var active = document.getElementById('editActive').checked;
+
+  if (!name) { toast('请输入策略名称', 'error'); return; }
+  if (isNaN(adjustValue)) { toast('请输入调整值', 'error'); return; }
+
+  var body = JSON.stringify({
+    target_type: targetType,
+    target_id: targetId ? parseInt(targetId) : null,
+    name: name,
+    rule_type: ruleType,
+    adjust_type: adjustType,
+    adjust_value: adjustValue,
+    priority: priority,
+    start_date: startDate,
+    end_date: endDate,
+    weekdays: weekdays,
+    min_nights: minNights ? parseInt(minNights) : null,
+    max_advance_days: maxAdvanceDays ? parseInt(maxAdvanceDays) : null,
+    is_active: active
+  });
+
+  var method = _editId ? 'PUT' : 'POST';
+  var url = _editId ? '/scenic/api/pricing/rules/' + _editId : '/scenic/api/pricing/rules';
+
+  h(url, { method: method, body: body }).then(function() {
+    toast(_editId ? '策略已更新' : '策略已创建', 'success');
+    closeModal();
+    loadRules();
+  }).catch(function(e) { toast('保存失败: ' + e.message, 'error'); });
+}
+
+function deleteRule(id) {
+  if (!confirm('确定要删除这条价格策略吗？')) return;
+  h('/scenic/api/pricing/rules/' + id, { method: 'DELETE' }).then(function() {
+    toast('策略已删除', 'success');
+    loadRules();
+  }).catch(function(e) { toast('删除失败: ' + e.message, 'error'); });
+}
+
+function toggleRule(id) {
+  h('/scenic/api/pricing/rules/' + id + '/toggle').then(function() {
+    toast('状态已切换', 'success');
+    loadRules();
+  }).catch(function(e) { toast('操作失败', 'error'); });
+}
+
+// Init
+loadRefData().then(function() { loadRules(); });
+</script>
+</body>
+</html>

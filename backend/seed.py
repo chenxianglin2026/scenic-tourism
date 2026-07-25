@@ -17,7 +17,8 @@ from app.config import settings
 from app.db import (
     Base, User, ScenicSpot, TicketType, Hotel, Room,
     TicketOrder, TicketOrderStatus, HotelOrder, HotelOrderStatus, PaymentRecord,
-    Announcement, Poi, ParkingRate, ParkingRecord, NearbyPoint, Review, WeatherCache
+    Announcement, Poi, ParkingRate, ParkingRecord, NearbyPoint, Review, WeatherCache,
+    PricingRule
 )
 from app.api.auth import hash_password
 

@@ -16,6 +16,7 @@ from app.db import (
     TicketOrderStatus, VerifyResult
 )
 from app.api.auth import get_current_user, require_admin, require_staff
+from app.api.pricing import calculate_price
 
 router = APIRouter(prefix="/api/tickets", tags=["票务"])
 
@@ -40,6 +41,8 @@ class TicketTypeOut(BaseModel):
     category: str
     price: float
     original_price: Optional[float] = None
+    current_price: Optional[float] = None
+    has_discount: Optional[bool] = None
     daily_stock: int
     description: Optional[str] = None
     min_age: Optional[int] = None
@@ -133,6 +136,7 @@ def _generate_qr_token() -> str:
 @router.get("/types", response_model=List[TicketTypeOut], summary="获取票种列表")
 async def list_ticket_types(
     spot_id: Optional[int] = Query(None, description="景区ID"),
+    query_date: Optional[date] = Query(None, description="查询日期（用于计算动态价格）"),
     db: AsyncSession = Depends(get_db),
 ):
     q = select(TicketType).where(TicketType.is_active == True)
@@ -141,7 +145,25 @@ async def list_ticket_types(
     q = q.order_by(TicketType.sort_order, TicketType.id)
 
     result = await db.execute(q)
-    return result.scalars().all()
+    ticket_types = result.scalars().all()
+
+    items = []
+    for tt in ticket_types:
+        data = TicketTypeOut.model_validate(tt)
+        data.current_price = tt.price
+        data.has_discount = False
+        if query_date:
+            try:
+                pricing = await calculate_price(
+                    db, target_type="ticket", target_id=tt.id,
+                    query_date=query_date, nights=1
+                )
+                data.current_price = pricing["final_price"]
+                data.has_discount = pricing["final_price"] < pricing["base_price"]
+            except Exception:
+                pass
+        items.append(data)
+    return items
 
 
 @router.post("/types", response_model=TicketTypeOut, status_code=201, summary="创建票种（管理员）")
@@ -257,10 +279,18 @@ async def create_ticket_order(
     # 刷新 inventory 以获取最新 sold_count
     await db.refresh(inventory)
 
+    # 价格计算（应用定价策略）
+    advance_days = (req.visit_date - date.today()).days
+    pricing_result = await calculate_price(
+        db, target_type="ticket", target_id=req.ticket_type_id,
+        query_date=req.visit_date, nights=1, advance_days=advance_days
+    )
+    unit_price = pricing_result["final_price"]
+
     # 生成订单（状态为 PENDING，支付后变为 PAID）
     order_no = _generate_order_no()
     qr_token = _generate_qr_token()
-    total_price = ticket_type.price * req.quantity
+    total_price = round(unit_price * req.quantity, 2)
 
     order = TicketOrder(
         order_no=order_no,

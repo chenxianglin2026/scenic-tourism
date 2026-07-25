@@ -17,6 +17,7 @@ from app.db import (
     get_db, User, Hotel, Room, HotelOrder, HotelOrderStatus, ScenicSpot
 )
 from app.api.auth import get_current_user, require_admin, require_staff
+from app.api.pricing import calculate_price
 
 router = APIRouter(prefix="/api/hotels", tags=["酒店"])
 
@@ -310,9 +311,14 @@ async def create_hotel_order(
     if not hotel:
         raise HTTPException(status_code=404, detail="酒店不存在")
 
-    # 计算天数和总价
+    # 计算天数和总价（应用定价策略）
     nights = (req.checkout_date - req.checkin_date).days
-    total_price = room.price * req.room_count * nights
+    advance_days = (req.checkin_date - date.today()).days
+    pricing_result = await calculate_price(
+        db, target_type="hotel", target_id=req.room_id,
+        query_date=req.checkin_date, nights=nights, advance_days=advance_days
+    )
+    total_price = round(pricing_result["final_price"] * req.room_count, 2)
 
     # 生成订单号
     order_no = _generate_hotel_order_no()
