@@ -35,7 +35,15 @@ Page({
     loading: true,
     submitting: false,
     // 二维码canvas尺寸
-    qrCanvasSize: 300
+    qrCanvasSize: 300,
+    // 动态二维码倒计时（秒）
+    qrCountdown: 30,
+    // 拼团折扣阶梯
+    groupBuyTiers: [],
+    showGroupBuy: false,
+    // 先玩后付额度
+    payLaterQuota: 0,
+    showPayLater: false,
   },
 
   onLoad() {
@@ -263,6 +271,8 @@ Page({
       })
       // 延迟绘制二维码（等待canvas节点就绪）
       setTimeout(() => this.drawOrderQR(orderQR), 300)
+      // 启动动态二维码刷新（30秒轮询新 token 防伪）
+      this.startDynamicQR()
       wx.showToast({ title: '支付成功', icon: 'success' })
     } catch (err) {
       this.setData({ submitting: false })
@@ -291,10 +301,79 @@ Page({
   // 返回购票
   onBackToShop() {
     this.setData({ viewMode: 'shop', currentOrder: null, orderQR: '' })
+    this.stopDynamicQR()
   },
 
   // 查看我的订单
   onViewMyOrders() {
+    this.stopDynamicQR()
     wx.switchTab({ url: '/pages/mine/mine' })
+  },
+
+  // ===== 动态二维码（五大购票升级 #3）=====
+  startDynamicQR() {
+    this.stopDynamicQR()
+    this.setData({ qrCountdown: 30 })
+    this._qrTimer = setInterval(() => {
+      const next = this.data.qrCountdown - 1
+      if (next <= 0) {
+        this.refreshDynamicQR()
+      } else {
+        this.setData({ qrCountdown: next })
+      }
+    }, 1000)
+  },
+
+  stopDynamicQR() {
+    if (this._qrTimer) { clearInterval(this._qrTimer); this._qrTimer = null }
+  },
+
+  async refreshDynamicQR() {
+    this.setData({ qrCountdown: 30 })
+    const orderNo = this.data.currentOrder && this.data.currentOrder.order_no
+    if (!orderNo) return
+    try {
+      const data = await api.get(`/api/packages/qr/dynamic/${orderNo}`)
+      const newToken = (data && (data.qr_token || data.token)) || orderNo
+      this.setData({ orderQR: newToken })
+      this.drawOrderQR(newToken)
+    } catch (err) {
+      // 刷新失败保持原二维码，下一轮重试
+    }
+  },
+
+  // ===== 拼团折扣（五大购票升级 #4）=====
+  async onToggleGroupBuy() {
+    if (this.data.showGroupBuy) { this.setData({ showGroupBuy: false }); return }
+    try {
+      const data = await api.get('/api/packages/group-buy/info')
+      const tiers = (data && data.tiers) || []
+      this.setData({ groupBuyTiers: tiers, showGroupBuy: true })
+    } catch (err) {
+      // 降级：展示默认阶梯
+      this.setData({
+        groupBuyTiers: [
+          { people: 2, discount: 0.95 },
+          { people: 5, discount: 0.90 },
+          { people: 10, discount: 0.85 },
+        ],
+        showGroupBuy: true
+      })
+    }
+  },
+
+  // ===== 先玩后付（五大购票升级 #5）=====
+  async onTogglePayLater() {
+    if (this.data.showPayLater) { this.setData({ showPayLater: false }); return }
+    try {
+      const data = await api.get('/api/packages/pay-later/status')
+      this.setData({ payLaterQuota: (data && data.quota) || 0, showPayLater: true })
+    } catch (err) {
+      this.setData({ payLaterQuota: 2000, showPayLater: true })
+    }
+  },
+
+  onUnload() {
+    this.stopDynamicQR()
   }
 })

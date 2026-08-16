@@ -92,6 +92,26 @@
     </view>
   </view>
 
+  <!-- 套餐快购（五大购票升级 #2） -->
+  <view wx:if="{{quickBuyPackages.length > 0}}" class="card mb-30">
+    <view class="flex-between mb-20">
+      <view class="text-lg text-bold text-dark">📦 套餐快购</view>
+      <view class="text-sm text-primary" bindtap="onQuickEntry" data-type="tickets">更多 ></view>
+    </view>
+    <view class="ticket-grid">
+      <view wx:for="{{quickBuyPackages}}" wx:key="id" class="ticket-item" bindtap="onQuickEntry" data-type="tickets">
+        <view class="text-bold text-dark">{{item.name}}</view>
+        <view class="mt-10">
+          <text class="price-symbol">¥</text>
+          <text class="price-value">{{item.price}}</text>
+          <text class="price-unit">起</text>
+          <text wx:if="{{item.original_price}}" class="text-sm text-light" style="text-decoration:line-through;margin-left:8rpx;">¥{{item.original_price}}</text>
+        </view>
+        <view class="text-sm text-primary mt-10">{{item.tags.join(' · ')}}</view>
+      </view>
+    </view>
+  </view>
+
   <!-- 热门票种 -->
   <view class="card mb-30">
     <view class="flex-between mb-20">

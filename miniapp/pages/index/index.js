@@ -10,6 +10,7 @@ Page({
     notices: [],
     tickets: [],
     hotels: [],
+    quickBuyPackages: [],
     banners: [
       { id: 1, title: '泰山日出', subtitle: '登泰山而小天下' },
       { id: 2, title: '云海奇观', subtitle: '仙境般的云海日出' },
@@ -23,6 +24,7 @@ Page({
     this.loadNotices()
     this.loadTickets()
     this.loadHotels()
+    this.loadQuickBuy()
   },
 
   onShow() {
@@ -135,6 +137,24 @@ Page({
           { id: 1, name: '泰山大酒店', rating: 4.8, address: '泰安市泰山区' }
         ]
       })
+    }
+  },
+
+  // 加载套餐快购 → GET /api/packages/quick-buy/tickets（五大购票升级 #2）
+  async loadQuickBuy() {
+    try {
+      const spotId = (getApp().globalData.currentScenic || {}).id || 1
+      const items = await api.get('/api/packages/quick-buy/tickets', { spot_id: spotId })
+      const packages = (items || []).slice(0, 3).map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        original_price: p.original_price,
+        tags: p.tags || []
+      }))
+      this.setData({ quickBuyPackages: packages })
+    } catch (err) {
+      this.setData({ quickBuyPackages: [] })
     }
   },
 

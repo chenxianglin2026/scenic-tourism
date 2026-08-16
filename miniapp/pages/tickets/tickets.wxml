@@ -91,6 +91,41 @@
       </view>
     </view>
 
+    <!-- 拼团 + 先玩后付入口（五大购票升级 #4 #5） -->
+    <view class="card">
+      <view class="flex-row" style="gap: 20rpx;">
+        <view class="flex-1 text-center" bindtap="onToggleGroupBuy" style="padding: 20rpx;border:1rpx solid #e5ded0;border-radius:12rpx;">
+          <view class="text-lg">👥</view>
+          <view class="text-sm text-bold text-dark mt-10">拼团折扣</view>
+          <view class="text-sm text-light mt-10">2人95折起</view>
+        </view>
+        <view class="flex-1 text-center" bindtap="onTogglePayLater" style="padding: 20rpx;border:1rpx solid #e5ded0;border-radius:12rpx;">
+          <view class="text-lg">💳</view>
+          <view class="text-sm text-bold text-dark mt-10">先玩后付</view>
+          <view class="text-sm text-light mt-10">额度¥2000</view>
+        </view>
+      </view>
+
+      <!-- 拼团阶梯弹层 -->
+      <view wx:if="{{showGroupBuy}}" class="mt-20" style="background:#faf8f3;border-radius:12rpx;padding:20rpx;">
+        <view class="text-bold text-dark mb-10">拼团折扣阶梯</view>
+        <view wx:for="{{groupBuyTiers}}" wx:key="people" class="flex-between" style="padding:10rpx 0;">
+          <text class="text-sm text-dark">{{item.people}}人拼团</text>
+          <text class="text-sm text-primary">{{item.discount < 1 ? '享' + (item.discount * 10).toFixed(1) + '折' : '满' + item.discount + '元'}}</text>
+        </view>
+      </view>
+
+      <!-- 先玩后付弹层 -->
+      <view wx:if="{{showPayLater}}" class="mt-20" style="background:#faf8f3;border-radius:12rpx;padding:20rpx;">
+        <view class="text-bold text-dark mb-10">先玩后付</view>
+        <view class="flex-between" style="padding:10rpx 0;">
+          <text class="text-sm text-dark">可用额度</text>
+          <text class="text-sm text-primary">¥{{payLaterQuota}}</text>
+        </view>
+        <view class="text-sm text-light mt-10">7天内还款，超时按日计息</view>
+      </view>
+    </view>
+
     <!-- 底部提交栏 -->
     <view class="bottom-bar safe-bottom">
       <view class="flex-1">
@@ -169,6 +204,7 @@
 
       <view class="mt-30" style="text-align:center;">
         <view class="text-sm text-light">订单号: {{currentOrder.order_no}}</view>
+        <view class="text-sm text-primary mt-10">🔄 二维码 {{qrCountdown}} 秒后自动刷新（防伪）</view>
         <view class="text-sm text-light mt-10">入园时请出示此二维码</view>
       </view>
 
